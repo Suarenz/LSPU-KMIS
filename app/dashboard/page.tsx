@@ -17,7 +17,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/")
+      router.push("/");
     }
   }, [isAuthenticated, isLoading, router])
 
@@ -42,11 +42,6 @@ export default function DashboardPage() {
 
   // Redirect if not authenticated
   if (!isAuthenticated) {
-    // Redirect to login if not authenticated
-    useEffect(() => {
-      router.push("/");
-    }, [isAuthenticated, router]);
-    
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">

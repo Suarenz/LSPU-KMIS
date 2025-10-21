@@ -23,7 +23,7 @@ export default function RepositoryPage() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/")
+      router.push("/");
     }
   }, [isAuthenticated, isLoading, router])
 
@@ -66,11 +66,6 @@ export default function RepositoryPage() {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login if not authenticated
-    useEffect(() => {
-      router.push("/");
-    }, [isAuthenticated, router]);
-    
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">

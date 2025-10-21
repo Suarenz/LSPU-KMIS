@@ -17,7 +17,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/")
+      router.push("/");
     }
     if (!isLoading && user && user.role !== "admin" && user.role !== "faculty") {
       router.push("/dashboard")
@@ -44,11 +44,6 @@ export default function AnalyticsPage() {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login if not authenticated
-    useEffect(() => {
-      router.push("/");
-    }, [isAuthenticated, router]);
-    
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">

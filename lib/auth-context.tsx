@@ -7,21 +7,21 @@ import AuthService from "./services/auth-service"
 interface AuthResult {
   success: boolean
   user?: User
- error?: string
+  error?: string
 }
 
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<AuthResult>
   logout: () => Promise<void>
-  isAuthenticated: boolean
-  isLoading: boolean
+ isAuthenticated: boolean
+ isLoading: boolean
  error: string | null
 }
 
 // Create a default context value to prevent hydration errors
 const defaultContextValue: AuthContextType = {
-  user: null,
+ user: null,
   login: async () => ({ success: false, error: 'Auth service not initialized' }),
   logout: async () => {},
   isAuthenticated: false,
@@ -35,51 +35,175 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize with default values that match between server and client
   const [user, setUser] = useState<User | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
-  const [isLoading, setIsLoading] = useState<boolean>(typeof window === 'undefined') // Only set to true on client
-  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(true) // Start as true initially
+ const [error, setError] = useState<string | null>(null)
   
   // Initialize AuthService after component mounts to ensure window is available
-  const [authService, setAuthService] = useState<AuthService | null>(null)
+  const [authService] = useState(AuthService);
 
   useEffect(() => {
-    // Initialize AuthService after component mounts to ensure window is available
-    if (typeof window !== 'undefined') {
-      const authServiceInstance = new AuthService();
-      setAuthService(authServiceInstance);
-      
-      // On initial client mount, load auth state
-      const initAuth = async () => {
-        setIsLoading(true);
+    let isMounted = true; // Track if component is still mounted
+    
+    // Immediately check session on mount to get initial state quickly
+    const checkInitialSession = async () => {
+      try {
+        // Use the new comprehensive endpoint if available, otherwise fall back to existing method
         try {
-          const currentUser = await authServiceInstance.getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
-            setIsAuthenticated(true);
+          const comprehensiveData = await authService.getComprehensiveUserData();
+          if (comprehensiveData && comprehensiveData.authenticated) {
+            // Set basic auth state immediately to prevent loading
+            if (isMounted) {
+              setIsAuthenticated(true);
+              setUser(comprehensiveData.user);
+              setIsLoading(false);
+            }
           } else {
-            setUser(null);
-            setIsAuthenticated(false);
+            if (isMounted) {
+              setUser(null);
+              setIsAuthenticated(false);
+              setIsLoading(false);
+            }
           }
-        } catch (err) {
-          console.error('Auth initialization error:', err);
+        } catch (comprehensiveError) {
+          console.warn('Comprehensive user data fetch failed, falling back to standard method:', comprehensiveError);
+          // Fallback to the original method
+          const { data: { session } } = await authService.getSupabaseClient().auth.getSession();
+          if (session?.user) {
+            // Set basic auth state immediately to prevent loading
+            if (isMounted) {
+              setIsAuthenticated(true);
+              setIsLoading(true); // Set loading to true while we fetch user details
+            }
+            
+            // Fetch user profile in background
+            const currentUser = await authService.getCurrentUser();
+            if (isMounted) {
+              setUser(currentUser);
+              setIsLoading(false);
+            }
+          } else {
+            if (isMounted) {
+              setUser(null);
+              setIsAuthenticated(false);
+              setIsLoading(false);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Initial session check error:', err);
+        if (isMounted) {
           setUser(null);
           setIsAuthenticated(false);
-        } finally {
           setIsLoading(false);
         }
-      };
+      }
+    };
 
-      // Only run auth initialization on the client side
-      initAuth();
+    // Set up Supabase auth state listener to handle session changes
+    const { data: { subscription } } = authService.getSupabaseClient().auth.onAuthStateChange(
+      async (event, session) => {
+        if (event !== 'INITIAL_SESSION') {
+          setIsLoading(true);
+        }
+        try {
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+            // Set isAuthenticated immediately to allow faster redirects
+            if (isMounted) {
+              setIsAuthenticated(true);
+              setIsLoading(true); // Set loading while we fetch comprehensive user data
+            }
+            
+            // Try to fetch comprehensive user data first, fall back to standard method
+            try {
+              const comprehensiveData = await authService.getComprehensiveUserData();
+              if (comprehensiveData && comprehensiveData.authenticated) {
+                if (isMounted) {
+                  setUser(comprehensiveData.user);
+                  setIsLoading(false);
+                }
+              } else {
+                if (isMounted) {
+                  setIsLoading(false);
+                }
+              }
+            } catch (comprehensiveError) {
+              console.warn('Comprehensive user data fetch failed during auth state change:', comprehensiveError);
+              // Fallback to the original method
+              const currentUser = await authService.getCurrentUser();
+              if (isMounted) {
+                setUser(currentUser);
+                setIsLoading(false);
+              }
+            }
+          } else if (event === 'SIGNED_OUT') {
+            if (isMounted) {
+              setUser(null);
+              setIsAuthenticated(false);
+              setIsLoading(false);
+            }
+          } else if (event === 'INITIAL_SESSION') {
+            // This handles the initial session check on page load
+            if (session) {
+              // Set auth state immediately
+              if (isMounted) {
+                setIsAuthenticated(true);
+                setIsLoading(true); // Loading while fetching user details
+              }
+              
+              // Try to fetch comprehensive user data first, fall back to standard method
+              try {
+                const comprehensiveData = await authService.getComprehensiveUserData();
+                if (comprehensiveData && comprehensiveData.authenticated) {
+                  if (isMounted) {
+                    setUser(comprehensiveData.user);
+                    setIsLoading(false);
+                  }
+                } else {
+                  if (isMounted) {
+                    setIsLoading(false);
+                  }
+                }
+              } catch (comprehensiveError) {
+                console.warn('Comprehensive user data fetch failed during initial session:', comprehensiveError);
+                // Fallback to the original method
+                const currentUser = await authService.getCurrentUser();
+                if (isMounted) {
+                  setUser(currentUser);
+                  setIsLoading(false);
+                }
+              }
+            } else {
+              if (isMounted) {
+                setUser(null);
+                setIsAuthenticated(false);
+                setIsLoading(false);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Auth state change error:', err);
+          if (isMounted) {
+            setUser(null);
+            setIsAuthenticated(false);
+            setIsLoading(false);
+          }
+        }
+      }
+    );
+
+    // Run initial session check
+    if (typeof window !== 'undefined') {
+      checkInitialSession();
     }
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+    };
   }, []); // Empty dependency array since we only want to run this once on mount
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
-    if (!authService) {
-      setError('Authentication service not initialized');
-      setIsLoading(false);
-      return { success: false, error: 'Authentication service not initialized' };
-    }
-    
     setIsLoading(true);
     setError(null);
     
@@ -87,39 +211,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await authService.login(email, password);
       
       if (result.success && result.user) {
+        // Set user and authentication state immediately to allow faster redirects
         setUser(result.user);
         setIsAuthenticated(true);
         return result;
       } else {
         setError(result.error || 'Login failed');
+        setIsLoading(false); // Explicitly set loading to false on error
         return result;
       }
     } catch (err) {
       console.error('Login error:', err);
       setError('An error occurred during login');
+      setIsLoading(false); // Explicitly set loading to false on error
       return { success: false, error: 'An error occurred during login' };
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const logout = async (): Promise<void> => {
-    if (!authService) {
-      setIsLoading(false);
-      return;
-    }
-    
     setIsLoading(true);
     try {
       await authService.logout();
+      // Clear user state immediately to allow faster UI updates
       setUser(null);
       setIsAuthenticated(false);
+      setIsLoading(false);
     } catch (err) {
       console.error('Logout error:', err);
       // Still clear local state even if API call fails
       setUser(null);
       setIsAuthenticated(false);
-    } finally {
       setIsLoading(false);
     }
   };

@@ -31,14 +31,15 @@ export default function LoginPage() {
      e.preventDefault()
      setError("")
      setLoading(true)
- 
+
      const result = await login(email, password)
      if (result.success) {
+       // Redirect immediately without waiting for full authentication state
        router.push("/dashboard")
      } else {
        setError(result.error || "Invalid email or password")
+       setLoading(false)
      }
-     setLoading(false)
    }
  
    // Show loading state if authentication is still loading

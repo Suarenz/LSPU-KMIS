@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id               String               @id @default(cuid())
+  email            String               @unique
+  name             String
+  department       String?
+  avatar           String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  supabase_auth_id String?              @unique
+  role             UserRole             @default(STUDENT)
+  comments         DocumentComment[]
+  downloads        DocumentDownload[]
+  permissions      DocumentPermission[]
+  views            DocumentView[]
+  documents        Document[]
+
+  @@map("users")
+}
+
+model Document {
+  id               String               @id @default(cuid())
+  title            String
+  description      String
+  category         String
+  tags             String[]
+  uploadedBy       String
+  uploadedAt       DateTime             @default(now())
+  fileUrl          String
+  fileName         String
+  fileType         String
+  fileSize         Int
+  version          Int                  @default(1)
+  versionNotes     String?
+  parentDocumentId String?
+  downloadsCount   Int                  @default(0)
+  viewsCount       Int                  @default(0)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  uploadedById     String
+  status           DocumentStatus       @default(ACTIVE)
+  comments         DocumentComment[]
+  downloads        DocumentDownload[]
+  permissions      DocumentPermission[]
+  views            DocumentView[]
+  parentDocument   Document?            @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
+  documents        Document[]           @relation("DocumentVersions")
+  uploadedByUser   User                 @relation(fields: [uploadedById], references: [id])
+
+  @@map("documents")
+}
+
+model DocumentPermission {
+  id         String          @id @default(cuid())
+  documentId String
+  userId     String
+  createdAt  DateTime        @default(now())
+  permission PermissionLevel
+  document   Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
+  @@map("document_permissions")
+}
+
+model DocumentDownload {
+  id           String   @id @default(cuid())
+  documentId   String
+  userId       String
+  downloadedAt DateTime @default(now())
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("document_downloads")
+}
+
+model DocumentView {
+  id         String   @id @default(cuid())
+  documentId String
+  userId     String
+  viewedAt   DateTime @default(now())
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("document_views")
+}
+
+model DocumentComment {
+  id              String            @id @default(cuid())
+  documentId      String
+  userId          String
+  parentCommentId String?
+  content         String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  document        Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  parentComment   DocumentComment?  @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies         DocumentComment[] @relation("CommentReplies")
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("document_comments")
+}
+
+enum UserRole {
+  ADMIN
+  FACULTY
+  STUDENT
+  EXTERNAL
+}
+
+enum DocumentStatus {
+  ACTIVE
+  ARCHIVED
+  PENDING_REVIEW
+}
+
+enum PermissionLevel {
+  READ
+  WRITE
+  ADMIN
+}

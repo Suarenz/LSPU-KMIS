@@ -1,30 +1,64 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Navbar } from "@/components/navbar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { MOCK_ANALYTICS } from "@/lib/mock-data"
 import { FileText, Users, Download, Eye, TrendingUp, Activity } from "lucide-react"
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import Image from "next/image"
+import { AnalyticsData } from "@/lib/types"
 
 export default function AnalyticsPage() {
   const { user, isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+ useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push("/");
     }
-    if (!isLoading && user && user.role !== "admin" && user.role !== "faculty") {
+    if (!isLoading && user && user.role !== "ADMIN" && user.role !== "FACULTY") {
       router.push("/dashboard")
     }
-  }, [isAuthenticated, isLoading, user, router])
+ }, [isAuthenticated, isLoading, user, router])
 
-  if (isLoading) {
+  useEffect(() => {
+    if (isAuthenticated && user && (user.role === "ADMIN" || user.role === "FACULTY")) {
+      const fetchAnalytics = async () => {
+        try {
+          setLoading(true);
+          const response = await fetch('/api/analytics');
+          if (!response.ok) {
+            throw new Error('Failed to fetch analytics data');
+          }
+          const data = await response.json();
+          setAnalyticsData(data);
+        } catch (error) {
+          console.error('Error fetching analytics:', error);
+          // Set default analytics data in case of error
+          setAnalyticsData({
+            totalDocuments: 0,
+            totalUsers: 0,
+            totalDownloads: 0,
+            totalViews: 0,
+            recentActivity: [],
+            popularDocuments: [],
+            categoryDistribution: []
+          });
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchAnalytics();
+    }
+  }, [isAuthenticated, user]);
+
+  if (isLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -63,7 +97,7 @@ export default function AnalyticsPage() {
   }
 
   // Don't render if user is null but authentication is loading
-  if (!user || (user.role !== "admin" && user.role !== "faculty")) {
+  if (!user || (user.role !== "ADMIN" && user.role !== "FACULTY")) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -82,10 +116,29 @@ export default function AnalyticsPage() {
     );
   }
 
+  if (!analyticsData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4 overflow-hidden">
+            <Image
+              src="/LSPULogo.png"
+              alt="LSPU Logo"
+              width={64}
+              height={64}
+              className="w-16 h-16 object-contain animate-spin"
+            />
+          </div>
+          <p className="text-lg text-muted-foreground">No analytics data available</p>
+        </div>
+      </div>
+    );
+  }
+
   const stats = [
     {
       title: "Total Documents",
-      value: MOCK_ANALYTICS.totalDocuments.toLocaleString(),
+      value: analyticsData.totalDocuments.toLocaleString(),
       icon: FileText,
       color: "text-primary",
       bgColor: "bg-primary/10",
@@ -93,7 +146,7 @@ export default function AnalyticsPage() {
     },
     {
       title: "Total Users",
-      value: MOCK_ANALYTICS.totalUsers.toLocaleString(),
+      value: analyticsData.totalUsers.toLocaleString(),
       icon: Users,
       color: "text-secondary",
       bgColor: "bg-secondary/10",
@@ -101,7 +154,7 @@ export default function AnalyticsPage() {
     },
     {
       title: "Total Downloads",
-      value: MOCK_ANALYTICS.totalDownloads.toLocaleString(),
+      value: analyticsData.totalDownloads.toLocaleString(),
       icon: Download,
       color: "text-accent",
       bgColor: "bg-accent/10",
@@ -109,7 +162,7 @@ export default function AnalyticsPage() {
     },
     {
       title: "Total Views",
-      value: MOCK_ANALYTICS.totalViews.toLocaleString(),
+      value: analyticsData.totalViews.toLocaleString(),
       icon: Eye,
       color: "text-primary",
       bgColor: "bg-primary/10",
@@ -173,7 +226,7 @@ export default function AnalyticsPage() {
                 className="h-[300px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={MOCK_ANALYTICS.categoryDistribution}>
+                  <BarChart data={analyticsData.categoryDistribution}>
                     <XAxis dataKey="category" />
                     <YAxis />
                     <ChartTooltip content={<ChartTooltipContent />} />
@@ -192,7 +245,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {MOCK_ANALYTICS.popularDocuments.map((doc, index) => (
+                {analyticsData.popularDocuments.map((doc, index) => (
                   <div
                     key={doc.id}
                     className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
@@ -231,7 +284,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {MOCK_ANALYTICS.recentActivity.map((activity, index) => (
+              {analyticsData.recentActivity.map((activity, index) => (
                 <div
                   key={activity.id}
                   className="flex items-start gap-3 pb-4 border-b border-border last:border-0 last:pb-0"

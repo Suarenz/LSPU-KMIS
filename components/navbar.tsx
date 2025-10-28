@@ -39,7 +39,7 @@ export function Navbar() {
     { name: "Repository", href: "/repository", icon: Search },
     { name: "Search", href: "/search", icon: Search },
     { name: "Forums", href: "/forums", icon: MessageSquare },
-    ...(user?.role === "admin" || user?.role === "faculty"
+    ...(user?.role === "ADMIN" || user?.role === "FACULTY"
       ? [{ name: "Analytics", href: "/analytics", icon: BarChart3 }]
       : []),
   ]

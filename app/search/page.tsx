@@ -8,22 +8,36 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { MOCK_DOCUMENTS, MOCK_FORUM_POSTS } from "@/lib/mock-data"
 import { SearchIcon, FileText, MessageSquare, TrendingUp } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Image from "next/image"
+import AuthService from '@/lib/services/auth-service';
+import { Document } from '@/lib/api/types';
+
+interface ForumPost {
+  id: string;
+  title: string;
+ content: string;
+  author: string;
+  category: string;
+  tags: string[];
+  replies: any[];
+  likes: number;
+  createdAt: string;
+}
 
 export default function SearchPage() {
   const { user, isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<{
-    documents: typeof MOCK_DOCUMENTS
-    forums: typeof MOCK_FORUM_POSTS
+    documents: Document[]
+    forums: ForumPost[]
   }>({
     documents: [],
     forums: [],
   })
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -32,32 +46,53 @@ export default function SearchPage() {
   }, [isAuthenticated, isLoading, router])
 
   useEffect(() => {
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
+    const performSearch = async () => {
+      if (searchQuery.trim()) {
+        setLoading(true);
+        try {
+          const token = await AuthService.getAccessToken();
+          if (!token) {
+            throw new Error('No authentication token found');
+          }
 
-      const filteredDocs = MOCK_DOCUMENTS.filter(
-        (doc) =>
-          doc.title.toLowerCase().includes(query) ||
-          doc.description.toLowerCase().includes(query) ||
-          doc.tags.some((tag) => tag.toLowerCase().includes(query)) ||
-          doc.category.toLowerCase().includes(query),
-      )
+          // Build query parameters properly
+          const queryParams = new URLSearchParams();
+          if (searchQuery) queryParams.append('search', searchQuery);
+          
+          const response = await fetch(`/api/documents?${queryParams.toString()}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            }
+          });
 
-      const filteredForums = MOCK_FORUM_POSTS.filter(
-        (post) =>
-          post.title.toLowerCase().includes(query) ||
-          post.content.toLowerCase().includes(query) ||
-          post.tags.some((tag) => tag.toLowerCase().includes(query)),
-      )
+          if (!response.ok) {
+            throw new Error(`Failed to fetch documents: ${response.status} ${response.statusText}`);
+          }
 
-      setSearchResults({
-        documents: filteredDocs,
-        forums: filteredForums,
-      })
-    } else {
-      setSearchResults({ documents: [], forums: [] })
-    }
-  }, [searchQuery])
+          const data = await response.json();
+          setSearchResults({
+            documents: data.documents || [],
+            forums: [], // Forums will be implemented later
+          });
+        } catch (error) {
+          console.error('Search error:', error);
+          setSearchResults({ documents: [], forums: [] });
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setSearchResults({ documents: [], forums: [] });
+      }
+    };
+
+    // Debounce the search to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      performSearch();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   if (isLoading) {
     return (
@@ -163,7 +198,7 @@ export default function SearchPage() {
           <div className="animate-fade-in">
             <div className="mb-6">
               <h2 className="text-xl font-semibold">
-                {totalResults} {totalResults === 1 ? "result" : "results"} found for "{searchQuery}"
+                {loading ? 'Searching...' : `${totalResults} ${totalResults === 1 ? "result" : "results"} found for "${searchQuery}"`}
               </h2>
             </div>
 
@@ -175,117 +210,137 @@ export default function SearchPage() {
               </TabsList>
 
               <TabsContent value="all" className="space-y-4">
-                {searchResults.documents.map((doc) => (
-                  <Card key={doc.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <FileText className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <CardTitle className="text-lg">{doc.title}</CardTitle>
-                            <Badge variant="secondary">{doc.category}</Badge>
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : (
+                  <>
+                    {searchResults.documents.map((doc) => (
+                      <Card key={doc.id} className="hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <CardTitle className="text-lg">{doc.title}</CardTitle>
+                                <Badge variant="secondary">{doc.category}</Badge>
+                              </div>
+                              <CardDescription className="mt-1">{doc.description}</CardDescription>
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {doc.tags.map((tag) => (
+                                  <Badge key={tag} variant="outline" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
                           </div>
-                          <CardDescription className="mt-1">{doc.description}</CardDescription>
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {doc.tags.map((tag) => (
-                              <Badge key={tag} variant="outline" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                ))}
+                        </CardHeader>
+                      </Card>
+                    ))}
 
-                {searchResults.forums.map((post) => (
-                  <Card key={post.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <MessageSquare className="w-5 h-5 text-secondary" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <CardTitle className="text-lg">{post.title}</CardTitle>
-                            <Badge variant="secondary">{post.category}</Badge>
+                    {searchResults.forums.map((post) => (
+                      <Card key={post.id} className="hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <MessageSquare className="w-5 h-5 text-secondary" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <CardTitle className="text-lg">{post.title}</CardTitle>
+                                <Badge variant="secondary">{post.category}</Badge>
+                              </div>
+                              <CardDescription className="mt-1 line-clamp-2">{post.content}</CardDescription>
+                              <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                                <span>{post.author}</span>
+                                <span>•</span>
+                                <span>{post.replies.length} replies</span>
+                                <span>•</span>
+                                <span>{post.likes} likes</span>
+                              </div>
+                            </div>
                           </div>
-                          <CardDescription className="mt-1 line-clamp-2">{post.content}</CardDescription>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                            <span>{post.author}</span>
-                            <span>•</span>
-                            <span>{post.replies.length} replies</span>
-                            <span>•</span>
-                            <span>{post.likes} likes</span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                ))}
+                        </CardHeader>
+                      </Card>
+                    ))}
+                  </>
+                )}
               </TabsContent>
 
               <TabsContent value="documents" className="space-y-4">
-                {searchResults.documents.map((doc) => (
-                  <Card key={doc.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <FileText className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <CardTitle className="text-lg">{doc.title}</CardTitle>
-                            <Badge variant="secondary">{doc.category}</Badge>
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : (
+                  searchResults.documents.map((doc) => (
+                    <Card key={doc.id} className="hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <FileText className="w-5 h-5 text-primary" />
                           </div>
-                          <CardDescription className="mt-1">{doc.description}</CardDescription>
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {doc.tags.map((tag) => (
-                              <Badge key={tag} variant="outline" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <CardTitle className="text-lg">{doc.title}</CardTitle>
+                              <Badge variant="secondary">{doc.category}</Badge>
+                            </div>
+                            <CardDescription className="mt-1">{doc.description}</CardDescription>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {doc.tags.map((tag) => (
+                                <Badge key={tag} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                ))}
+                      </CardHeader>
+                    </Card>
+                  ))
+                )}
               </TabsContent>
 
               <TabsContent value="forums" className="space-y-4">
-                {searchResults.forums.map((post) => (
-                  <Card key={post.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <MessageSquare className="w-5 h-5 text-secondary" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <CardTitle className="text-lg">{post.title}</CardTitle>
-                            <Badge variant="secondary">{post.category}</Badge>
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : (
+                  searchResults.forums.map((post) => (
+                    <Card key={post.id} className="hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <MessageSquare className="w-5 h-5 text-secondary" />
                           </div>
-                          <CardDescription className="mt-1 line-clamp-2">{post.content}</CardDescription>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                            <span>{post.author}</span>
-                            <span>•</span>
-                            <span>{post.replies.length} replies</span>
-                            <span>•</span>
-                            <span>{post.likes} likes</span>
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <CardTitle className="text-lg">{post.title}</CardTitle>
+                              <Badge variant="secondary">{post.category}</Badge>
+                            </div>
+                            <CardDescription className="mt-1 line-clamp-2">{post.content}</CardDescription>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                              <span>{post.author}</span>
+                              <span>•</span>
+                              <span>{post.replies.length} replies</span>
+                              <span>•</span>
+                              <span>{post.likes} likes</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                ))}
+                      </CardHeader>
+                    </Card>
+                  ))
+                )}
               </TabsContent>
             </Tabs>
 
-            {totalResults === 0 && (
+            {!loading && totalResults === 0 && (
               <Card>
                 <CardContent className="py-12 text-center">
                   <SearchIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

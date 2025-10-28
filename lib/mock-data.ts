@@ -1,4 +1,4 @@
-import type { Document, ForumPost, AnalyticsData } from "./types"
+import type { Document, ForumPost } from "./types"
 
 export const MOCK_DOCUMENTS: Document[] = [
   {
@@ -70,7 +70,7 @@ export const MOCK_FORUM_POSTS: ForumPost[] = [
     content:
       "I would like to share some effective strategies for online teaching that I have implemented this semester...",
     author: "Dr. Maria Santos",
-    authorRole: "faculty",
+    authorRole: "FACULTY",
     category: "Teaching",
     tags: ["online learning", "pedagogy", "best practices"],
     createdAt: new Date("2024-03-15"),
@@ -79,7 +79,7 @@ export const MOCK_FORUM_POSTS: ForumPost[] = [
         id: "1-1",
         content: "Thank you for sharing! The breakout room strategy is very helpful.",
         author: "Juan Dela Cruz",
-        authorRole: "student",
+        authorRole: "STUDENT",
         createdAt: new Date("2024-03-16"),
         likes: 5,
       },
@@ -92,7 +92,7 @@ export const MOCK_FORUM_POSTS: ForumPost[] = [
     title: "Research Collaboration Opportunities",
     content: "Looking for faculty members interested in AI and machine learning research collaboration...",
     author: "External Partner",
-    authorRole: "external",
+    authorRole: "EXTERNAL",
     category: "Research",
     tags: ["collaboration", "ai", "machine learning"],
     createdAt: new Date("2024-03-18"),
@@ -101,40 +101,3 @@ export const MOCK_FORUM_POSTS: ForumPost[] = [
     views: 89,
   },
 ]
-
-export const MOCK_ANALYTICS: AnalyticsData = {
-  totalDocuments: 1247,
-  totalUsers: 3456,
-  totalDownloads: 12890,
-  totalViews: 45678,
-  recentActivity: [
-    {
-      id: "1",
-      type: "upload",
-      user: "Dr. Maria Santos",
-      description: 'Uploaded "Research Methodology Guidelines 2024"',
-      timestamp: new Date("2024-03-20T10:30:00"),
-    },
-    {
-      id: "2",
-      type: "download",
-      user: "Juan Dela Cruz",
-      description: 'Downloaded "Computer Science Curriculum 2024"',
-      timestamp: new Date("2024-03-20T09:15:00"),
-    },
-    {
-      id: "3",
-      type: "forum",
-      user: "External Partner",
-      description: "Posted in Research Collaboration forum",
-      timestamp: new Date("2024-03-19T16:45:00"),
-    },
-  ],
-  popularDocuments: MOCK_DOCUMENTS.slice(0, 3),
-  categoryDistribution: [
-    { category: "Research", count: 345 },
-    { category: "Academic", count: 456 },
-    { category: "Policy", count: 234 },
-    { category: "Extension", count: 212 },
-  ],
-}

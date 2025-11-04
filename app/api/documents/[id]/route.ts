@@ -59,7 +59,7 @@ export async function PUT(
 
     // Parse request body
     const body = await request.json();
-    const { title, description, category, tags } = body;
+    const { title, description, category, tags, unitId } = body; // NEW: Include unitId
 
     // Update the document in the database
     const updatedDocument = await documentService.updateDocument(
@@ -68,6 +68,7 @@ export async function PUT(
       description,
       category,
       tags,
+      unitId, // NEW: Pass unitId to updateDocument
       userId
     );
 
@@ -105,7 +106,7 @@ export async function DELETE(
 
     const userId = user.userId;
 
-    // Delete the document from the database
+    // Delete the document (this will delete both database record and file)
     const success = await documentService.deleteDocument(id, userId);
 
     if (!success) {
@@ -115,9 +116,23 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({ message: 'Document deleted successfully' });
+    return NextResponse.json({ message: 'Document and associated file deleted successfully' });
   } catch (error) {
     console.error('Error deleting document:', error);
+    // If it's a specific error from document service, return that message
+    if (error instanceof Error) {
+      if (error.message.includes('permission')) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 403 }
+        );
+      } else if (error.message.includes('not found')) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 404 }
+        );
+      }
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

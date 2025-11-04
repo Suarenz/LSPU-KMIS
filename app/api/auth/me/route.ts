@@ -16,6 +16,29 @@ export async function GET(request: NextRequest) {
     // Get the Supabase client
     const supabase = await createClient();
     
+    // First, get the session to ensure we have valid authentication
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session) {
+      return NextResponse.json(
+        { error: 'No active user session' },
+        { status: 401 }
+      );
+    }
+
+    // Check if the session is expired and refresh if necessary
+    if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError || !refreshedSession) {
+        // If refresh fails, the user is not authenticated
+        return NextResponse.json(
+          { error: 'Session expired and could not be refreshed' },
+          { status: 401 }
+        );
+      }
+    }
+
     // Get user's Supabase auth details
     const { data: { user: supabaseUser }, error: userError } = await supabase.auth.getUser();
     
@@ -29,7 +52,7 @@ export async function GET(request: NextRequest) {
     // Get user profile from database
     const { data: profileData, error: profileError } = await supabase
       .from('users')
-      .select('id, email, name, role, department')
+      .select('id, email, name, role, unitId')
       .eq('supabase_auth_id', supabaseUser.id)
       .single();
 
@@ -43,7 +66,7 @@ export async function GET(request: NextRequest) {
           email: supabaseUser.email || '',
           name: supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || 'User',
           role: supabaseUser.user_metadata?.role || 'STUDENT',
-          department: supabaseUser.user_metadata?.department || 'General',
+          unitId: undefined,
         }
       });
     }
@@ -80,7 +103,7 @@ export async function GET(request: NextRequest) {
         email: profileData.email,
         name: profileData.name,
         role: profileData.role,
-        department: profileData.department,
+        unitId: profileData.unitId,
       },
       permissions,
       recentActivity: recentActivity || [],

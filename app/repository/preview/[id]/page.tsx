@@ -22,6 +22,7 @@ export default function DocumentPreviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -80,6 +81,7 @@ export default function DocumentPreviewPage() {
   const handleDownload = async () => {
     if (!document) return;
 
+    setIsDownloading(true);
     try {
       // Get the JWT token from auth context
       const token = await AuthService.getAccessToken();
@@ -87,24 +89,28 @@ export default function DocumentPreviewPage() {
         throw new Error('No authentication token found');
       }
 
-      // Fetch download URL from API
-      const response = await fetch(`/api/documents/${document.id}/download`, {
+      // Fetch download using the direct download endpoint
+      const response = await fetch(`/api/documents/${document.id}/download-direct`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
         }
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to get download URL');
+        throw new Error(errorData.error || 'Failed to download document');
       }
+      
+      // No need to fetch JSON response for direct download
+      const downloadData = {
+        fileName: document.fileName,
+        title: document.title
+      };
 
-      const downloadData = await response.json();
-
-      // Create a temporary link and trigger download
+      // Create a temporary link and trigger download using the direct download endpoint
+      const directDownloadUrl = `/api/documents/${document.id}/download-direct`;
       const link = globalThis.document.createElement('a');
-      link.href = downloadData.downloadUrl;
+      link.href = directDownloadUrl;
       link.download = downloadData.fileName || `document-${document.id}`;
       globalThis.document.body.appendChild(link);
       link.click();
@@ -116,6 +122,8 @@ export default function DocumentPreviewPage() {
         description: error instanceof Error ? error.message : 'Failed to download document. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -267,14 +275,21 @@ export default function DocumentPreviewPage() {
                 <X className="w-4 h-4 mr-2" />
                 Close
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownload}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download
-              </Button>
+              {isDownloading ? (
+                <Button variant="outline" size="sm" disabled>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                  Downloading...
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownload}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              )}
             </div>
             <div className="text-sm text-muted-foreground">
               {document.fileName}

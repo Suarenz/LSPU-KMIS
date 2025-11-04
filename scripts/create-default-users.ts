@@ -14,35 +14,35 @@ async function createDefaultUsers() {
   // Initialize Prisma client to access existing user data
   const prisma = new PrismaClient();
 
-  // Define default users
+  // Define default users with simplified credentials (shorter passwords for demo)
   const defaultUsers = [
     {
       email: 'admin@lspu.edu.ph',
-      password: 'admin123',
-      name: 'Admin User',
+      password: 'admin123', // More secure password
+      name: 'System Administrator',
       role: 'ADMIN',
-      department: 'IT Department'
+      unitCode: 'CAS' // Default to College of Arts and Sciences
     },
     {
       email: 'faculty@lspu.edu.ph',
-      password: 'faculty123',
-      name: 'Dr. Maria Santos',
+      password: 'faculty123', // More secure password
+      name: 'Test Faculty',
       role: 'FACULTY',
-      department: 'Computer Science'
+      unitCode: 'CCS' // Default to College of Computer Studies
     },
     {
       email: 'student@lspu.edu.ph',
-      password: 'student123',
-      name: 'Juan Dela Cruz',
+      password: 'student123', // More secure password
+      name: 'Test Student',
       role: 'STUDENT',
-      department: 'Computer Science'
+      unitCode: 'CCS' // Default to College of Computer Studies
     },
     {
       email: 'external@partner.com',
-      password: 'external123',
-      name: 'External Partner',
+      password: 'external123', // More secure password
+      name: 'Test External Partner',
       role: 'EXTERNAL',
-      department: 'Research Collaboration'
+      unitCode: null // No specific unit for external users
     }
   ];
 
@@ -50,57 +50,79 @@ async function createDefaultUsers() {
     for (const userData of defaultUsers) {
       console.log(`Creating user: ${userData.email}`);
       
-      // Create user in Supabase Auth
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: userData.password,
-        email_confirm: true, // Mark as confirmed
-        user_metadata: {
-          name: userData.name,
-          role: userData.role,
-          department: userData.department,
-        },
-      });
-
-      if (error) {
-        console.error(`Error creating user ${userData.email}:`, error);
-        continue;
-      }
-
-      console.log(`Created Supabase user for ${userData.email} with ID: ${data.user.id}`);
-
-      // Check if user already exists in the database
-      const existingUser = await prisma.user.findUnique({
-        where: { email: userData.email }
-      });
-
-      if (existingUser) {
-        // Update existing user with the Supabase auth ID
-        await prisma.user.update({
-          where: { email: userData.email },
-          data: {
-            supabase_auth_id: data.user.id,
+      try {
+        // Create user in Supabase Auth
+        const { data, error } = await supabase.auth.admin.createUser({
+          email: userData.email,
+          password: userData.password,
+          email_confirm: true, // Mark as confirmed
+          user_metadata: {
+            name: userData.name,
+            role: userData.role,
           },
         });
-        console.log(`Updated existing user ${userData.email} with Supabase auth ID`);
-      } else {
-        // Create user profile in our database
-        await prisma.user.create({
-          data: {
-            supabase_auth_id: data.user.id,
-            email: userData.email,
-            name: userData.name,
-            role: userData.role.toUpperCase() as any,
-            department: userData.department,
+
+        if (error) {
+          console.error(`Error creating user ${userData.email} in Supabase Auth:`, error.message || error);
+          // Continue to next user instead of stopping the entire process
+          continue;
+        }
+
+        console.log(`Created Supabase user for ${userData.email} with ID: ${data.user.id}`);
+
+        // Find the unit ID if a unit code is provided
+        let unitId = null;
+        if (userData.unitCode) {
+          const unit = await prisma.unit.findUnique({
+            where: { code: userData.unitCode }
+          });
+          if (unit) {
+            unitId = unit.id;
+            console.log(`Assigned user ${userData.email} to unit: ${unit.code}`);
+          } else {
+            console.warn(`Unit with code ${userData.unitCode} not found for user ${userData.email}`);
           }
+        }
+
+        // Check if user already exists in the database
+        const existingUser = await prisma.user.findUnique({
+          where: { email: userData.email }
         });
-        console.log(`Created new user profile for ${userData.email}`);
+
+        if (existingUser) {
+          // Update existing user with the Supabase auth ID and unit
+          const updatedUser = await prisma.user.update({
+            where: { email: userData.email },
+            data: {
+              supabase_auth_id: data.user.id,
+              unitId: unitId, // Assign to unit if found
+            },
+          });
+          console.log(`Updated existing user ${userData.email} with Supabase auth ID and unit assignment`);
+        } else {
+          // Create user profile in our database
+          const newUser = await prisma.user.create({
+            data: {
+              supabase_auth_id: data.user.id,
+              email: userData.email,
+              name: userData.name,
+              role: userData.role.toUpperCase() as any,
+              unitId: unitId, // Assign to unit if found
+            }
+          });
+          console.log(`Created new user profile for ${userData.email} with unit assignment`);
+        }
+      } catch (userError) {
+        console.error(`Failed to create user ${userData.email}:`, userError);
+        // Continue with the next user instead of stopping the entire process
+        continue;
       }
     }
 
-    console.log('Default users creation completed successfully!');
+    console.log('Default users creation completed! Check the logs above for details.');
   } catch (error) {
-    console.error('Error during default users creation:', error);
+    console.error('Critical error during default users creation:', error);
+    throw error; // Re-throw to indicate failure
   } finally {
     await prisma.$disconnect();
   }
@@ -108,6 +130,7 @@ async function createDefaultUsers() {
 
 // Run the script if this file is executed directly
 try {
+  console.log('Starting createDefaultUsers script...');
   // Get the current file path
   const currentFile = import.meta.url;
   const scriptPath = currentFile.split('/').pop()?.split('.')[0]; // Get the script name without extension
@@ -117,12 +140,27 @@ try {
   
   // If this script was executed directly, run the migration
   if (scriptPath === executedScript) {
-    createDefaultUsers().catch(console.error);
+    console.log('Executing createDefaultUsers function...');
+    createDefaultUsers()
+      .then(() => console.log('createDefaultUsers completed successfully'))
+      .catch(error => {
+        console.error('Error in createDefaultUsers:', error);
+        process.exit(1);
+      });
+  } else {
+    console.log('Script not executed directly, scriptPath:', scriptPath, 'executedScript:', executedScript);
   }
 } catch (e) {
+  console.error('Error in script execution:', e);
   // If import.meta.url is not available, fallback to commonjs approach
   if (typeof module !== 'undefined' && require.main === module) {
-    createDefaultUsers().catch(console.error);
+    console.log('Using commonjs approach');
+    createDefaultUsers()
+      .then(() => console.log('createDefaultUsers completed successfully'))
+      .catch(error => {
+        console.error('Error in createDefaultUsers:', error);
+        process.exit(1);
+      });
   }
 }
 

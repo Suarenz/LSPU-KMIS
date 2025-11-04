@@ -9,10 +9,10 @@ datasource db {
 }
 
 model User {
-  id               String               @id @default(cuid())
+  id               String               @id @default(dbgenerated("gen_random_uuid()"))
   email            String               @unique
   name             String
-  department       String?
+  unitId           String?              @map("unitId")
   avatar           String?
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
@@ -23,6 +23,8 @@ model User {
   permissions      DocumentPermission[]
   views            DocumentView[]
   documents        Document[]
+  unitPermissions  UnitPermission[]
+  userUnit         Unit?                @relation("UserUnit", fields: [unitId], references: [id])
 
   @@map("users")
 }
@@ -32,7 +34,7 @@ model Document {
   title            String
   description      String
   category         String
-  tags             String[]
+  tags             Json
   uploadedBy       String
   uploadedAt       DateTime             @default(now())
   fileUrl          String
@@ -47,6 +49,7 @@ model Document {
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
   uploadedById     String
+  unitId           String?              @map("unitId")
   status           DocumentStatus       @default(ACTIVE)
   comments         DocumentComment[]
   downloads        DocumentDownload[]
@@ -54,9 +57,24 @@ model Document {
   views            DocumentView[]
   parentDocument   Document?            @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
   documents        Document[]           @relation("DocumentVersions")
+  documentUnit     Unit?                @relation(fields: [unitId], references: [id])
   uploadedByUser   User                 @relation(fields: [uploadedById], references: [id])
 
   @@map("documents")
+}
+
+model Unit {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  code        String?          @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  documents   Document[]
+  permissions UnitPermission[]
+  users       User[]           @relation("UserUnit")
+
+  @@map("units")
 }
 
 model DocumentPermission {
@@ -70,6 +88,20 @@ model DocumentPermission {
 
   @@unique([documentId, userId])
   @@map("document_permissions")
+}
+
+model UnitPermission {
+  id         String          @id @default(cuid())
+  unitId     String
+  userId     String
+  permission PermissionLevel
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  unit       Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, userId])
+  @@map("unit_permissions")
 }
 
 model DocumentDownload {

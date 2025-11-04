@@ -192,8 +192,8 @@ export default function AnalyticsPage() {
               >
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-                  <div className={`w-10 h-10 ${stat.bgColor} rounded-lg flex items-center justify-center`}>
-                    <Icon className={`w-5 h-5 ${stat.color}`} />
+                  <div className="flex-shrink-0">
+                    <Icon className="w-5 h-5 text-black" aria-hidden="true" style={{minWidth: '20px', minHeight: '20px'}} />
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -220,7 +220,7 @@ export default function AnalyticsPage() {
                 config={{
                   count: {
                     label: "Documents",
-                    color: "hsl(var(--primary))",
+                    color: "oklch(var(--color-primary))",
                   },
                 }}
                 className="h-[300px]"

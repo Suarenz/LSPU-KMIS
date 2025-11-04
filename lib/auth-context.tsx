@@ -67,21 +67,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (comprehensiveError) {
           console.warn('Comprehensive user data fetch failed, falling back to standard method:', comprehensiveError);
           // Fallback to the original method
-          const { data: { session } } = await authService.getSupabaseClient().auth.getSession();
-          if (session?.user) {
-            // Set basic auth state immediately to prevent loading
-            if (isMounted) {
-              setIsAuthenticated(true);
-              setIsLoading(true); // Set loading to true while we fetch user details
+          try {
+            const { data: { session }, error: sessionError } = await authService.getSupabaseClient().auth.getSession();
+            if (sessionError || !session) {
+              if (isMounted) {
+                setUser(null);
+                setIsAuthenticated(false);
+                setIsLoading(false);
+              }
+            } else if (session?.user) {
+              // Set basic auth state immediately to prevent loading
+              if (isMounted) {
+                setIsAuthenticated(true);
+                setIsLoading(true); // Set loading to true while we fetch user details
+              }
+              
+              // Fetch user profile in background
+              const currentUser = await authService.getCurrentUser();
+              if (isMounted) {
+                setUser(currentUser);
+                setIsLoading(false);
+              }
+            } else {
+              if (isMounted) {
+                setUser(null);
+                setIsAuthenticated(false);
+                setIsLoading(false);
+              }
             }
-            
-            // Fetch user profile in background
-            const currentUser = await authService.getCurrentUser();
-            if (isMounted) {
-              setUser(currentUser);
-              setIsLoading(false);
-            }
-          } else {
+          } catch (sessionError) {
+            console.error('Session check error during initial load:', sessionError);
             if (isMounted) {
               setUser(null);
               setIsAuthenticated(false);
@@ -123,6 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
               } else {
                 if (isMounted) {
+                  setUser(null);
+                  setIsAuthenticated(false);
                   setIsLoading(false);
                 }
               }
@@ -160,6 +177,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   }
                 } else {
                   if (isMounted) {
+                    setUser(null);
+                    setIsAuthenticated(false);
                     setIsLoading(false);
                   }
                 }

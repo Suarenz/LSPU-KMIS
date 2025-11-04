@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { AuthResponse, User } from '@supabase/supabase-js';
 import type { User as AppUser } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 
 interface LoginResult {
   success: boolean;
@@ -35,7 +36,7 @@ class SupabaseAuthService {
         // Get user profile from database to include role and other details
         const { data: profileData, error: profileError } = await this.supabase
           .from('users')
-          .select('id, email, name, role, department')
+          .select('id, email, name, role, unitId')
           .eq('supabase_auth_id', data.user.id)
           .single();
 
@@ -45,14 +46,16 @@ class SupabaseAuthService {
             console.log('User profile not found in database, creating new profile for user:', data.user.id);
             // User exists in Supabase Auth but not in our users table
             // Create a minimal profile for the user if it doesn't exist
+            const id = uuidv4(); // Generate a unique ID
             const { error: insertError } = await this.supabase
               .from('users')
               .insert([{
+                id,
                 supabase_auth_id: data.user.id,
                 email: data.user.email || email,
                 name: data.user.user_metadata?.name || email.split('@')[0] || email.split('@')[0],
                 role: data.user.user_metadata?.role || 'STUDENT',
-                department: data.user.user_metadata?.department || 'General',
+                updatedAt: new Date().toISOString(),
               }]);
 
             if (insertError) {
@@ -65,7 +68,6 @@ class SupabaseAuthService {
                   email: data.user.email || email,
                   name: data.user.user_metadata?.name || email.split('@')[0],
                   role: data.user.user_metadata?.role || 'STUDENT',
-                  department: data.user.user_metadata?.department || 'General',
                 }
               };
             } else {
@@ -73,7 +75,7 @@ class SupabaseAuthService {
               // Profile created successfully, fetch the database ID
               const { data: newProfileData, error: newProfileError } = await this.supabase
                 .from('users')
-                .select('id, email, name, role, department')
+                .select('id, email, name, role, unitId')
                 .eq('supabase_auth_id', data.user.id)
                 .single();
 
@@ -87,7 +89,6 @@ class SupabaseAuthService {
                     email: data.user.email || email,
                     name: data.user.user_metadata?.name || email.split('@')[0],
                     role: data.user.user_metadata?.role || 'STUDENT',
-                    department: data.user.user_metadata?.department || 'General',
                   }
                 };
               }
@@ -98,7 +99,7 @@ class SupabaseAuthService {
                 email: newProfileData.email,
                 name: newProfileData.name,
                 role: newProfileData.role,
-                department: newProfileData.department,
+                unitId: newProfileData.unitId || undefined,
               };
 
               return {
@@ -122,7 +123,6 @@ class SupabaseAuthService {
                 email: data.user.email || email,
                 name: data.user.user_metadata?.name || email.split('@')[0],
                 role: data.user.user_metadata?.role || 'STUDENT',
-                department: data.user.user_metadata?.department || 'General',
               }
             };
           }
@@ -134,7 +134,6 @@ class SupabaseAuthService {
           email: profileData.email,
           name: profileData.name,
           role: profileData.role,
-          department: profileData.department,
         };
 
         return {
@@ -171,14 +170,16 @@ class SupabaseAuthService {
 
     if (data.user) {
       // Create user profile in our database
+      const id = uuidv4(); // Generate a unique ID
       const { error: profileError } = await this.supabase
         .from('users')
         .insert([{
+          id,
           supabase_auth_id: data.user.id,
           email: data.user.email,
           name: name,
           role: role as any, // Type assertion since role is properly typed at function level
-          department: department || null,
+          updatedAt: new Date().toISOString(),
         }]);
 
       if (profileError) {
@@ -189,7 +190,7 @@ class SupabaseAuthService {
       // After successful profile creation, fetch the user's database ID to return it
       const { data: profileData, error: fetchError } = await this.supabase
         .from('users')
-        .select('id, email, name, role, department')
+        .select('id, email, name, role, unitId')
         .eq('supabase_auth_id', data.user.id)
         .single();
       
@@ -202,8 +203,8 @@ class SupabaseAuthService {
             id: data.user.id,
             email: data.user.email!,
             name: name,
-            role: role as any, // Type assertion since role is properly typed at function level
-            department: department,
+            role: role as any, // Type assertion since role is properly typed at function level,
+            unitId: undefined,
           }
         };
       }
@@ -215,7 +216,7 @@ class SupabaseAuthService {
           email: profileData.email,
           name: profileData.name,
           role: profileData.role,
-          department: profileData.department,
+          unitId: profileData.unitId || undefined,
         }
       };
     }
@@ -236,6 +237,25 @@ class SupabaseAuthService {
 
   async getCurrentUser(): Promise<AppUser | null> {
     try {
+      // First try to get the session to ensure we have valid authentication
+      const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
+      
+      // If no session exists, return null immediately
+      if (sessionError || !session) {
+        return null;
+      }
+
+      // Check if the session is expired
+      if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+        // Try to refresh the session
+        const { data: { session: refreshedSession }, error: refreshError } = await this.supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshedSession) {
+          // If refresh fails, the user is not authenticated
+          return null;
+        }
+      }
+
       // Use getUser() instead of getSession() to authenticate the data by contacting the Supabase Auth server
       const { data: { user }, error: userError } = await this.supabase.auth.getUser();
       
@@ -247,7 +267,7 @@ class SupabaseAuthService {
       // Using Promise.allSettled to run operations in parallel where possible
       const profilePromise = this.supabase
         .from('users')
-        .select('id, email, name, role, department')
+        .select('id, email, name, role, unitId')
         .eq('supabase_auth_id', user.id)
         .single();
 
@@ -260,14 +280,16 @@ class SupabaseAuthService {
           console.log('User profile not found in database, creating new profile for user:', user.id);
           // User exists in Supabase Auth but not in our users table
           // Create a minimal profile for the user if it doesn't exist
+          const id = uuidv4(); // Generate a unique ID
           const { error: insertError } = await this.supabase
             .from('users')
             .insert([{
+              id,
               supabase_auth_id: user.id,
               email: user.email || '',
               name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
               role: user.user_metadata?.role || 'STUDENT',
-              department: user.user_metadata?.department || 'General',
+              updatedAt: new Date().toISOString(),
             }]);
 
           if (insertError) {
@@ -278,7 +300,7 @@ class SupabaseAuthService {
               email: user.email || '',
               name: user.user_metadata?.name || user.email || 'User',
               role: user.user_metadata?.role || 'student',
-              department: user.user_metadata?.department || 'General',
+              unitId: undefined,
             };
           } else {
             console.log('New user profile created successfully for user:', user.id);
@@ -288,7 +310,7 @@ class SupabaseAuthService {
               email: user.email || '',
               name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
               role: user.user_metadata?.role || 'STUDENT',
-              department: user.user_metadata?.department || 'General',
+              unitId: undefined,
             };
           }
         } else {
@@ -305,7 +327,6 @@ class SupabaseAuthService {
             email: user.email || '',
             name: user.user_metadata?.name || user.email || 'User',
             role: user.user_metadata?.role || 'STUDENT',
-            department: user.user_metadata?.department || 'General',
           };
         }
       }
@@ -318,7 +339,6 @@ class SupabaseAuthService {
           email: profileData.email,
           name: profileData.name,
           role: profileData.role,
-          department: profileData.department,
         };
       }
 
@@ -328,7 +348,7 @@ class SupabaseAuthService {
         email: user.email || '',
         name: user.user_metadata?.name || user.email || 'User',
         role: user.user_metadata?.role || 'STUDENT',
-        department: user.user_metadata?.department || 'General',
+        unitId: undefined,
       };
     } catch (error) {
       console.error('Error in getCurrentUser:', error);
@@ -361,37 +381,71 @@ class SupabaseAuthService {
   }
 
  async isAuthenticated(): Promise<boolean> {
-   // Use getUser() instead of getSession() to authenticate the data by contacting the Supabase Auth server
-   const { data: { user }, error } = await this.supabase.auth.getUser();
-   if (error) {
-     console.error('User check error:', error);
-     return false;
-   }
-   return user !== null;
- }
+    try {
+      // First try to get the session to ensure we have valid authentication
+      const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
+      
+      // If no session exists, return false immediately
+      if (sessionError || !session) {
+        return false;
+      }
+
+      // Check if the session is expired
+      if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+        // Try to refresh the session
+        const { data: { session: refreshedSession }, error: refreshError } = await this.supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshedSession) {
+          // If refresh fails, the user is not authenticated
+          return false;
+        }
+      }
+
+      // Use getUser() instead of getSession() to authenticate the data by contacting the Supabase Auth server
+      const { data: { user }, error } = await this.supabase.auth.getUser();
+      if (error) {
+        console.error('User check error:', error);
+        return false;
+      }
+      return user !== null;
+    } catch (error) {
+      console.error('Error in isAuthenticated:', error);
+      return false;
+    }
+  }
 
  async getAccessToken(): Promise<string | null> {
-   try {
-     // Try to get the session first
-     const { data: { session } } = await this.supabase.auth.getSession();
-     if (session?.access_token) {
-       return session.access_token;
-     }
-     
-     // If no session is available, try to get the current user and their access token
-     const { data: { user } } = await this.supabase.auth.getUser();
-     if (user) {
-       // Get a fresh session which should refresh the access token
-       const { data: { session: newSession } } = await this.supabase.auth.refreshSession();
-       return newSession?.access_token || null;
-     }
-     
-     return null;
-   } catch (error) {
-     console.error('Error getting access token:', error);
-     return null;
-   }
- }
+    try {
+      // Try to get the session first
+      const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        return null;
+      }
+      
+      if (session?.access_token) {
+        return session.access_token;
+      }
+      
+      // Check if the session is expired
+      if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+        // Try to refresh the session
+        const { data: { session: refreshedSession }, error: refreshError } = await this.supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshedSession) {
+          // If refresh fails, return null
+          return null;
+        }
+        
+        return refreshedSession.access_token || null;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error getting access token:', error);
+      return null;
+    }
+  }
 
  /**
   * Fetch comprehensive user data in a single call to optimize performance
@@ -409,16 +463,33 @@ async getComprehensiveUserData(): Promise<any> {
          return { authenticated: false, user: null };
        } else {
          // User is authenticated but we can't get a token, try alternative approach
-         // Use Supabase client directly to get user data
+         // First try to get a session and refresh it if needed
+         const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
+         
+         if (sessionError || !session) {
+           return { authenticated: false, user: null };
+         }
+         
+         // Check if the session is expired and refresh if necessary
+         if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+           const { data: { session: refreshedSession }, error: refreshError } = await this.supabase.auth.refreshSession();
+           
+           if (refreshError || !refreshedSession) {
+             // If refresh fails, return not authenticated
+             return { authenticated: false, user: null };
+           }
+         }
+         
+         // Now try to get the user data
          const { data: { user }, error: userError } = await this.supabase.auth.getUser();
          if (userError || !user) {
-           throw new Error('No authentication token available and unable to get user');
+           return { authenticated: false, user: null };
          }
          
          // Get user profile from database
          const { data: profileData, error: profileError } = await this.supabase
            .from('users')
-           .select('id, email, name, role, department')
+           .select('id, email, name, role, unitId')
            .eq('supabase_auth_id', user.id)
            .single();
          
@@ -431,7 +502,6 @@ async getComprehensiveUserData(): Promise<any> {
                email: user.email || '',
                name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
                role: user.user_metadata?.role || 'STUDENT',
-               department: user.user_metadata?.department || 'General',
              }
            };
          }
@@ -444,7 +514,6 @@ async getComprehensiveUserData(): Promise<any> {
              email: profileData.email,
              name: profileData.name,
              role: profileData.role,
-             department: profileData.department,
            }
          };
        }
@@ -459,6 +528,10 @@ async getComprehensiveUserData(): Promise<any> {
 
      if (!response.ok) {
        const errorData = await response.json().catch(() => ({}));
+       // If the error is authentication-related, return appropriate response
+       if (response.status === 401) {
+         return { authenticated: false, user: null };
+       }
        throw new Error(errorData.error || `Failed to fetch user data: ${response.status} ${response.statusText}`);
      }
 

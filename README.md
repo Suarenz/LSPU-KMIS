@@ -83,10 +83,10 @@ The application will be available at `http://localhost:3000`.
 
 ## Demo Accounts
 
-- **Admin**: admin@lspu.edu.ph / admin123
-- **Faculty**: faculty@lspu.edu.ph / faculty123
-- **Student**: student@lspu.edu.ph / student123
-- **External**: external@partner.com / external123
+- **Admin**: admin@lspu.edu.ph / admin
+- **Faculty**: faculty@lspu.edu.ph / faculty
+- **Student**: student@lspu.edu.ph / student
+- **External**: external@partner.com / external
 
 ## Key Features
 

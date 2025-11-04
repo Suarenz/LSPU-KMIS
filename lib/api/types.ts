@@ -3,13 +3,13 @@
 export interface Document {
   id: string;
   title: string;
- description: string;
- category: string;
- tags: string[];
+  description: string;
+  category: string;
+  tags: string[];
   uploadedBy: string;
   uploadedById: string;
   uploadedAt: Date;
- fileUrl: string;
+  fileUrl: string;
   fileName: string;
   fileType: string;
   fileSize: number;
@@ -20,6 +20,8 @@ export interface Document {
   status: 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW';
   createdAt: Date;
   updatedAt: Date;
+  unitId?: string;  // NEW: Unit association
+  unit?: Unit; // NEW: Unit information
 }
 
 export interface DocumentPermission {
@@ -45,8 +47,18 @@ export interface User {
   email: string;
   name: string;
   role: 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL';
-  department?: string;
+  unit?: string;
+  unitId?: string;  // NEW: Unit association
   avatar?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Unit {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
   createdAt: Date;
   updatedAt: Date;
 }

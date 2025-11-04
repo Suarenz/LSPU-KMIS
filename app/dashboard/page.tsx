@@ -1,12 +1,11 @@
 "use client"
 
-import { useEffect, useMemo, memo, lazy, Suspense } from "react"
+import { useEffect, memo, lazy, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Navbar } from "@/components/navbar"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { MOCK_ANALYTICS, MOCK_DOCUMENTS } from "@/lib/mock-data"
 import { Users, Download, Eye, FileText, BookOpen, Search, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -20,7 +19,7 @@ const ActivitySection = lazy(() => import('./activity-section'));
 
 // Memoized loading component to prevent unnecessary re-renders
 const LoadingSpinner = memo(() => (
-  <div className="min-h-screen bg-background flex items-center justify-center">
+  <div className="min-h-[70vh] bg-background flex items-center justify-center w-full">
     <div className="text-center">
       <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4 overflow-hidden">
         <Image
@@ -38,13 +37,13 @@ const LoadingSpinner = memo(() => (
 
 // Simple loading placeholder for lazy-loaded sections
 const SectionLoader = () => (
-  <div className="animate-pulse">
+  <div className="animate-pulse w-full">
     <div className="h-4 bg-muted rounded w-1/4 mb-4"></div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-      <div className="h-24 bg-muted rounded"></div>
-      <div className="h-24 bg-muted rounded"></div>
-      <div className="h-24 bg-muted rounded"></div>
-      <div className="h-24 bg-muted rounded"></div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 w-full">
+      <div className="h-24 bg-muted rounded border border-border/50"></div>
+      <div className="h-24 bg-muted rounded border border-border/50"></div>
+      <div className="h-24 bg-muted rounded border border-border/50"></div>
+      <div className="h-24 bg-muted rounded border border-border/50"></div>
     </div>
   </div>
 );
@@ -89,25 +88,26 @@ export default function DashboardPage() {
 
   return (
     <ClientOnly>
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 w-full">
         <Navbar />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
           {/* Welcome Section */}
-          <div className="mb-8 animate-fade-in">
+          <div className="mb-8 animate-fade-in w-full max-w-full">
             <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Welcome, {user.name}!</h1>
-            <p className="text-muted-foreground">
-              {user.department} • {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+            <p className="text-muted-foreground text-sm md:text-base">
+              {user.unit} • {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
             </p>
           </div>
 
           {/* Stats Grid - Critical section, loaded immediately */}
-          <Suspense fallback={<SectionLoader />}>
-            <StatsSection />
-          </Suspense>
+          <div className="mb-8">
+            <Suspense fallback={<SectionLoader />}>
+              <StatsSection />
+            </Suspense>
+          </div>
 
           {/* Quick Actions - Non-critical section, lazy loaded */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
             <Suspense fallback={<SectionLoader />}>
               <QuickActionsSection />
             </Suspense>

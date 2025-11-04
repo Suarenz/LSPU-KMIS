@@ -12,7 +12,7 @@ const ActivityItem = ({ activity, delay }: { activity: Activity; delay?: number 
       className="flex items-start gap-3 pb-4 border-b border-border last:border-0 last:pb-0 animate-fade-in"
       style={style}
     >
-      <div className="w-2 h-2 bg-primary rounded-full mt-2" />
+      <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
       <div className="flex-1">
         <p className="text-sm font-medium">{activity.description}</p>
         <p className="text-xs text-muted-foreground">

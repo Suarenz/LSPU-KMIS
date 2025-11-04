@@ -16,20 +16,29 @@ interface StatCardProps {
 const StatCard = ({ stat, delay }: { stat: StatCardProps; delay: number }) => {
   const Icon = stat.icon;
   const style = { animationDelay: `${delay}s` };
+  
   return (
     <Card
       key={stat.title}
-      className="animate-fade-in hover:shadow-lg transition-shadow"
+      className="animate-fade-in hover:shadow-lg transition-shadow border-border/50 h-full"
       style={style}
     >
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-        <div className={`w-10 h-10 ${stat.bgColor} rounded-lg flex items-center justify-center`}>
-          <Icon className={`w-5 h-5 ${stat.color}`} />
+        <CardTitle className="text-sm font-medium text-muted-foreground max-w-[70%] truncate">{stat.title}</CardTitle>
+        <div className="flex-shrink-0">
+          {Icon ? (
+            <Icon className="w-5 h-5 text-black" aria-hidden="true" style={{minWidth: '20px', minHeight: '20px'}} />
+          ) : (
+            <div className="w-5 h-5 bg-muted-foreground/20 rounded-sm flex items-center justify-center">
+              <svg className="w-3 h-3 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path fillRule="evenodd" d="M4 3a2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+              </svg>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{stat.value}</div>
+        <div className="text-2xl font-bold truncate">{stat.value}</div>
       </CardContent>
     </Card>
   );
@@ -151,14 +160,18 @@ export default function StatsSection() {
     fetchStats();
   }, []);
 
-  if (loading) {
+ if (loading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-pulse">
         {[...Array(4)].map((_, index) => (
-          <Card key={index}>
+          <Card key={index} className="border border-border/50">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Loading...</CardTitle>
-              <div className="w-10 h-10 bg-muted rounded-lg"></div>
+                <div className="w-5 h-5 bg-muted-foreground/20 rounded-sm flex items-center justify-center" style={{minWidth: '20px', minHeight: '20px'}}>
+                  <svg className="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 0 01-2 2z"></path>
+                  </svg>
+                </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold bg-muted rounded w-3/4 h-6"></div>
@@ -170,7 +183,7 @@ export default function StatsSection() {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 w-full">
       {stats.map((stat, index) => (
         <StatCard key={stat.title} stat={stat} delay={index * 0.1} />
       ))}

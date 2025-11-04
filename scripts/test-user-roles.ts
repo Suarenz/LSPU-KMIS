@@ -18,10 +18,10 @@ async function testUserRoles() {
   try {
     // Test each user role by attempting to sign in and checking their role
     const testUsers = [
-      { email: 'admin@lspu.edu.ph', password: 'admin123', expectedRole: 'ADMIN' },
-      { email: 'faculty@lspu.edu.ph', password: 'faculty123', expectedRole: 'FACULTY' },
-      { email: 'student@lspu.edu.ph', password: 'student123', expectedRole: 'STUDENT' },
-      { email: 'external@partner.com', password: 'external123', expectedRole: 'EXTERNAL' }
+      { email: 'admin@lspu.edu.ph', password: 'admin', expectedRole: 'ADMIN' },
+      { email: 'faculty@lspu.edu.ph', password: 'faculty', expectedRole: 'FACULTY' },
+      { email: 'student@lspu.edu.ph', password: 'student', expectedRole: 'STUDENT' },
+      { email: 'external@partner.com', password: 'external', expectedRole: 'EXTERNAL' }
     ];
 
     for (const userData of testUsers) {

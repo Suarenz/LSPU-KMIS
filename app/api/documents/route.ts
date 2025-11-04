@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import documentService from '@/lib/services/document-service';
+import enhancedDocumentService from '@/lib/services/enhanced-document-service';
 import { requireAuth } from '@/lib/middleware/auth-middleware';
 import fileStorageService from '@/lib/services/file-storage-service';
 
@@ -20,18 +20,34 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10'))); // Limit to 100 max, 1 min
     const category = searchParams.get('category') || undefined;
     const search = searchParams.get('search') || undefined;
+    const unitId = searchParams.get('unit') || undefined; // NEW: Unit filter
+    const adminOnly = searchParams.get('adminOnly') === 'true'; // NEW: Admin only filter
+    const sort = searchParams.get('sort') || undefined;
+    const orderParam = searchParams.get('order') || 'desc';
+    const order = orderParam === 'asc' ? 'asc' : 'desc'; // Ensure order is either 'asc' or 'desc'
 
     const userId = user.userId;
 
-    // Get documents using the document service
-    // Note: The document service expects parameters in this order: page, limit, category, search, userId
-    const { documents, total } = await documentService.getDocuments(
-      page,
-      limit,
-      category,
-      search,
-      userId
-    );
+    let result;
+    if (adminOnly && unitId) {
+      // Get documents by unit - this function now allows admins to see all documents in the unit
+      result = await enhancedDocumentService.getAdminDocumentsByUnit(unitId, page, limit, userId);
+    } else {
+      // Get documents using the enhanced document service
+      // Note: The document service expects parameters in this order: page, limit, category, search, userId, sort, order, unitId
+      result = await enhancedDocumentService.getDocuments(
+        page,
+        limit,
+        category,
+        search,
+        userId,
+        sort,
+        order,
+        unitId // NEW: Unit filter
+      );
+    }
+
+    const { documents, total } = result;
 
     return NextResponse.json({
       documents,
@@ -72,6 +88,7 @@ export async function POST(request: NextRequest) {
     const description = formData.get('description') as string;
     const category = formData.get('category') as string;
     const tags = formData.get('tags') as string;
+    const unitId = formData.get('unitId') as string; // NEW: Unit assignment
     const file = formData.get('file') as File | null;
 
     if (!title || !description || !category || !file) {
@@ -120,7 +137,7 @@ export async function POST(request: NextRequest) {
 
       // Create the document in the database
       console.log('Creating document in database...');
-      const document = await documentService.createDocument(
+      const document = await enhancedDocumentService.createDocument(
         title,
         description,
         category,
@@ -130,7 +147,8 @@ export async function POST(request: NextRequest) {
         fileName,
         fileType,
         fileSize,
-        userId
+        userId,
+        unitId || undefined // NEW: Pass unitId if provided
       );
       console.log('Document created successfully:', document.id);
 

@@ -147,21 +147,6 @@ export default function LoginPage() {
                   )}
                 </Button>
               </form>
-
-              <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/10">
-                <p className="text-sm font-medium mb-2 text-primary flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 0 000 2v3a1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  Demo Accounts:
-                </p>
-                <div className="text-xs space-y-1 text-muted-foreground">
-                  <div className="flex justify-between"><span className="font-medium">Admin:</span> <span>admin@lspu.edu.ph / admin123</span></div>
-                  <div className="flex justify-between"><span className="font-medium">Faculty:</span> <span>faculty@lspu.edu.ph / faculty123</span></div>
-                  <div className="flex justify-between"><span className="font-medium">Student:</span> <span>student@lspu.edu.ph / student123</span></div>
-                  <div className="flex justify-between"><span className="font-medium">External:</span> <span>external@partner.com / external123</span></div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>

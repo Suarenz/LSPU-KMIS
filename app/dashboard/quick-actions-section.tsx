@@ -24,9 +24,7 @@ const QuickActionCard = ({ action, delay }: { action: QuickActionProps; delay?: 
       >
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 bg-${action.color}/10 rounded-lg flex items-center justify-center`}>
-              <Icon className={`w-6 h-6 text-${action.color}`} />
-            </div>
+            <Icon className="w-6 h-6 text-black" aria-hidden="true" style={{minWidth: '24px', minHeight: '24px'}} />
             <div>
               <CardTitle className="text-lg">{action.title}</CardTitle>
               <CardDescription>{action.description}</CardDescription>
@@ -64,10 +62,15 @@ export default function QuickActionsSection() {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {quickActions.map((action, index) => (
-        <QuickActionCard key={action.title} action={action} delay={index * 0.1} />
-      ))}
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold">Quick Actions</h2>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {quickActions.map((action, index) => (
+          <QuickActionCard key={action.title} action={action} delay={index * 0.1} />
+        ))}
+      </div>
     </div>
   );
 }

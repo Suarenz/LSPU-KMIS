@@ -5,8 +5,9 @@ export interface User {
   email: string
   name: string
   role: UserRole
-  department?: string
-  avatar?: string
+  unit?: string
+  unitId?: string // NEW: Unit association
+ avatar?: string
 }
 
 export interface Document {
@@ -16,6 +17,7 @@ export interface Document {
   category: string
   tags: string[]
   uploadedBy: string
+  uploadedById: string
   uploadedAt: Date
   fileUrl: string
   fileType: string

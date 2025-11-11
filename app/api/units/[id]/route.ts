@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { requireAuth } from '@/lib/middleware/auth-middleware';
 
 // GET /api/units/[id] - Get a specific unit
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Verify authentication
     const authResult = await requireAuth(request);
@@ -14,7 +14,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     
     const { user } = authResult;
 
-    const unitId = params.id;
+    const { id } = await params;
+    const unitId = id;
 
     // Fetch the specific unit from the database
     const unit = await prisma.unit.findUnique({
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT /api/units/[id] - Update a unit (admin only)
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Verify authentication
     const authResult = await requireAuth(request);
@@ -57,7 +58,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
-    const unitId = params.id;
+    const { id } = await params;
+    const unitId = id;
     const { name, code, description } = await request.json();
 
     // Update the unit in the database
@@ -86,7 +88,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE /api/units/[id] - Delete a unit (admin only)
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Verify authentication
     const authResult = await requireAuth(request);
@@ -104,7 +106,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       );
     }
 
-    const unitId = params.id;
+    const { id } = await params;
+    const unitId = id;
 
     // Delete the unit from the database
     await prisma.unit.delete({

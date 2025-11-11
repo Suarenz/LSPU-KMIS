@@ -95,6 +95,10 @@ class EnhancedDocumentService {
           skip,
           take: limit,
           orderBy: sort ? { [sort]: order } : { uploadedAt: 'desc' },
+          include: {
+            uploadedByUser: true,
+            documentUnit: true,
+          }
         }),
         prisma.document.count({ where: whereClause }),
       ]);
@@ -103,8 +107,17 @@ class EnhancedDocumentService {
         documents: documents.map((doc: any) => ({
           ...doc,
           tags: Array.isArray(doc.tags) ? doc.tags as string[] : [],
-          unitId: (doc as any).unitId,
+          unitId: doc.unitId ?? undefined,
           versionNotes: doc.versionNotes ?? undefined, // Convert null to undefined
+          uploadedBy: doc.uploadedByUser?.name || doc.uploadedBy,
+          unit: doc.documentUnit ? {
+            id: doc.documentUnit.id,
+            name: doc.documentUnit.name,
+            code: doc.documentUnit.code,
+            description: doc.documentUnit.description || undefined, // Convert null to undefined
+            createdAt: doc.documentUnit.createdAt,
+            updatedAt: doc.documentUnit.updatedAt,
+          } : undefined,
           uploadedAt: new Date(doc.uploadedAt),
           createdAt: new Date(doc.createdAt),
           updatedAt: new Date(doc.updatedAt),
@@ -125,6 +138,10 @@ class EnhancedDocumentService {
     try {
       const document = await prisma.document.findUnique({
         where: { id },
+        include: {
+          uploadedByUser: true,
+          documentUnit: true,
+        }
       });
 
       if (!document) {
@@ -163,8 +180,17 @@ class EnhancedDocumentService {
       return {
         ...document,
         tags: Array.isArray(document.tags) ? document.tags as string[] : [],
-        unitId: (document as any).unitId,
-        versionNotes: document.versionNotes ?? undefined, // Convert null to undefined
+        unitId: document.unitId || undefined, // Convert null to undefined
+        versionNotes: document.versionNotes || undefined, // Convert null to undefined
+        uploadedBy: document.uploadedByUser?.name || document.uploadedBy,
+        unit: document.documentUnit ? {
+          id: document.documentUnit.id,
+          name: document.documentUnit.name,
+          code: document.documentUnit.code || "", // Provide empty string as fallback since Unit type requires string
+          description: document.documentUnit.description || undefined, // Convert null to undefined
+          createdAt: document.documentUnit.createdAt,
+          updatedAt: document.documentUnit.updatedAt,
+        } : undefined,
         uploadedAt: new Date(document.uploadedAt),
         createdAt: new Date(document.createdAt),
         updatedAt: new Date(document.updatedAt),
@@ -227,8 +253,8 @@ class EnhancedDocumentService {
       const document = await prisma.document.create({
         data: {
           title,
-          description,
-          category,
+          description: description || "", // Ensure description is not null
+          category: category || "Uncategorized", // Ensure category is not null
           tags: tags || [], // Ensure tags is always an array, even if undefined
           uploadedBy: user.name,
           uploadedById: user.id, // Use the database user ID, not the Supabase auth ID
@@ -236,7 +262,7 @@ class EnhancedDocumentService {
           fileName,
           fileType,
           fileSize,
-          // Create document without unitId first, then update with raw SQL
+          unitId: unitId || null, // NEW: Assign unitId if provided
           status: 'ACTIVE',
         },
       });
@@ -254,23 +280,41 @@ class EnhancedDocumentService {
       
       console.log('Document permissions granted');
 
-      // Get the updated document to ensure we have the latest unitId value
-      const updatedDoc = await prisma.document.findUnique({
+      // Update unitId using raw SQL if provided, since Prisma client may not recognize the field yet
+      if (unitId) {
+        await prisma.$executeRaw`UPDATE documents SET "unitId" = ${unitId} WHERE id = ${document.id}`;
+      }
+
+      // Get the updated document to ensure we have the latest unitId value after raw SQL update
+      const finalDocument = await prisma.document.findUnique({
         where: { id: document.id },
+        include: {
+          uploadedByUser: true,
+          documentUnit: true,
+        }
       });
       
-      if (!updatedDoc) {
+      if (!finalDocument) {
         throw new Error(`Document with id ${document.id} not found after creation`);
       }
       
       return {
-        ...updatedDoc,
-        tags: Array.isArray(updatedDoc.tags) ? updatedDoc.tags as string[] : [],
-        unitId: (updatedDoc as any).unitId ?? undefined,
-        versionNotes: updatedDoc.versionNotes ?? undefined, // Convert null to undefined
-        uploadedAt: new Date(updatedDoc.uploadedAt),
-        createdAt: new Date(updatedDoc.createdAt),
-        updatedAt: new Date(updatedDoc.updatedAt),
+        ...finalDocument,
+        tags: Array.isArray(finalDocument.tags) ? finalDocument.tags as string[] : [],
+        unitId: finalDocument.unitId ?? undefined,
+        versionNotes: finalDocument.versionNotes ?? undefined, // Convert null to undefined
+        uploadedBy: finalDocument.uploadedByUser?.name || finalDocument.uploadedBy,
+        unit: finalDocument.documentUnit ? {
+          id: finalDocument.documentUnit.id,
+          name: finalDocument.documentUnit.name,
+          code: finalDocument.documentUnit.code || "", // Provide empty string as fallback since Unit type requires string
+          description: finalDocument.documentUnit.description || undefined, // Convert null to undefined
+          createdAt: finalDocument.documentUnit.createdAt,
+          updatedAt: finalDocument.documentUnit.updatedAt,
+        } : undefined,
+        uploadedAt: new Date(finalDocument.uploadedAt),
+        createdAt: new Date(finalDocument.createdAt),
+        updatedAt: new Date(finalDocument.updatedAt),
       };
     } catch (error) {
       console.error('Database connection error in createDocument:', error);
@@ -337,28 +381,25 @@ class EnhancedDocumentService {
         where: { id },
         data: {
           ...(title && { title }),
-          ...(description && { description }),
-          ...(category && { category }),
+          ...(description !== undefined && { description: description || "" }),
+          ...(category !== undefined && { category: category || "Uncategorized" }),
           ...(tags !== undefined && { tags: tags || [] }),
           updatedAt: new Date(),
         },
       });
-      
+
       // Update unitId using raw SQL since Prisma client may not recognize the field yet
       if (unitId !== undefined) {
         await prisma.$executeRaw`UPDATE documents SET "unitId" = ${unitId} WHERE id = ${id}`;
-        // Refresh the document to get the updated unitId
-        const refreshedDocument = await prisma.document.findUnique({
-          where: { id },
-        });
-        if (refreshedDocument) {
-          Object.assign(updatedDocument, refreshedDocument);
-        }
       }
 
       // Get the updated document to ensure we have the latest unitId value after raw SQL update
       const finalDocument = await prisma.document.findUnique({
         where: { id },
+        include: {
+          uploadedByUser: true,
+          documentUnit: true,
+        }
       });
       
       if (!finalDocument) {
@@ -368,8 +409,17 @@ class EnhancedDocumentService {
       return {
         ...finalDocument,
         tags: Array.isArray(finalDocument.tags) ? finalDocument.tags as string[] : [],
-        unitId: (finalDocument as any).unitId ?? undefined,
+        unitId: finalDocument.unitId ?? undefined,
         versionNotes: finalDocument.versionNotes ?? undefined, // Convert null to undefined
+        uploadedBy: finalDocument.uploadedByUser?.name || finalDocument.uploadedBy,
+        unit: finalDocument.documentUnit ? {
+          id: finalDocument.documentUnit.id,
+          name: finalDocument.documentUnit.name,
+          code: finalDocument.documentUnit.code || "", // Provide empty string as fallback since Unit type requires string
+          description: finalDocument.documentUnit.description || undefined, // Convert null to undefined
+          createdAt: finalDocument.documentUnit.createdAt,
+          updatedAt: finalDocument.documentUnit.updatedAt,
+        } : undefined,
         uploadedAt: new Date(finalDocument.uploadedAt),
         createdAt: new Date(finalDocument.createdAt),
         updatedAt: new Date(finalDocument.updatedAt),
@@ -453,6 +503,10 @@ class EnhancedDocumentService {
           skip,
           take: limit,
           orderBy: { uploadedAt: 'desc' },
+          include: {
+            uploadedByUser: true,
+            documentUnit: true,
+          }
         }),
         prisma.document.count({ where: whereClause }),
       ]);
@@ -461,8 +515,17 @@ class EnhancedDocumentService {
         documents: documents.map((doc: any) => ({
           ...doc,
           tags: Array.isArray(doc.tags) ? doc.tags as string[] : [],
-          unitId: (doc as any).unitId,
+          unitId: doc.unitId ?? undefined,
           versionNotes: doc.versionNotes ?? undefined, // Convert null to undefined
+          uploadedBy: doc.uploadedByUser?.name || doc.uploadedBy,
+          unit: doc.documentUnit ? {
+            id: doc.documentUnit.id,
+            name: doc.documentUnit.name,
+            code: doc.documentUnit.code || "", // Provide empty string as fallback since Unit type requires string
+            description: doc.documentUnit.description || undefined, // Convert null to undefined
+            createdAt: doc.documentUnit.createdAt,
+            updatedAt: doc.documentUnit.updatedAt,
+          } : undefined,
           uploadedAt: new Date(doc.uploadedAt),
           createdAt: new Date(doc.createdAt),
           updatedAt: new Date(doc.updatedAt),

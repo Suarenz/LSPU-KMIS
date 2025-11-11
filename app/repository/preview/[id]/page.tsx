@@ -235,6 +235,60 @@ export default function DocumentPreviewPage() {
     );
   }
 
+  // Helper function to determine the appropriate preview component based on file type
+  const getFilePreviewComponent = () => {
+    const fileType = document.fileType.toLowerCase();
+    
+    if (fileType.includes('pdf')) {
+      return (
+        <div className="flex-1 bg-background">
+          <iframe
+            src={pdfUrl}
+            className="w-full h-full min-h-[70vh]"
+            style={{ height: 'calc(100vh - 200px)' }}
+            title={`Preview of ${document.title}`}
+          />
+        </div>
+      );
+    } else if (fileType.includes('jpg') || fileType.includes('jpeg') || fileType.includes('png') || fileType.includes('gif')) {
+      return (
+        <div className="flex-1 bg-background flex items-center justify-center p-4">
+          <img
+            src={pdfUrl}
+            alt={document.title}
+            className="max-w-full max-h-full object-contain"
+          />
+        </div>
+      );
+    } else if (fileType.includes('txt')) {
+      return (
+        <div className="flex-1 bg-background p-4 overflow-auto">
+          <iframe
+            src={pdfUrl}
+            className="w-full h-full min-h-[70vh]"
+            style={{ height: 'calc(100vh - 200px)' }}
+            title={`Preview of ${document.title}`}
+          />
+        </div>
+      );
+    } else {
+      // For other file types (doc, docx, ppt, pptx, xls, xlsx), we'll provide a message
+      // In a real implementation, you might want to convert these to PDF or use a service like Google Docs Viewer
+      return (
+        <div className="flex-1 bg-background flex flex-col items-center justify-center p-8 text-center">
+          <FileText className="w-16 h-16 text-muted-foreground mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Document Preview</h3>
+          <p className="text-muted-foreground mb-4">
+            This {document.fileType} file can be downloaded and viewed with appropriate software.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            For online preview, consider converting to PDF format.
+          </p>
+        </div>
+      );
+    }
+  };
+
   return (
     <ClientOnly>
       <div className="min-h-screen bg-background flex flex-col">
@@ -249,8 +303,12 @@ export default function DocumentPreviewPage() {
                   <span>By {document.uploadedBy}</span>
                   <span>•</span>
                   <span>{new Date(document.uploadedAt).toLocaleDateString()}</span>
-                  <span>•</span>
-                  <span>{document.category}</span>
+                  {document.category && document.category !== "Uncategorized" && (
+                    <>
+                      <span>•</span>
+                      <span>{document.category}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -296,15 +354,8 @@ export default function DocumentPreviewPage() {
             </div>
           </div>
           
-          {/* PDF Preview */}
-          <div className="flex-1 bg-background">
-            <iframe
-              src={pdfUrl}
-              className="w-full h-full min-h-[70vh]"
-              style={{ height: 'calc(100vh - 200px)' }}
-              title={`Preview of ${document.title}`}
-            />
-          </div>
+          {/* File Preview */}
+          {getFilePreviewComponent()}
         </div>
       </div>
     </ClientOnly>

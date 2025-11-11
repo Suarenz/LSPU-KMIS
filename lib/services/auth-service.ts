@@ -9,8 +9,14 @@ interface LoginResult {
   error?: string;
 }
 
+// Cache configuration
+const SESSION_CACHE_KEY = 'lspu_kmis_session_cache';
+const LAST_CHECK_KEY = 'lspu_kmis_last_auth_check';
+const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 class SupabaseAuthService {
   supabase;
+  private sessionValidationDebounce: NodeJS.Timeout | null = null;
 
   constructor() {
     this.supabase = createClient();
@@ -19,6 +25,104 @@ class SupabaseAuthService {
   getSupabaseClient() {
     return this.supabase;
   }
+
+  /**
+   * Get cached session data if it exists and hasn't expired
+   */
+  getCachedSession(): any | null {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(SESSION_CACHE_KEY);
+      if (cached) {
+        try {
+          const { data, expiration } = JSON.parse(cached);
+          // Only use cache if not expired
+          if (Date.now() < expiration) {
+            return data;
+          } else {
+            // Clear expired cache
+            localStorage.removeItem(SESSION_CACHE_KEY);
+          }
+        } catch (error) {
+          console.error('Error parsing cached session:', error);
+          localStorage.removeItem(SESSION_CACHE_KEY);
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Set cached session data with expiration
+   */
+  setCachedSession(sessionData: any, ttl: number = DEFAULT_CACHE_TTL) {
+    if (typeof window !== 'undefined') {
+      const expiration = Date.now() + ttl;
+      try {
+        localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({
+          data: sessionData,
+          expiration
+        }));
+      } catch (error) {
+        console.error('Error caching session:', error);
+      }
+    }
+  }
+
+  /**
+   * Clear cached session
+   */
+  clearCachedSession() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(SESSION_CACHE_KEY);
+      localStorage.removeItem(LAST_CHECK_KEY);
+    }
+  }
+
+  /**
+   * Get the last auth check timestamp
+   */
+  getLastAuthCheck(): number | null {
+    if (typeof window !== 'undefined') {
+      const lastCheck = localStorage.getItem(LAST_CHECK_KEY);
+      return lastCheck ? parseInt(lastCheck) : null;
+    }
+    return null;
+  }
+
+  /**
+   * Set the last auth check timestamp
+   */
+  setLastAuthCheck(timestamp: number) {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LAST_CHECK_KEY, timestamp.toString());
+    }
+  }
+
+  /**
+   * Validate session without triggering loading state
+   */
+  async validateSessionWithoutLoading(): Promise<boolean> {
+    if (this.sessionValidationDebounce) {
+      clearTimeout(this.sessionValidationDebounce);
+    }
+    
+    return new Promise((resolve) => {
+      this.sessionValidationDebounce = setTimeout(async () => {
+        try {
+          const { data: { session }, error } = await this.supabase.auth.getSession();
+          if (error) {
+            console.error('Session validation error:', error);
+            resolve(false);
+          } else {
+            resolve(!!session);
+          }
+        } catch (error) {
+          console.error('Session validation error:', error);
+          resolve(false);
+        }
+      }, 500); // Only validate after 500ms of inactivity
+    });
+ }
 
   async login(email: string, password: string): Promise<LoginResult> {
     try {
@@ -453,6 +557,12 @@ class SupabaseAuthService {
   */
 async getComprehensiveUserData(): Promise<any> {
    try {
+     // Check if we have cached session data and it's still valid
+     const cachedSession = this.getCachedSession();
+     if (cachedSession) {
+       return cachedSession;
+     }
+     
      const token = await this.getAccessToken();
      
      if (!token) {
@@ -495,7 +605,7 @@ async getComprehensiveUserData(): Promise<any> {
          
          if (profileError) {
            // Return minimal user data based on auth if profile doesn't exist
-           return {
+           const userData = {
              authenticated: true,
              user: {
                id: user.id,
@@ -504,10 +614,14 @@ async getComprehensiveUserData(): Promise<any> {
                role: user.user_metadata?.role || 'STUDENT',
              }
            };
+           
+           // Cache this data for future use
+           this.setCachedSession(userData);
+           return userData;
          }
          
          // Return user data from database
-         return {
+         const userData = {
            authenticated: true,
            user: {
              id: profileData.id,
@@ -516,6 +630,10 @@ async getComprehensiveUserData(): Promise<any> {
              role: profileData.role,
            }
          };
+         
+         // Cache this data for future use
+         this.setCachedSession(userData);
+         return userData;
        }
      }
 
@@ -530,21 +648,36 @@ async getComprehensiveUserData(): Promise<any> {
        const errorData = await response.json().catch(() => ({}));
        // If the error is authentication-related, return appropriate response
        if (response.status === 401) {
+         // Clear cache on authentication failure
+         this.clearCachedSession();
          return { authenticated: false, user: null };
        }
        throw new Error(errorData.error || `Failed to fetch user data: ${response.status} ${response.statusText}`);
      }
 
      const data = await response.json();
+     
+     // Cache the comprehensive user data
+     this.setCachedSession(data);
+     
      return data;
    } catch (error) {
      console.error('Error fetching comprehensive user data:', error);
      // Check if this is an authentication error
      if (error instanceof Error && error.message.includes('No authentication token available')) {
+       // Clear cache on authentication failure
+       this.clearCachedSession();
        return { authenticated: false, user: null };
      }
      throw error;
    }
+ }
+ 
+ /**
+  * Clear cached session data
+  */
+ clearCache() {
+   this.clearCachedSession();
  }
 }
 

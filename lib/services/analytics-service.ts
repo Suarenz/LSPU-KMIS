@@ -52,6 +52,7 @@ class AnalyticsService {
           category: true,
           tags: true,
           uploadedBy: true,
+          uploadedById: true,
           uploadedAt: true,
           fileUrl: true,
           fileType: true,
@@ -68,8 +69,9 @@ class AnalyticsService {
         title: doc.title,
         description: doc.description,
         category: doc.category,
-        tags: doc.tags,
+        tags: doc.tags as string[],
         uploadedBy: doc.uploadedBy,
+        uploadedById: doc.uploadedById,
         uploadedAt: new Date(doc.uploadedAt),
         fileUrl: doc.fileUrl,
         fileType: doc.fileType,
@@ -89,7 +91,7 @@ class AnalyticsService {
           SELECT
             category,
             COUNT(*) as count
-          FROM Document
+          FROM documents
           WHERE status = 'ACTIVE'
           GROUP BY category
           ORDER BY count DESC

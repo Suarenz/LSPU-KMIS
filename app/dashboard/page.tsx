@@ -28,6 +28,7 @@ const LoadingSpinner = memo(() => (
           width={64}
           height={64}
           className="w-16 h-16 object-contain animate-spin"
+          priority
         />
       </div>
       <p className="text-lg text-muted-foreground">Loading dashboard...</p>

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { Unit } from '@/lib/api/types';
 import AuthService from '@/lib/services/auth-service';
+import { Building2, Save, X } from 'lucide-react';
 
 interface UnitFormProps {
   initialData?: Unit | null;
@@ -126,55 +127,86 @@ export function UnitForm({ initialData, onSubmit, onCreated, onCancel }: UnitFor
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>{initialData ? 'Edit Unit' : 'Create New Unit'}</CardTitle>
-        <CardDescription>
-          {initialData 
-            ? 'Update the details for this academic unit.' 
-            : 'Add a new academic unit to the repository system. All fields are required unless marked optional.'}
-        </CardDescription>
+    <Card className="w-full max-w-2xl mx-auto border-0 shadow-xl bg-gradient-to-br from-background to-muted">
+      <CardHeader className="pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Building2 className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <CardTitle className="text-2xl font-bold">
+              {initialData ? 'Edit Unit' : 'Create New Unit'}
+            </CardTitle>
+            <CardDescription className="mt-1">
+              {initialData
+                ? 'Update the details for this academic unit.'
+                : 'Add a new academic unit to the repository system. All fields are required unless marked optional.'}
+            </CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">
-                Unit Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter full unit name (e.g., College of Arts and Sciences)"
-                disabled={loading}
-              />
-              {errors.name && <p className="text-sm text-destructive mt-1">{errors.name}</p>}
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="name" className="text-base">
+                  Unit Name <span className="text-destructive">*</span>
+                </Label>
+              </div>
+              <div className="relative">
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter full unit name (e.g., College of Arts and Sciences)"
+                  disabled={loading}
+                  className="py-5 text-lg"
+                />
+              </div>
+              {errors.name && (
+                <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                  <X className="w-4 h-4" /> {errors.name}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground mt-1">
                 The full name of the academic unit (e.g., College of Arts and Sciences)
               </p>
             </div>
 
-            <div>
-              <Label htmlFor="code">
-                Unit Code
-              </Label>
-              <Input
-                id="code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="Enter unit code (e.g., CAS)"
-                disabled={loading}
-                maxLength={10}
-              />
-              {errors.code && <p className="text-sm text-destructive mt-1">{errors.code}</p>}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="code" className="text-base">
+                  Unit Code
+                </Label>
+              </div>
+              <div className="relative">
+                <Input
+                  id="code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  placeholder="Enter unit code (e.g., CAS)"
+                  disabled={loading}
+                  maxLength={10}
+                  className="py-5 text-lg"
+                />
+              </div>
+              {errors.code && (
+                <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                  <X className="w-4 h-4" /> {errors.code}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground mt-1">
                 Short code for the unit (max 10 characters, uppercase letters, numbers, spaces, underscores, and hyphens only)
               </p>
             </div>
 
-            <div>
-              <Label htmlFor="description">Description</Label>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="description" className="text-base">
+                  Description
+                </Label>
+              </div>
               <Textarea
                 id="description"
                 value={description}
@@ -182,42 +214,55 @@ export function UnitForm({ initialData, onSubmit, onCreated, onCancel }: UnitFor
                 placeholder="Enter unit description (optional)"
                 disabled={loading}
                 maxLength={500}
-                rows={3}
+                rows={4}
+                className="py-3"
               />
-              {errors.description && <p className="text-sm text-destructive mt-1">{errors.description}</p>}
-              <p className="text-xs text-muted-foreground mt-1">
-                Brief description of the unit (max 500 characters)
-              </p>
+              {errors.description && (
+                <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                  <X className="w-4 h-4" /> {errors.description}
+                </p>
+              )}
+              <div className="flex justify-between">
+                <p className="text-xs text-muted-foreground mt-1">
+                  Brief description of the unit (max 50 characters)
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {description.length}/500
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 pt-6 border-t">
             <Button
               type="button"
               variant="outline"
               onClick={onCancel}
               disabled={loading}
+              className="px-6"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading}
+              className="px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-md"
             >
               {loading ? (
                 <>
                   <span className="mr-2">Processing...</span>
                   <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
                 </>
-              ) : initialData ? (
-                'Update Unit'
               ) : (
-                'Create Unit'
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  {initialData ? 'Update Unit' : 'Create Unit'}
+                </>
               )}
             </Button>
           </div>
         </form>
       </CardContent>
     </Card>
- );
+  );
 }

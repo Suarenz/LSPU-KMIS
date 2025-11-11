@@ -117,15 +117,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up Supabase auth state listener to handle session changes
     const { data: { subscription } } = authService.getSupabaseClient().auth.onAuthStateChange(
       async (event, session) => {
-        if (event !== 'INITIAL_SESSION') {
+        // Only set loading for specific events that require full validation
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+          setIsLoading(true);
+        } else if (event === 'TOKEN_REFRESHED') {
+          // For token refresh, we can update state without showing loading if we have cached data
+          const cachedSession = authService.getCachedSession();
+          if (cachedSession && cachedSession.authenticated) {
+            if (isMounted) {
+              setUser(cachedSession.user);
+              setIsAuthenticated(true);
+            }
+          } else {
+            setIsLoading(true);
+          }
+        } else if (event !== 'INITIAL_SESSION') {
+          // For other events, set loading
           setIsLoading(true);
         }
+        
         try {
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
             // Set isAuthenticated immediately to allow faster redirects
             if (isMounted) {
               setIsAuthenticated(true);
-              setIsLoading(true); // Set loading while we fetch comprehensive user data
+              // Only set loading if we don't have cached data for token refresh
+              if (event !== 'TOKEN_REFRESHED' || !authService.getCachedSession()) {
+                setIsLoading(true); // Set loading while we fetch comprehensive user data
+              }
             }
             
             // Try to fetch comprehensive user data first, fall back to standard method
@@ -210,17 +229,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // Add page visibility change handler to prevent loading state on tab focus
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        // Only validate if it's been more than 10 minutes since last check
+        const lastChecked = authService.getLastAuthCheck();
+        const now = Date.now();
+        
+        // Only re-validate if more than 10 minutes have passed
+        if (!lastChecked || (now - lastChecked) > 10 * 60 * 1000) {
+          // Perform lightweight session validation without showing loading
+          const isValid = await authService.validateSessionWithoutLoading();
+          if (!isValid) {
+            // Session is no longer valid, clear user state
+            if (isMounted) {
+              setUser(null);
+              setIsAuthenticated(false);
+            }
+          }
+          // Update last check timestamp
+          authService.setLastAuthCheck(now);
+        }
+      }
+    };
+
     // Run initial session check
     if (typeof window !== 'undefined') {
       checkInitialSession();
+      
+      // Add visibility change listener
+      document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
     // Cleanup function
     return () => {
       isMounted = false;
       subscription?.unsubscribe();
+      
+      // Remove visibility change listener
+      if (typeof window !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
     };
-  }, []); // Empty dependency array since we only want to run this once on mount
+ }, []); // Empty dependency array since we only want to run this once on mount
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
     setIsLoading(true);

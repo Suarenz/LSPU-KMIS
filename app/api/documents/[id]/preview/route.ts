@@ -30,10 +30,19 @@ export async function GET(
       );
     }
 
-    // Check if the document is a PDF
-    if (!document.fileType.toLowerCase().includes('pdf')) {
+    // Check if the document type is supported for preview
+    const supportedTypes = [
+      'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
+      'txt', 'jpg', 'jpeg', 'png', 'gif'
+    ];
+    
+    const isSupportedType = supportedTypes.some(type =>
+      document.fileType.toLowerCase().includes(type)
+    );
+    
+    if (!isSupportedType) {
       return NextResponse.json(
-        { error: 'Preview is only available for PDF documents' },
+        { error: 'Preview is not available for this document type' },
         { status: 400 }
       );
     }

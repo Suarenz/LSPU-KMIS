@@ -50,6 +50,8 @@ export default function RepositoryPage() {
     if (!showUploadModal) {
       setUploadProgress(0);
       setUploading(false);
+      setUploadError(null);
+      setUploadSuccessMessage(null);
     }
   }, [showUploadModal]);
 
@@ -116,12 +118,82 @@ export default function RepositoryPage() {
     }
   }, [searchParams]);
 
+  // Effect to handle page visibility changes
   useEffect(() => {
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        // When user returns to the page, revalidate the auth state and refresh documents
-        if (isAuthenticated && !isLoading && user) {
-          fetchDocuments();
+        // When user returns to the page, check if it's been more than 5 minutes since last check
+        // If it has been more than 5 minutes, revalidate the auth state and refresh documents
+        const lastChecked = AuthService.getLastAuthCheck();
+        const now = Date.now();
+        
+        // Only re-validate if more than 5 minutes have passed
+        if (!lastChecked || (now - lastChecked) > 5 * 60 * 1000) {
+          console.log('Page became visible, revalidating authentication and refreshing documents');
+          
+          try {
+            // First, try to get a fresh access token to ensure authentication is still valid
+            const token = await AuthService.getAccessToken();
+            if (token) {
+              // If we have a valid token, fetch documents in the background without showing loading state
+              console.log('Valid token found, fetching documents in background');
+              
+              // Use the access token from the auth context
+              const queryParams = new URLSearchParams();
+              if (searchQuery) queryParams.append('search', searchQuery);
+              if (categoryFilter && categoryFilter !== 'all') queryParams.append('category', categoryFilter);
+              if (unitFilter) queryParams.append('unit', unitFilter);
+              
+              const response = await fetch(`/api/documents?${queryParams.toString()}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                }
+              });
+            
+              if (!response.ok) {
+                // Check if the error response is JSON
+                let errorData: { error?: string } = {};
+                try {
+                  errorData = await response.json();
+                } catch (parseError) {
+                  // If response is not JSON, create a generic error
+                  errorData = { error: `HTTP error! status: ${response.status}` };
+                }
+                
+                // If we get a 401 (unauthorized) error, the token might have expired
+                if (response.status === 401) {
+                  console.error('Authentication token expired, redirecting to login');
+                  // Redirect to login page since token is no longer valid
+                  router.push('/');
+                  return;
+                }
+                
+                throw new Error(errorData.error || `Failed to fetch documents: ${response.status} ${response.statusText}`);
+              }
+              
+              const data = await response.json();
+              setDocuments(data.documents || []);
+              setError(null);
+              
+              // Update last check timestamp
+              AuthService.setLastAuthCheck(now);
+            } else {
+              // If no token is available, the user might need to re-authenticate
+              // This will trigger the auth context to update the state accordingly
+              console.log('No valid token found on visibility change, triggering auth revalidation');
+              // Force a check of the auth state by calling getCurrentUser
+              const currentUser = await AuthService.getCurrentUser();
+              if (!currentUser) {
+                console.log('No current user found, redirecting to login');
+                // User is no longer authenticated, redirect to login
+                router.push('/');
+              }
+            }
+          } catch (error) {
+            console.error('Error during visibility change auth check:', error);
+            // Don't show error to user when returning from minimized state, just log it
+          }
         }
       }
     };
@@ -131,72 +203,87 @@ export default function RepositoryPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isAuthenticated, isLoading, user, searchQuery, categoryFilter, unitFilter]);
+  }, [searchQuery, categoryFilter, unitFilter, router]);
 
-  const fetchDocuments = async () => {
-    // Double-check authentication state before fetching
-    if (!isAuthenticated || isLoading) {
-      return;
-    }
-    
-    try {
-      // Only set loading to true if this is not a visibility change refresh
-      setLoading(prev => prev || true);
-      
-      // Use the access token from the auth context
-      const token = await AuthService.getAccessToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      
-      // Build query parameters properly
-      const queryParams = new URLSearchParams();
-      if (searchQuery) queryParams.append('search', searchQuery);
-      if (categoryFilter && categoryFilter !== 'all') queryParams.append('category', categoryFilter);
-      if (unitFilter) queryParams.append('unit', unitFilter);
-      
-      const response = await fetch(`/api/documents?${queryParams.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        }
-      });
-    
-      if (!response.ok) {
-        // Check if the error response is JSON
-        let errorData: { error?: string } = {};
-        try {
-          errorData = await response.json();
-        } catch (parseError) {
-          // If response is not JSON, create a generic error
-          errorData = { error: `HTTP error! status: ${response.status}` };
-        }
-        
-        throw new Error(errorData.error || `Failed to fetch documents: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      setDocuments(data.documents || []);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching documents:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load documents. Please try again later.';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+   const fetchDocuments = async () => {
+     // Double-check authentication state before fetching
+     if (!isAuthenticated) {
+       return;
+     }
+     
+     try {
+       // Only set loading to true if documents haven't been loaded yet
+       // This prevents showing loading screen when returning from minimized state
+       if (documents.length === 0) {
+         setLoading(true);
+       }
+       
+       // Use the access token from the auth context
+       const token = await AuthService.getAccessToken();
+       if (!token) {
+         throw new Error('No authentication token found');
+       }
+       
+       // Build query parameters properly
+       const queryParams = new URLSearchParams();
+       if (searchQuery) queryParams.append('search', searchQuery);
+       if (categoryFilter && categoryFilter !== 'all') queryParams.append('category', categoryFilter);
+       if (unitFilter) queryParams.append('unit', unitFilter);
+       
+       const response = await fetch(`/api/documents?${queryParams.toString()}`, {
+         headers: {
+           'Authorization': `Bearer ${token}`,
+           'Content-Type': 'application/json',
+         }
+       });
+     
+       if (!response.ok) {
+         // Check if the error response is JSON
+         let errorData: { error?: string } = {};
+         try {
+           errorData = await response.json();
+         } catch (parseError) {
+           // If response is not JSON, create a generic error
+           errorData = { error: `HTTP error! status: ${response.status}` };
+         }
+         
+         // If we get a 401 (unauthorized) error, the token might have expired
+         if (response.status === 401) {
+           console.error('Authentication token expired, redirecting to login');
+           // Redirect to login page since token is no longer valid
+           router.push('/');
+           return;
+         }
+         
+         throw new Error(errorData.error || `Failed to fetch documents: ${response.status} ${response.statusText}`);
+       }
+       
+       const data = await response.json();
+       setDocuments(data.documents || []);
+       setError(null);
+     } catch (err) {
+       console.error('Error fetching documents:', err);
+       const errorMessage = err instanceof Error ? err.message : 'Failed to load documents. Please try again later.';
+       setError(errorMessage);
+       // Still set loading to false even on error to prevent being stuck in loading state
+       setLoading(false);
+       return; // Return early on error to prevent setting loading to false again in finally
+     }
+     
+     // Set loading to false after successful fetch
+     setLoading(false);
+   };
 
   // Initial fetch of documents
   useEffect(() => {
     // Only fetch documents when we're sure the user is authenticated and loaded
-    if (isAuthenticated && !isLoading && user) {
+    if (isAuthenticated && !isLoading && user && documents.length === 0) {
       fetchDocuments();
     }
-  }, [searchQuery, categoryFilter, isAuthenticated, isLoading, user]);
+  }, [isAuthenticated, isLoading, user, documents.length]); // Only run once when auth is ready and no documents exist
 
-  // Show loading state while authentication is being resolved
-  if (isLoading || (!isAuthenticated && !user)) {
+  // Show loading state only during initial authentication check, not when returning from minimized state
+ if (isLoading && documents.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -215,8 +302,8 @@ export default function RepositoryPage() {
     );
   }
 
- // Redirect if not authenticated
-  if (!isAuthenticated) {
+  // Redirect if not authenticated after initial check
+  if (!isAuthenticated && !isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -236,7 +323,7 @@ export default function RepositoryPage() {
   }
 
   // Don't render if user is null but authentication is loaded
- if (!user) {
+  if (!user && !isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -255,7 +342,7 @@ export default function RepositoryPage() {
     );
   }
 
-  const categories = ["all", "Research", "Academic", "Policy", "Extension", "Teaching"]; // Using standard categories
+  const categories = ["all", "Uncategorized", "Research", "Academic", "Policy", "Extension", "Teaching"]; // Using standard categories
   
   // NEW: Use all units since there's no status property
   const activeUnits = units;
@@ -330,7 +417,7 @@ export default function RepositoryPage() {
                     <div className="flex-1 relative">
                       <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
-                        placeholder="Search documents, tags, or keywords..."
+                        placeholder="Search documents or keywords..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-10"
@@ -383,22 +470,34 @@ export default function RepositoryPage() {
                         <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
                           <FileText className="w-6 h-6 text-primary" />
                         </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {doc.category}
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                        {doc.category && doc.category !== "Uncategorized" && (
+                          <Badge variant="secondary" className="text-xs self-end">
+                            {doc.category}
+                          </Badge>
+                        )}
+                        {/* Show unit badge when viewing all units */}
+                        {!unitFilter && doc.unit && (
+                          <Badge variant="outline" className="text-xs self-end bg-blue-50 border-blue-200 text-blue-800">
+                            {doc.unit.code || doc.unit.name}
+                          </Badge>
+                        )}
+                        </div>
                       </div>
                       <CardTitle className="text-lg line-clamp-2">{doc.title}</CardTitle>
                       <CardDescription className="line-clamp-2">{doc.description}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        <div className="flex flex-wrap gap-1">
-                          {doc.tags.slice(0, 3).map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
+                        {doc.tags && doc.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {doc.tags.slice(0, 3).map((tag) => (
+                              <Badge key={tag} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                         <div className="flex items-center justify-between text-sm text-muted-foreground">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1">
@@ -487,7 +586,8 @@ export default function RepositoryPage() {
                             doc.fileType.toLowerCase().includes('txt') ||
                             doc.fileType.toLowerCase().includes('jpg') ||
                             doc.fileType.toLowerCase().includes('jpeg') ||
-                            doc.fileType.toLowerCase().includes('png')) ? (
+                            doc.fileType.toLowerCase().includes('png') ||
+                            doc.fileType.toLowerCase().includes('gif')) ? (
                             <Button
                               className="w-full gap-2"
                               size="sm"
@@ -643,9 +743,11 @@ export default function RepositoryPage() {
                   const apiFormData = new FormData();
                   apiFormData.append('title', formData.get('title') as string);
                   apiFormData.append('description', formData.get('description') as string);
-                  apiFormData.append('category', formData.get('category') as string);
-                  apiFormData.append('tags', formData.get('tags') as string);
                   apiFormData.append('file', file);
+                  const unitId = formData.get('unitId') as string;
+                  if (unitId) {
+                    apiFormData.append('unitId', unitId);
+                  }
                   
                   // Create the request with progress tracking
                   const xhr = new XMLHttpRequest();
@@ -802,36 +904,11 @@ export default function RepositoryPage() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium mb-1">Description *</label>
+                    <label className="block text-sm font-medium mb-1">Description</label>
                     <textarea
                       name="description"
-                      required
                       className="w-full min-h-[80px] p-2 border border-input rounded-md bg-background"
-                      placeholder="Document description"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Category *</label>
-                    <select
-                      name="category"
-                      required
-                      className="w-full p-2 border-input rounded-md bg-background"
-                    >
-                      <option value="">Select a category</option>
-                      <option value="Research">Research</option>
-                      <option value="Academic">Academic</option>
-                      <option value="Policy">Policy</option>
-                      <option value="Extension">Extension</option>
-                      <option value="Teaching">Teaching</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Tags (comma-separated)</label>
-                    <Input
-                      name="tags"
-                      placeholder="research, methodology, guidelines"
+                      placeholder="Document description (optional)"
                     />
                   </div>
                   
@@ -843,6 +920,22 @@ export default function RepositoryPage() {
                       required
                       accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png"
                     />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Unit (Optional)</label>
+                    <select
+                      name="unitId"
+                      className="w-full p-2 border-input rounded-md bg-background"
+                      defaultValue=""
+                    >
+                      <option value="">Select a unit (or leave blank for unassigned)</option>
+                      {units.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.code} - {unit.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 

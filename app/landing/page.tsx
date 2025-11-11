@@ -79,6 +79,7 @@ export default function LandingPage() {
                 width={96}
                 height={96}
                 className="object-contain"
+                priority
               />
             </div>
           </div>

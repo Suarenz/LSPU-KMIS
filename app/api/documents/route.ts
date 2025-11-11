@@ -86,12 +86,10 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
-    const category = formData.get('category') as string;
-    const tags = formData.get('tags') as string;
     const unitId = formData.get('unitId') as string; // NEW: Unit assignment
     const file = formData.get('file') as File | null;
 
-    if (!title || !description || !category || !file) {
+    if (!title || !file) {
       console.log('Missing required fields');
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -99,8 +97,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Process tags
-    const tagArray = tags ? tags.split(',').map(tag => tag.trim()) : [];
+    // Process tags - not provided in form anymore, will be handled by AI
+    const tagArray: string[] = [];
 
     // Additional validation
     if (title.length > 255) {
@@ -137,10 +135,13 @@ export async function POST(request: NextRequest) {
 
       // Create the document in the database
       console.log('Creating document in database...');
+      // Use default category since it's no longer provided in form
+      const defaultCategory = "Uncategorized";
+      
       const document = await enhancedDocumentService.createDocument(
         title,
-        description,
-        category,
+        description || "", // Ensure description is not null
+        defaultCategory,
         tagArray,
         user.email, // Using email as name for now
         fileUrl,

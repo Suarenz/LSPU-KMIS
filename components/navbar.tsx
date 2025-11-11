@@ -14,14 +14,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Menu, X, Search, MessageSquare, BarChart3, LogOut, User, Moon, Sun } from "lucide-react"
+import { Menu, X, Search, MessageSquare, BarChart3, LogOut, User } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { useTheme } from "next-themes"
 
 export function Navbar() {
   const { user, logout, isLoading, isAuthenticated } = useAuth()
-  const { theme, setTheme } = useTheme()
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -56,7 +54,7 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-primary/20 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
+          {/* Logo - Left side */}
           <Link href="/dashboard" className="flex items-center gap-2 group">
             <div className="w-12 h-12 flex items-center justify-center group-hover:scale-105 transition-transform overflow-hidden">
               <Image
@@ -65,16 +63,17 @@ export function Navbar() {
                 width={48}
                 height={48}
                 className="object-contain"
+                priority
               />
             </div>
-            <div className="hidden sm:block">
+            <div className="hidden sm:flex sm:flex-col sm:items-start ml-2">
               <div className="text-xl font-bold bg-gradient-to-r from-primary to-blue-700 bg-clip-text text-transparent">LSPU KMIS</div>
-              <div className="text-xs text-muted-foreground">Knowledge Management Information System</div>
+              <div className="text-xs text-muted-foreground -mt-1">Knowledge Management Information System</div>
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
+          {/* Navigation - Center */}
+          <div className="hidden md:flex items-center gap-1 absolute left-1/2 transform -translate-x-1/2">
             {navigation.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
@@ -92,19 +91,8 @@ export function Navbar() {
             })}
           </div>
 
-          {/* Theme Toggle and User Menu */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="rounded-full"
-              aria-label="Toggle theme"
-            >
-              <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            </Button>
-            
+          {/* User Menu - Right side */}
+          <div className="flex items-center gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2">

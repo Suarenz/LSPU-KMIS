@@ -22,6 +22,11 @@ export interface Document {
   updatedAt: Date;
   unitId?: string;  // NEW: Unit association
   unit?: Unit; // NEW: Unit information
+  // Colivara-specific fields
+  colivaraDocumentId?: string;
+  colivaraProcessingStatus?: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  colivaraProcessedAt?: Date;
+  colivaraChecksum?: string;
 }
 
 export interface DocumentPermission {

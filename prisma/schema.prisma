@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = []
 }
 
 datasource db {
@@ -9,56 +10,63 @@ datasource db {
 }
 
 model User {
-  id               String               @id @default(dbgenerated("gen_random_uuid()"))
-  email            String               @unique
-  name             String
-  unitId           String?              @map("unitId")
-  avatar           String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  supabase_auth_id String?              @unique
-  role             UserRole             @default(STUDENT)
-  comments         DocumentComment[]
-  downloads        DocumentDownload[]
-  permissions      DocumentPermission[]
-  views            DocumentView[]
-  documents        Document[]
-  unitPermissions  UnitPermission[]
-  userUnit         Unit?                @relation("UserUnit", fields: [unitId], references: [id])
+  id              String               @id @default(dbgenerated("gen_random_uuid()"))
+  email           String               @unique
+  name            String
+  unitId          String?              @map("unitId")
+  avatar          String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  password        String?
+  role            UserRole             @default(STUDENT)
+  comments        DocumentComment[]
+  downloads       DocumentDownload[]
+  permissions     DocumentPermission[]
+  views           DocumentView[]
+  documents       Document[]
+  unitPermissions UnitPermission[]
+  userUnit        Unit?                @relation("UserUnit", fields: [unitId], references: [id])
 
   @@map("users")
 }
 
 model Document {
-  id               String               @id @default(cuid())
-  title            String
-  description      String
-  category         String
-  tags             Json
-  uploadedBy       String
-  uploadedAt       DateTime             @default(now())
-  fileUrl          String
-  fileName         String
-  fileType         String
-  fileSize         Int
-  version          Int                  @default(1)
-  versionNotes     String?
-  parentDocumentId String?
-  downloadsCount   Int                  @default(0)
-  viewsCount       Int                  @default(0)
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  uploadedById     String
-  unitId           String?              @map("unitId")
-  status           DocumentStatus       @default(ACTIVE)
-  comments         DocumentComment[]
-  downloads        DocumentDownload[]
-  permissions      DocumentPermission[]
-  views            DocumentView[]
-  parentDocument   Document?            @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
-  documents        Document[]           @relation("DocumentVersions")
-  documentUnit     Unit?                @relation(fields: [unitId], references: [id])
-  uploadedByUser   User                 @relation(fields: [uploadedById], references: [id])
+  id                       String               @id @default(cuid())
+  title                    String
+  description              String
+  category                 String
+  tags                     Json
+  uploadedBy               String
+  uploadedAt               DateTime             @default(now())
+  fileUrl                  String
+  fileName                 String
+  fileType                 String
+  fileSize                 Int
+  version                  Int                  @default(1)
+  versionNotes             String?
+  parentDocumentId         String?
+  downloadsCount           Int                  @default(0)
+  viewsCount               Int                  @default(0)
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  uploadedById             String
+  unitId                   String?              @map("unitId")
+  status                   DocumentStatus       @default(ACTIVE)
+  colivaraDocumentId       String?
+  colivaraEmbeddings       Json?
+  colivaraMetadata         Json?
+  colivaraProcessingStatus String?              @default("PENDING")
+  colivaraProcessedAt      DateTime?
+  colivaraChecksum         String?
+  colivaraIndexes          ColivaraIndex[]
+  comments                 DocumentComment[]
+  downloads                DocumentDownload[]
+  permissions              DocumentPermission[]
+  views                    DocumentView[]
+  parentDocument           Document?            @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
+  documents                Document[]           @relation("DocumentVersions")
+  documentUnit             Unit?                @relation(fields: [unitId], references: [id])
+  uploadedByUser           User                 @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
   @@map("documents")
 }
@@ -66,7 +74,7 @@ model Document {
 model Unit {
   id          String           @id @default(cuid())
   name        String           @unique
-  code        String?          @unique
+  code        String           @unique
   description String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -78,27 +86,27 @@ model Unit {
 }
 
 model DocumentPermission {
-  id         String          @id @default(cuid())
+  id         String   @id @default(cuid())
   documentId String
   userId     String
-  createdAt  DateTime        @default(now())
-  permission PermissionLevel
-  document   Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  permission String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, userId])
   @@map("document_permissions")
 }
 
 model UnitPermission {
-  id         String          @id @default(cuid())
+  id         String   @id @default(cuid())
   unitId     String
   userId     String
-  permission PermissionLevel
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
-  unit       Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  unit       Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([unitId, userId])
   @@map("unit_permissions")
@@ -135,11 +143,26 @@ model DocumentComment {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   document        Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  parentComment   DocumentComment?  @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  parentComment   DocumentComment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
   replies         DocumentComment[] @relation("CommentReplies")
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("document_comments")
+}
+
+model ColivaraIndex {
+  id              String   @id @default(cuid())
+  documentId      String
+  chunkId         String?
+  content         String
+  embeddings      Json
+  pageNumbers     Int[]
+  documentSection String?
+  confidenceScore Float?
+  createdAt       DateTime @default(now())
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("colivara_indexes")
 }
 
 enum UserRole {

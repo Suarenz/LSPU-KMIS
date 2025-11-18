@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Document } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
+import AuthService from "@/lib/services/auth-service";
 
 const DocumentCard = ({ doc, delay }: { doc: any; delay?: number }) => {
   const style = delay !== undefined ? { animationDelay: `${delay}s` } : {};
@@ -47,11 +48,36 @@ export default function DocumentsSection() {
   useEffect(() => {
     const fetchRecentDocuments = async () => {
       try {
+        // First, verify that we have a valid authentication state
+        if (!user) {
+          // If not authenticated, don't make the API call
+          return;
+        }
+
+        // Get the access token to ensure it's still valid
+        const token = await AuthService.getAccessToken();
+        if (!token) {
+          // If no token is available despite being authenticated, log out the user
+          await AuthService.logout();
+          return;
+        }
+
         // Get recent documents from the API
-        const response = await fetch(`/api/documents?page=1&limit=4&sort=uploadedAt&order=desc`);
+        const response = await fetch(`/api/documents?page=1&limit=4&sort=uploadedAt&order=desc`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+
         if (response.ok) {
           const data = await response.json();
           setRecentDocuments(data.documents || []);
+        } else if (response.status === 401) {
+          // If we get a 401 (unauthorized) error, the token might have expired
+          console.error('Authentication token expired, logging out user');
+          // Log out the user since token is no longer valid
+          await AuthService.logout();
         } else {
           console.error('Failed to fetch recent documents:', response.status);
           setRecentDocuments([]);

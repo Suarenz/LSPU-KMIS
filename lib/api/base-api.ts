@@ -1,7 +1,12 @@
 // lib/api/base-api.ts
+import type { ForumPost } from '../types';
+
 class BaseAPI {
   protected baseUrl: string;
   protected headers: HeadersInit;
+
+  // Internal mock forum posts data
+  private mockForumPosts: ForumPost[] = [];
 
   constructor() {
     // Check if running in browser before accessing window
@@ -16,10 +21,12 @@ class BaseAPI {
   }
 
   protected async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    // For the mock implementation, we'll handle authentication endpoints locally
+    // For the mock implementation, we'll handle authentication and forum endpoints locally
     // without making actual HTTP requests since there's no real backend server
     if (endpoint.startsWith('/auth/')) {
       return this.handleMockAuthRequest<T>(endpoint, options);
+    } else if (endpoint.startsWith('/forums')) {
+      return this.handleMockForumRequest<T>(endpoint, options);
     }
 
     // Check if fetch is available (it's not available during SSR)
@@ -78,6 +85,58 @@ class BaseAPI {
     }
 
     throw new Error(`Unknown auth endpoint: ${endpoint}`);
+  }
+
+  private async handleMockForumRequest<T>(endpoint: string, options: RequestInit): Promise<T> {
+    // Simulate API delays
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Return mock responses based on the endpoint
+    if (endpoint === '/forums' && options.method === 'GET') {
+      // Return all forum posts
+      return this.mockForumPosts as unknown as T;
+    } else if (endpoint.startsWith('/forums/') && endpoint.includes('/replies') && options.method === 'POST') {
+      // Add a reply to a forum post
+      const postId = endpoint.split('/')[2]; // Get the post ID from the URL
+      const replyData = JSON.parse(options.body as string);
+      const updatedPosts = [...this.mockForumPosts];
+      const postIndex = updatedPosts.findIndex(post => post.id === postId);
+      
+      if (postIndex !== -1) {
+        const newReply = {
+          ...replyData,
+          id: `reply_${Date.now()}`,
+          createdAt: new Date(),
+          likes: 0,
+        };
+        updatedPosts[postIndex].replies.push(newReply);
+        return updatedPosts[postIndex] as unknown as T;
+      }
+    } else if (endpoint.startsWith('/forums/') && options.method === 'GET') {
+      // Get a specific forum post by ID
+      const postId = endpoint.split('/')[2]; // Get the post ID from the URL
+      const post = this.mockForumPosts.find(post => post.id === postId);
+      if (post) {
+        return post as unknown as T;
+      }
+      throw new Error('Forum post not found');
+    } else if (endpoint === '/forums' && options.method === 'POST') {
+      // Create a new forum post
+      const postData = JSON.parse(options.body as string);
+      const newPost = {
+        ...postData,
+        id: `post_${Date.now()}`,
+        createdAt: new Date(),
+        replies: [],
+        likes: 0,
+        views: 0,
+      };
+      // Update the mock data to include the new post
+      this.mockForumPosts.push(newPost);
+      return newPost as unknown as T;
+    }
+
+    throw new Error(`Unknown forum endpoint: ${endpoint}`);
   }
 }
 

@@ -18,7 +18,7 @@ export async function GET(
     }
     
     const { user } = authResult;
-    const userId = user.userId;
+    const userId = user.id;
 
     // Get document using the document service to check permissions
     const document = await documentService.getDocumentById(id, userId);
@@ -30,27 +30,14 @@ export async function GET(
       );
     }
 
-    // Check if the document type is supported for preview
-    const supportedTypes = [
-      'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
-      'txt', 'jpg', 'jpeg', 'png', 'gif'
-    ];
+    // We allow all file types to be accessed for preview, as the frontend handles display
+    // Check if the document exists and user has permissions (this is handled by getDocumentById)
+    // All uploaded file types are now allowed for preview
     
-    const isSupportedType = supportedTypes.some(type =>
-      document.fileType.toLowerCase().includes(type)
-    );
-    
-    if (!isSupportedType) {
-      return NextResponse.json(
-        { error: 'Preview is not available for this document type' },
-        { status: 400 }
-      );
-    }
-
     // Record the view
     await documentService.recordView(id, userId);
 
-    // For Supabase Storage, we need to generate a signed URL for secure access
+    // For Azure Storage, we need to generate a signed URL for secure access
     // First, extract the filename from the stored URL
     const fileName = document.fileUrl.split('/').pop();
     if (!fileName) {

@@ -13,18 +13,13 @@ class UnitPermissionService {
     requiredPermission: PermissionLevel = 'READ'
   ): Promise<boolean> {
     try {
-      // First, try to find the user by the provided userId (which might be the database ID)
+      // First, try to find the user by the provided userId (which should be the database ID)
       let user = await prisma.user.findUnique({
         where: { id: userId },
       });
 
-      // If not found, try to find user by supabase_auth_id
-      if (!user) {
-        user = await prisma.user.findUnique({
-          where: { supabase_auth_id: userId },
-        });
-      }
-
+      // In the new system, we only use the database ID
+      // If not found by database ID, we return false
       if (!user) {
         return false;
       }
@@ -77,18 +72,13 @@ class UnitPermissionService {
         return false; // Only admins can grant unit permissions
       }
 
-      // For target user, also check both ID types
+      // For target user, only check database ID
       let targetUser = await prisma.user.findUnique({
         where: { id: targetUserId },
       });
 
-      // If not found, try to find target user by supabase_auth_id
-      if (!targetUser) {
-        targetUser = await prisma.user.findUnique({
-          where: { supabase_auth_id: targetUserId },
-        });
-      }
-
+      // In the new system, we only use the database ID
+      // If not found by database ID, we return false
       if (!targetUser) {
         return false; // Target user doesn't exist
       }
@@ -121,18 +111,13 @@ class UnitPermissionService {
         return false; // Only admins can revoke unit permissions
       }
 
-      // For target user, also check both ID types
+      // For target user, only check database ID
       let targetUser = await prisma.user.findUnique({
         where: { id: targetUserId },
       });
 
-      // If not found, try to find target user by supabase_auth_id
-      if (!targetUser) {
-        targetUser = await prisma.user.findUnique({
-          where: { supabase_auth_id: targetUserId },
-        });
-      }
-
+      // In the new system, we only use the database ID
+      // If not found by database ID, we return false
       if (!targetUser) {
         return false; // Target user doesn't exist
       }
@@ -160,13 +145,8 @@ class UnitPermissionService {
         where: { id: userId },
       });
 
-      // If not found, try to find user by supabase_auth_id
-      if (!user) {
-        user = await prisma.user.findUnique({
-          where: { supabase_auth_id: userId },
-        });
-      }
-
+      // In the new system, we only use the database ID
+      // If not found by database ID, we return null
       if (!user) {
         return null;
       }
@@ -207,13 +187,8 @@ class UnitPermissionService {
         where: { id: userId },
       });
 
-      // If not found, try to find user by supabase_auth_id
-      if (!user) {
-        user = await prisma.user.findUnique({
-          where: { supabase_auth_id: userId },
-        });
-      }
-
+      // In the new system, we only use the database ID
+      // If not found by database ID, we return an empty array
       if (!user) {
         return [];
       }

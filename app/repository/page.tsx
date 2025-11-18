@@ -29,7 +29,7 @@ export default function RepositoryPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all") // Define categoryFilter state
   const [unitFilter, setUnitFilter] = useState<string | null>(null) // NEW: Unit filter
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -56,19 +56,30 @@ export default function RepositoryPage() {
   }, [showUploadModal]);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    // Only redirect if user is explicitly not authenticated and loading is complete
+    if (!isLoading && !isAuthenticated && user === null) {
       router.push("/");
     }
-  }, [isAuthenticated, isLoading, router])
+  }, [isAuthenticated, isLoading, user, router])
 
   // Track page visibility to handle when user returns from minimized state
   // Fetch units on initial load
   useEffect(() => {
     const fetchUnits = async () => {
       try {
+        // First, verify that we have a valid authentication state
+        if (!isAuthenticated || !user) {
+          // If not authenticated, just return to prevent further execution
+          return;
+        }
+        
+        // Then try to get the access token
         const token = await AuthService.getAccessToken();
         if (!token) {
-          throw new Error('No authentication token found');
+          // If no token is available despite being authenticated, log out the user
+          await AuthService.logout();
+          router.push('/');
+          return;
         }
         
         const response = await fetch(`/api/units`, {
@@ -106,7 +117,7 @@ export default function RepositoryPage() {
     if (isAuthenticated && user) {
       fetchUnits();
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, router, isLoading]);
 
   // Update unit filter from URL params
   useEffect(() => {
@@ -132,7 +143,13 @@ export default function RepositoryPage() {
           console.log('Page became visible, revalidating authentication and refreshing documents');
           
           try {
-            // First, try to get a fresh access token to ensure authentication is still valid
+            // First, verify that we have a valid authentication state
+            if (!isAuthenticated || !user) {
+              // If not authenticated, just return to prevent further execution
+              return;
+            }
+            
+            // Then try to get a fresh access token to ensure authentication is still valid
             const token = await AuthService.getAccessToken();
             if (token) {
               // If we have a valid token, fetch documents in the background without showing loading state
@@ -179,16 +196,9 @@ export default function RepositoryPage() {
               // Update last check timestamp
               AuthService.setLastAuthCheck(now);
             } else {
-              // If no token is available, the user might need to re-authenticate
-              // This will trigger the auth context to update the state accordingly
-              console.log('No valid token found on visibility change, triggering auth revalidation');
-              // Force a check of the auth state by calling getCurrentUser
-              const currentUser = await AuthService.getCurrentUser();
-              if (!currentUser) {
-                console.log('No current user found, redirecting to login');
-                // User is no longer authenticated, redirect to login
-                router.push('/');
-              }
+              // If no token is available despite being authenticated, log out the user
+              await AuthService.logout();
+              router.push('/');
             }
           } catch (error) {
             console.error('Error during visibility change auth check:', error);
@@ -207,7 +217,8 @@ export default function RepositoryPage() {
 
    const fetchDocuments = async () => {
      // Double-check authentication state before fetching
-     if (!isAuthenticated) {
+     if (!isAuthenticated || !user) {
+       // Don't redirect here, just return to prevent further execution
        return;
      }
      
@@ -218,10 +229,19 @@ export default function RepositoryPage() {
          setLoading(true);
        }
        
-       // Use the access token from the auth context
+       // First, verify that we have a valid authentication state
+       if (!isAuthenticated || !user) {
+         // If not authenticated, just return to prevent further execution
+         return;
+       }
+       
+       // Then try to get the access token
        const token = await AuthService.getAccessToken();
        if (!token) {
-         throw new Error('No authentication token found');
+         // If no token is available despite being authenticated, log out the user
+         await AuthService.logout();
+         router.push('/');
+         return;
        }
        
        // Build query parameters properly
@@ -277,13 +297,13 @@ export default function RepositoryPage() {
   // Initial fetch of documents
   useEffect(() => {
     // Only fetch documents when we're sure the user is authenticated and loaded
-    if (isAuthenticated && !isLoading && user && documents.length === 0) {
+    if (isAuthenticated && !isLoading && user) {
       fetchDocuments();
     }
-  }, [isAuthenticated, isLoading, user, documents.length]); // Only run once when auth is ready and no documents exist
+  }, [isAuthenticated, isLoading, user, searchQuery, categoryFilter, unitFilter]); // Include filters in dependency array
 
   // Show loading state only during initial authentication check, not when returning from minimized state
- if (isLoading && documents.length === 0) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -303,7 +323,7 @@ export default function RepositoryPage() {
   }
 
   // Redirect if not authenticated after initial check
-  if (!isAuthenticated && !isLoading) {
+  if (!isAuthenticated && !isLoading && user === null) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -514,6 +534,36 @@ export default function RepositoryPage() {
                         <div className="text-xs text-muted-foreground">
                           By {doc.uploadedBy} • v{doc.version}
                         </div>
+                        
+                        {/* Show Colivara processing status */}
+                        {doc.colivaraProcessingStatus && (
+                          <div className="flex items-center gap-1 mt-1 text-xs">
+                            {doc.colivaraProcessingStatus === 'PENDING' && (
+                              <>
+                                <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+                                <span className="text-yellow-600">Processing: {doc.colivaraProcessingStatus}</span>
+                              </>
+                            )}
+                            {doc.colivaraProcessingStatus === 'PROCESSING' && (
+                              <>
+                                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                                <span className="text-blue-600">Processing: {doc.colivaraProcessingStatus}</span>
+                              </>
+                            )}
+                            {doc.colivaraProcessingStatus === 'COMPLETED' && (
+                              <>
+                                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                <span className="text-green-600">Processing: {doc.colivaraProcessingStatus}</span>
+                              </>
+                            )}
+                            {doc.colivaraProcessingStatus === 'FAILED' && (
+                              <>
+                                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                                <span className="text-red-600">Processing: {doc.colivaraProcessingStatus}</span>
+                              </>
+                            )}
+                          </div>
+                        )}
                         {downloadingDocId === doc.id ? (
                           <Button className="w-full gap-2" size="sm" disabled>
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -531,35 +581,27 @@ export default function RepositoryPage() {
                                   throw new Error('Download can only be initiated from the browser');
                                 }
                                 
-                                // Get the JWT token from auth context
+                                // First, verify that we have a valid authentication state
+                                if (!isAuthenticated || !user) {
+                                  // If not authenticated, just return to prevent further execution
+                                  return;
+                                }
+                                
+                                // Then try to get the access token
                                 const downloadToken = await AuthService.getAccessToken();
                                 if (!downloadToken) {
-                                  throw new Error('No authentication token found');
+                                  // If no token is available despite being authenticated, log out the user
+                                  await AuthService.logout();
+                                  router.push('/');
+                                  return;
                                 }
-                                
-                                // Fetch download using the direct download endpoint
-                                const response = await fetch(`/api/documents/${doc.id}/download-direct`, {
-                                  headers: {
-                                    'Authorization': `Bearer ${downloadToken}`,
-                                  }
-                                });
-                                
-                                if (!response.ok) {
-                                  const errorData = await response.json().catch(() => ({}));
-                                  throw new Error(errorData.error || 'Failed to download document');
-                                }
-                                
-                                // No need to fetch JSON response for direct download
-                                const downloadData = {
-                                  fileName: doc.fileName,
-                                  title: doc.title
-                                };
                                 
                                 // Create a temporary link and trigger download using the direct download endpoint
-                                const directDownloadUrl = `/api/documents/${doc.id}/download-direct`;
+                                // The API endpoint will handle the redirect to the actual file
+                                const directDownloadUrl = `/api/documents/${doc.id}/download-direct?token=${downloadToken}`;
                                 const link = document.createElement('a');
                                 link.href = directDownloadUrl;
-                                link.download = downloadData.fileName || `document-${doc.id}`;
+                                link.download = doc.fileName || `document-${doc.id}`;
                                 document.body.appendChild(link);
                                 link.click();
                                 document.body.removeChild(link);
@@ -576,18 +618,8 @@ export default function RepositoryPage() {
                           </Button>
                         )}
                         <div className="flex gap-2">
-                          {(doc.fileType.toLowerCase().includes('pdf') ||
-                            doc.fileType.toLowerCase().includes('doc') ||
-                            doc.fileType.toLowerCase().includes('docx') ||
-                            doc.fileType.toLowerCase().includes('ppt') ||
-                            doc.fileType.toLowerCase().includes('pptx') ||
-                            doc.fileType.toLowerCase().includes('xls') ||
-                            doc.fileType.toLowerCase().includes('xlsx') ||
-                            doc.fileType.toLowerCase().includes('txt') ||
-                            doc.fileType.toLowerCase().includes('jpg') ||
-                            doc.fileType.toLowerCase().includes('jpeg') ||
-                            doc.fileType.toLowerCase().includes('png') ||
-                            doc.fileType.toLowerCase().includes('gif')) ? (
+                          {/* Show preview button for all supported file types */}
+                          {true ? (
                             <Button
                               className="w-full gap-2"
                               size="sm"
@@ -612,9 +644,19 @@ export default function RepositoryPage() {
                               e.stopPropagation(); // Prevent card click from triggering
                               if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
                                 try {
+                                  // First, verify that we have a valid authentication state
+                                  if (!isAuthenticated || !user) {
+                                    // If not authenticated, just return to prevent further execution
+                                    return;
+                                  }
+                                  
+                                  // Then try to get the access token
                                   const token = await AuthService.getAccessToken();
                                   if (!token) {
-                                    throw new Error('No authentication token found');
+                                    // If no token is available despite being authenticated, log out the user
+                                    await AuthService.logout();
+                                    router.push('/');
+                                    return;
                                   }
                                   
                                   const response = await fetch(`/api/documents/${doc.id}`, {
@@ -733,10 +775,19 @@ export default function RepositoryPage() {
                     throw new Error('Please select a file to upload');
                   }
                   
-                  // Get authentication token for the upload
+                  // First, verify that we have a valid authentication state
+                  if (!isAuthenticated || !user) {
+                    // If not authenticated, just return to prevent further execution
+                    return;
+                  }
+                  
+                  // Then try to get the access token
                   const token = await AuthService.getAccessToken();
                   if (!token) {
-                    throw new Error('No authentication token found');
+                    // If no token is available despite being authenticated, log out the user
+                    await AuthService.logout();
+                    router.push('/');
+                    return;
                   }
                   
                   // Create a new FormData object for the API request

@@ -60,11 +60,10 @@ class UnitDocumentService {
         where: { id: userId },
       });
 
-      // If not found, try to find user by supabase_auth_id
+      // In the new system, we only use the database ID
+      // If not found by database ID, we just return empty results
       if (!user) {
-        user = await prisma.user.findUnique({
-          where: { supabase_auth_id: userId },
-        });
+        return { documents: [], total: 0 };
       }
 
       if (user && user.role !== 'ADMIN' && user.role !== 'FACULTY') {
@@ -137,11 +136,10 @@ class UnitDocumentService {
           where: { id: userId },
         });
 
-        // If not found, try to find user by supabase_auth_id
+        // In the new system, we only use the database ID
+        // If not found by database ID, we just return null
         if (!user) {
-          user = await prisma.user.findUnique({
-            where: { supabase_auth_id: userId },
-          });
+          return null;
         }
 
         if (user && user.role !== 'ADMIN' && user.role !== 'FACULTY') {
@@ -167,6 +165,10 @@ class UnitDocumentService {
         uploadedAt: new Date(document.uploadedAt),
         createdAt: new Date(document.createdAt),
         updatedAt: new Date(document.updatedAt),
+        colivaraDocumentId: document.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: document.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: document.colivaraProcessedAt ? new Date(document.colivaraProcessedAt) : undefined,
+        colivaraChecksum: document.colivaraChecksum ?? undefined,
       };
     } catch (error) {
       console.error('Database connection error in getDocumentById:', error);
@@ -209,12 +211,10 @@ class UnitDocumentService {
         where: { id: userId },
       });
 
-      // If not found, try to find user by supabase_auth_id
-      if (!user) {
-        user = await prisma.user.findUnique({
-          where: { supabase_auth_id: userId },
-        });
-      }
+      // Use only database ID to find user
+      user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
       
       console.log('User lookup result:', { user: !!user, role: user?.role });
 
@@ -274,6 +274,10 @@ class UnitDocumentService {
         uploadedAt: new Date(updatedDoc.uploadedAt),
         createdAt: new Date(updatedDoc.createdAt),
         updatedAt: new Date(updatedDoc.updatedAt),
+        colivaraDocumentId: updatedDoc.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: updatedDoc.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: updatedDoc.colivaraProcessedAt ? new Date(updatedDoc.colivaraProcessedAt) : undefined,
+        colivaraChecksum: updatedDoc.colivaraChecksum ?? undefined,
       };
     } catch (error) {
       console.error('Database connection error in createDocument:', error);
@@ -312,11 +316,10 @@ class UnitDocumentService {
           where: { id: userId },
         });
 
-        // If not found, try to find user by supabase_auth_id
+        // In the new system, we only use the database ID
+        // If not found by database ID, we just return null
         if (!user) {
-          user = await prisma.user.findUnique({
-            where: { supabase_auth_id: userId },
-          });
+          return null;
         }
 
         if (user) {
@@ -375,6 +378,10 @@ class UnitDocumentService {
         uploadedAt: new Date(finalDocument.uploadedAt),
         createdAt: new Date(finalDocument.createdAt),
         updatedAt: new Date(finalDocument.updatedAt),
+        colivaraDocumentId: finalDocument.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: finalDocument.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: finalDocument.colivaraProcessedAt ? new Date(finalDocument.colivaraProcessedAt) : undefined,
+        colivaraChecksum: finalDocument.colivaraChecksum ?? undefined,
       };
     } catch (error) {
       console.error('Database connection error in updateDocument:', error);

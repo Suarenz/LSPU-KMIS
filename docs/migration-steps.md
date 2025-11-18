@@ -1,6 +1,6 @@
-# Supabase Authentication Migration - Complete Steps
+# Database Authentication Migration - Complete Steps
 
-This document outlines all the steps needed to complete the Supabase authentication migration.
+This document outlines all the steps needed to complete the migration from Supabase to database-based authentication.
 
 ## Prerequisites
 
@@ -10,9 +10,8 @@ This document outlines all the steps needed to complete the Supabase authenticat
    - Note your username (typically 'postgres') and password
 
 2. **Install required packages** (if not already installed):
-   ```bash
-   npm install @supabase/supabase-js @supabase/ssr
-   ```
+   # Supabase dependencies were removed as part of migration to Azure
+   # The system now uses database-based authentication with JWT
 
 ## Step 1: Database Setup
 
@@ -54,20 +53,16 @@ This document outlines all the steps needed to complete the Supabase authenticat
 
 2. **Update environment variables in `.env`**:
    ```env
-   # Supabase Configuration
-   NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
-   NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
-   
-   # Database (for production with Supabase)
-   DATABASE_URL="postgresql://[DB-USER].[PROJECT-REF]:[PRISMA-PASSWORD]@[DB-REGION].pooler.supabase.com:6543/postgres?pgbouncer=true"
-   DIRECT_URL="postgresql://[DB-USER].[PROJECT-REF]:[PRISMA-PASSWORD]@[DB-REGION].pooler.supabase.com:5432/postgres"
+   # Azure Database Configuration
+   DATABASE_URL="postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres?sslmode=require"
+   DIRECT_URL="postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres"
    ```
 
 ## Step 2: Run Database Migration
 
 1. **Run Prisma migration**:
    ```bash
-   npx prisma migrate dev --name add_supabase_auth_id_to_users
+   npx prisma migrate dev --name add_auth_fields_to_users
    ```
 
 2. **If you encounter issues with migrate, try db push**:
@@ -89,18 +84,16 @@ This document outlines all the steps needed to complete the Supabase authenticat
 
 2. **Add Service Role Key to environment variables**:
     ```env
-    # Supabase Configuration
-    NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
-    NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+    # Azure Database Configuration
+    DATABASE_URL="postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres?sslmode=require"
     SUPABASE_SERVICE_ROLE_KEY="your_service_role_key"
     ```
     
     Make sure to replace the placeholder values with your actual Supabase project credentials.
 
 3. **Run the user migration script**:
-    ```bash
-    npx tsx scripts/migrate-users-to-supabase.ts
-    ```
+    # User migration scripts are no longer needed as we're using database authentication
+    # Users are already stored in the database with encrypted passwords
     
     Note: We use `tsx` instead of `ts-node` for better ES module support.
 
@@ -113,8 +106,8 @@ This document outlines all the steps needed to complete the Supabase authenticat
    - Test document upload/download permissions
 
 2. **Check the database**:
-   - Verify that the `users` table has the `supabase_auth_id` column
-   - Confirm that existing users have been linked to Supabase Auth IDs
+   - Verify that the `users` table has the authentication fields
+   - Confirm that existing users have been properly configured
 
 ## Troubleshooting
 
@@ -133,7 +126,7 @@ This document outlines all the steps needed to complete the Supabase authenticat
 3. **User Migration Issues**:
    - Ensure Service Role Key has proper permissions
    - Check that the users table exists and has data
-   - Verify that the `supabase_auth_id` column was added successfully
+   - Verify that the authentication fields were added successfully
 
 ### For Production Deployment:
 
@@ -187,7 +180,8 @@ This will create the default user accounts (admin, faculty, student, external) i
 After running the create users script, you can verify that the users exist by running the check script (though it may not show output if there are no issues):
 
 ```bash
-npx tsx scripts/check-users-in-supabase.ts
+# This script is no longer needed as we're not using Supabase
+# User verification is handled through the database directly
 ```
 
 ### Step 3: Reset Passwords (if needed)

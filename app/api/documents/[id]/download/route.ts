@@ -18,7 +18,7 @@ export async function GET(
     }
     
     const { user } = authResult;
-    const userId = user.userId;
+    const userId = user.id;
 
     // Get document using the document service to check permissions
     const document = await documentService.getDocumentById(id, userId);
@@ -33,7 +33,7 @@ export async function GET(
     // Record the download
     await documentService.recordDownload(id, userId);
 
-    // For Supabase Storage, we need to generate a signed URL for secure access
+    // For Azure Storage, we need to generate a signed URL for secure access
     // First, extract the filename from the stored URL
     const fileName = document.fileUrl.split('/').pop();
     if (!fileName) {

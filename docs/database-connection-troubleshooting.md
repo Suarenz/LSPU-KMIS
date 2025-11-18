@@ -2,11 +2,11 @@
 
 ## Error: P1001: Can't reach database server
 
-This document explains the common causes of the Prisma error `P1001: Can't reach database server` and provides solutions for fixing it, particularly in the context of a Supabase connection.
+This document explains the common causes of the Prisma error `P1001: Can't reach database server` and provides solutions for fixing it, particularly in the context of an Azure Database connection.
 
 ## Root Cause Analysis
 
-The error `P1001: Can't reach database server at db.mydcfacggxluyljslcbp.supabase.co:5432` typically occurs due to one of the following issues:
+The error `P1001: Can't reach database server` typically occurs due to one of the following issues:
 
 1. **Incorrect database password in connection string**
 2. **Network connectivity issues**
@@ -20,46 +20,38 @@ The error `P1001: Can't reach database server at db.mydcfacggxluyljslcbp.supabas
 The database connection strings in your `.env` file need to be properly formatted with the correct password. The current format should be:
 
 ```env
-# Database (for Prisma - use connection pooling string for serverless)
-DATABASE_URL="postgresql://postgres.[PROJECT_ID]:[YOUR-DB-PASSWORD]@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
+# Database (for Prisma - Azure connection)
+DATABASE_URL="postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres?sslmode=require"
 
 # Direct connection to the database (used for migrations)
-DIRECT_URL="postgresql://postgres.[PROJECT_ID]:[YOUR-DB-PASSWORD]@db.[PROJECT_ID].supabase.co:5432/postgres"
+DIRECT_URL="postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres"
 ```
 
 ### 2. How to Get Your Database Password
 
-You can retrieve your actual database password from the Supabase Dashboard:
+You can retrieve your actual database password from the Azure Portal:
 
-1. Go to your [Supabase Dashboard](https://supabase.com/dashboard)
-2. Select your project
-3. Navigate to "Project Settings" → "Database"
+1. Go to your Azure portal
+2. Select your PostgreSQL database resource
+3. Navigate to "Connection strings" or "Settings" → "Database"
 4. Look for "Connection string" section
 5. Use the password from the connection string
 
 Alternatively, you can use the Supabase CLI to get the connection details:
 
 ```bash
-# First, login to Supabase CLI
-supabase login
-
-# Then link your project (replace with your actual project ref)
-supabase link --project-ref [YOUR-PROJECT-REF]
+# For Azure Database, no special CLI is needed
+# Connection is handled directly through the connection string
 ```
 
 ### 3. Example of Corrected .env File
 
 ```env
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://mydcfacggxluyljslcbp.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15ZGNmYWNnZ3hsdXlsanNsY2JwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjg3NjgsImV4cCI6MjA3NjcwNDc2OH0.P-7fhrK3yx71oxOi8onilmt29PKygQYZ9pVqAxEw8Zk
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15ZGNmYWNnZ3hsdXlsanNsY2JwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTEyODc2OCwiZXhwIjoyMDc2NzA0NzY4fQ.XEZ4cNh9cloahJr7h0u0RwayduWvSigr1PLECKItgNQ
-
-# Database (for Prisma - use connection pooling string for serverless)
-DATABASE_URL="postgresql://postgres.mydcfacggxluyljslcbp:[YOUR-DB-PASSWORD]@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
+# Database (for Prisma - Azure connection)
+DATABASE_URL="postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres?sslmode=require"
 
 # Direct connection to the database (used for migrations)
-DIRECT_URL="postgresql://postgres.mydcfacggxluyljslcbp:[YOUR-DB-PASSWORD]@db.mydcfacggxluyljslcbp.supabase.co:5432/postgres"
+DIRECT_URL="postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres"
 
 # JWT
 JWT_SECRET="6dFk5d0vbyLnZC0Amy83LtI47DsNr/KB4M+FgbUc6njd4cjk7XB2/8nTuhQDWW8OOgQ6fI74huxJE3a/RP2giw=="
@@ -93,14 +85,14 @@ npx prisma db push
 
 If you continue to experience connection issues:
 
-1. **Check Network Connectivity**: Ensure your network allows connections to Supabase
-2. **Verify Project ID**: Make sure the project ID in your connection string matches your actual Supabase project
+1. **Check Network Connectivity**: Ensure your network allows connections to Azure Database
+2. **Verify Server Name**: Make sure the server name in your connection string matches your actual Azure Database server
 3. **Check Firewall**: Some networks or corporate firewalls may block connections to external databases
 4. **Validate Credentials**: Double-check that your database password is correct
-5. **Try Direct Connection**: Temporarily use DIRECT_URL for operations to see if the issue is with connection pooling
-6. **Check Supabase Database Status**: Verify that your Supabase project database is active and not paused
-7. **IP Restrictions**: Check if there are any IP restrictions on your Supabase project that might block your connection
-8. **Try Different Connection Method**: If connection pooling doesn't work, try using the direct connection (without pooler) for migrations
+5. **Try Direct Connection**: Temporarily use DIRECT_URL for operations to see if the issue is with connection settings
+6. **Check Azure Database Status**: Verify that your Azure Database resource is active and not paused
+7. **IP Restrictions**: Check if there are any IP restrictions in your Azure Database firewall that might block your connection
+8. **Try Different Connection Method**: If the connection doesn't work, try adjusting SSL settings in your connection string
 
 ## Testing Direct Connection vs Pooling
 
@@ -108,17 +100,17 @@ If you're still having issues, try testing with the direct connection first:
 
 ```bash
 # Test with direct connection only
-export DATABASE_URL="postgresql://postgres.mydcfacggxluyljslcbp:[YOUR-DB-PASSWORD]@db.mydcfacggxluyljslcbp.supabase.co:5432/postgres"
+export DATABASE_URL="postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres"
 npx prisma db pull
 ```
 
-## Supabase-Specific Considerations
+## Azure Database-Specific Considerations
 
-1. **Connection Pooling**: Supabase uses connection pooling which can sometimes cause issues with certain operations. The direct connection (using `db.*.supabase.co`) bypasses the pooler.
+1. **SSL Connection**: Azure Database for PostgreSQL requires SSL connections, which is why our connection strings include `sslmode=require`.
 
-2. **Database Region**: Make sure the region in your connection string matches your Supabase project region. In this case, it's `aws-1-ap-south-1` which should match your project's region.
+2. **Connection String Format**: Make sure your connection string follows the format `postgresql://username:password@server:port/database?sslmode=require`.
 
-3. **Database Settings**: Check if your Supabase project has any specific settings that might affect connections.
+3. **Firewall Settings**: Check your Azure Database firewall settings to ensure your IP address or application is allowed to connect.
 
 ## Alternative Connection Testing
 
@@ -126,7 +118,7 @@ You can also test your database connection directly using psql or another Postgr
 
 ```bash
 # Test connection with psql (if installed)
-psql "postgresql://postgres.mydcfacggxluyljslcbp:[YOUR-DB-PASSWORD]@db.mydcfacggxluyljslcbp.supabase.co:5432/postgres"
+psql "postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres?sslmode=require"
 ```
 
 ## Security Best Practices

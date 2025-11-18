@@ -13,18 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Image from "next/image"
 import AuthService from '@/lib/services/auth-service';
 import { Document } from '@/lib/api/types';
-
-interface ForumPost {
-  id: string;
-  title: string;
- content: string;
-  author: string;
-  category: string;
-  tags: string[];
-  replies: any[];
-  likes: number;
-  createdAt: string;
-}
+import ForumAPI from '@/lib/api/forum-api';
+import type { ForumPost } from '@/lib/types';
 
 export default function SearchPage() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -55,11 +45,12 @@ export default function SearchPage() {
             throw new Error('No authentication token found');
           }
 
-          // Build query parameters properly
+          // Build query parameters for the new search API
           const queryParams = new URLSearchParams();
-          if (searchQuery) queryParams.append('search', searchQuery);
+          queryParams.append('query', searchQuery);
           
-          const response = await fetch(`/api/documents?${queryParams.toString()}`, {
+          // Search for documents using the new enhanced search API
+          const response = await fetch(`/api/search?${queryParams.toString()}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
@@ -67,13 +58,43 @@ export default function SearchPage() {
           });
 
           if (!response.ok) {
-            throw new Error(`Failed to fetch documents: ${response.status} ${response.statusText}`);
+            // Handle different status codes appropriately
+            if (response.status === 500) {
+              console.error('Search API internal server error:', response.status, response.statusText);
+              // Set empty results and show user-friendly message
+              setSearchResults({ documents: [], forums: [] });
+              return;
+            } else if (response.status === 401) {
+              console.error('Authentication error during search:', response.status);
+              await AuthService.logout();
+              return;
+            } else if (response.status === 403) {
+              console.error('Forbidden access during search:', response.status);
+              setSearchResults({ documents: [], forums: [] });
+              return;
+            } else {
+              throw new Error(`Failed to fetch documents: ${response.status} ${response.statusText}`);
+            }
           }
 
           const data = await response.json();
+          
+          // Extract documents from the enhanced search results
+          const documents = data.results.map((result: any) => result.document || result);
+          
+          // Search for forums using ForumAPI
+          const allForumPosts = await new ForumAPI().getForumPosts();
+          // Filter forum posts based on search query
+          const filteredForumPosts = allForumPosts.filter(post =>
+            post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            post.category.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+          
           setSearchResults({
-            documents: data.documents || [],
-            forums: [], // Forums will be implemented later
+            documents: documents || [],
+            forums: filteredForumPosts,
           });
         } catch (error) {
           console.error('Search error:', error);
@@ -216,31 +237,51 @@ export default function SearchPage() {
                   </div>
                 ) : (
                   <>
-                    {searchResults.documents.map((doc) => (
-                      <Card key={doc.id} className="hover:shadow-lg transition-shadow">
-                        <CardHeader>
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <FileText className="w-5 h-5 text-primary" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <CardTitle className="text-lg">{doc.title}</CardTitle>
-                                <Badge variant="secondary">{doc.category}</Badge>
+                    {searchResults.documents.map((doc, index) => {
+                      // Check if this document is from enhanced search (has additional properties)
+                      const enhancedResult = Array.isArray(searchResults.documents) && searchResults.documents.length > 0 && 'documentId' in searchResults.documents[0];
+                      const enhancedDoc = enhancedResult ? (searchResults as any).documents[index] : null;
+                      
+                      return (
+                        <Card key={doc.id} className="hover:shadow-lg transition-shadow">
+                          <CardHeader>
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <FileText className="w-5 h-5 text-primary" />
                               </div>
-                              <CardDescription className="mt-1">{doc.description}</CardDescription>
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {doc.tags.map((tag) => (
-                                  <Badge key={tag} variant="outline" className="text-xs">
-                                    {tag}
-                                  </Badge>
-                                ))}
+                              <div className="flex-1">
+                                <div className="flex items-start justify-between gap-2">
+                                  <CardTitle className="text-lg">{doc.title}</CardTitle>
+                                  <Badge variant="secondary">{doc.category}</Badge>
+                                </div>
+                                {/* Show enhanced content snippet if available */}
+                                {enhancedDoc?.snippet ? (
+                                  <CardDescription className="mt-1" dangerouslySetInnerHTML={{ __html: enhancedDoc.snippet }} />
+                                ) : (
+                                  <CardDescription className="mt-1">{doc.description}</CardDescription>
+                                )}
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {doc.tags.map((tag: string) => (
+                                    <Badge key={tag} variant="outline" className="text-xs">
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </div>
+                                {/* Show additional metadata if available from enhanced search */}
+                                {enhancedDoc?.confidenceScore && (
+                                  <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
+                                    <span>Relevance: {(enhancedDoc.confidenceScore * 100).toFixed(0)}%</span>
+                                    {enhancedDoc.pageNumbers && enhancedDoc.pageNumbers.length > 0 && (
+                                      <span>Pages: {enhancedDoc.pageNumbers.join(', ')}</span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
-                          </div>
-                        </CardHeader>
-                      </Card>
-                    ))}
+                          </CardHeader>
+                        </Card>
+                      );
+                    })}
 
                     {searchResults.forums.map((post) => (
                       <Card key={post.id} className="hover:shadow-lg transition-shadow">
@@ -277,31 +318,51 @@ export default function SearchPage() {
                     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 ) : (
-                  searchResults.documents.map((doc) => (
-                    <Card key={doc.id} className="hover:shadow-lg transition-shadow">
-                      <CardHeader>
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FileText className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <CardTitle className="text-lg">{doc.title}</CardTitle>
-                              <Badge variant="secondary">{doc.category}</Badge>
+                  searchResults.documents.map((doc, index) => {
+                    // Check if this document is from enhanced search (has additional properties)
+                    const enhancedResult = Array.isArray(searchResults.documents) && searchResults.documents.length > 0 && 'documentId' in searchResults.documents[0];
+                    const enhancedDoc = enhancedResult ? (searchResults as any).documents[index] : null;
+                    
+                    return (
+                      <Card key={doc.id} className="hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-5 h-5 text-primary" />
                             </div>
-                            <CardDescription className="mt-1">{doc.description}</CardDescription>
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {doc.tags.map((tag) => (
-                                <Badge key={tag} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <CardTitle className="text-lg">{doc.title}</CardTitle>
+                                <Badge variant="secondary">{doc.category}</Badge>
+                              </div>
+                              {/* Show enhanced content snippet if available */}
+                              {enhancedDoc?.snippet ? (
+                                <CardDescription className="mt-1" dangerouslySetInnerHTML={{ __html: enhancedDoc.snippet }} />
+                              ) : (
+                                <CardDescription className="mt-1">{doc.description}</CardDescription>
+                              )}
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {doc.tags.map((tag: string) => (
+                                  <Badge key={tag} variant="outline" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                              {/* Show additional metadata if available from enhanced search */}
+                              {enhancedDoc?.confidenceScore && (
+                                <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
+                                  <span>Relevance: {(enhancedDoc.confidenceScore * 100).toFixed(0)}%</span>
+                                  {enhancedDoc.pageNumbers && enhancedDoc.pageNumbers.length > 0 && (
+                                    <span>Pages: {enhancedDoc.pageNumbers.join(', ')}</span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      </CardHeader>
-                    </Card>
-                  ))
+                        </CardHeader>
+                      </Card>
+                    );
+                  })
                 )}
               </TabsContent>
 

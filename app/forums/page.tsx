@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { MOCK_FORUM_POSTS } from "@/lib/mock-data"
+import ForumAPI from "@/lib/api/forum-api"
 import type { ForumPost } from "@/lib/types"
 import { MessageSquare, ThumbsUp, Eye, Plus, TrendingUp } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -17,8 +17,9 @@ import Image from "next/image"
 export default function ForumsPage() {
   const { user, isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
-  const [posts, setPosts] = useState<ForumPost[]>(MOCK_FORUM_POSTS)
+  const [posts, setPosts] = useState<ForumPost[]>([])
   const [categoryFilter, setCategoryFilter] = useState("all")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -27,14 +28,26 @@ export default function ForumsPage() {
   }, [isAuthenticated, isLoading, router])
 
   useEffect(() => {
-    if (categoryFilter === "all") {
-      setPosts(MOCK_FORUM_POSTS)
-    } else {
-      setPosts(MOCK_FORUM_POSTS.filter((post) => post.category === categoryFilter))
-    }
-  }, [categoryFilter])
+    const fetchPosts = async () => {
+      try {
+        setLoading(true);
+        const forumPosts = await new ForumAPI().getForumPosts(categoryFilter);
+        setPosts(forumPosts);
+      } catch (error) {
+        console.error('Error fetching forum posts:', error);
+        // Fallback to empty array if there's an error
+        setPosts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  if (isLoading) {
+    if (isAuthenticated && !isLoading) {
+      fetchPosts();
+    }
+  }, [categoryFilter, isAuthenticated, isLoading])
+
+  if (isLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -92,7 +105,8 @@ export default function ForumsPage() {
     );
   }
 
-  const categories = ["all", ...Array.from(new Set(MOCK_FORUM_POSTS.map((post) => post.category)))]
+  // Get unique categories from the loaded posts
+  const categories = ["all", ...Array.from(new Set(posts.map((post) => post.category)))]
 
   const getInitials = (name: string) => {
     return name
@@ -245,7 +259,7 @@ export default function ForumsPage() {
           ))}
         </div>
 
-        {posts.length === 0 && (
+        {posts.length === 0 && !loading && (
           <Card className="animate-fade-in">
             <CardContent className="py-12 text-center">
               <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

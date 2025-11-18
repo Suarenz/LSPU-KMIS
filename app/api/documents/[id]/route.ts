@@ -17,7 +17,7 @@ export async function GET(
     }
     
     const { user } = authResult;
-    const userId = user.userId;
+    const userId = user.id;
 
     // Get document using the document service
     const document = await documentService.getDocumentById(id, userId);
@@ -54,12 +54,12 @@ export async function PUT(
     
     const { user } = authResult;
 
-    const userId = user.userId;
+    const userId = user.id;
     const userRole = user.role;
 
     // Parse request body
     const body = await request.json();
-    const { title, description, category, tags, unitId } = body; // NEW: Include unitId
+    const { title, description, category, tags, unitId, fileUrl } = body; // NEW: Include fileUrl for Colivara reprocessing
 
     // Update the document in the database
     const updatedDocument = await documentService.updateDocument(
@@ -69,7 +69,8 @@ export async function PUT(
       category,
       tags,
       unitId, // NEW: Pass unitId to updateDocument
-      userId
+      userId,
+      fileUrl // NEW: Pass fileUrl for Colivara reprocessing
     );
 
     if (!updatedDocument) {
@@ -104,7 +105,7 @@ export async function DELETE(
     
     const { user } = authResult;
 
-    const userId = user.userId;
+    const userId = user.id;
 
     // Delete the document (this will delete both database record and file)
     const success = await documentService.deleteDocument(id, userId);

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Users, Download, Eye } from "lucide-react";
+import AuthService from "@/lib/services/auth-service";
 
 interface StatCardProps {
   title: string;
@@ -51,7 +52,19 @@ export default function StatsSection() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('/api/analytics');
+        // Get the access token to ensure it's still valid
+        const token = await AuthService.getAccessToken();
+        if (!token) {
+          // If no token is available, don't make the API call
+          return;
+        }
+
+        const response = await fetch('/api/analytics', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
         if (response.ok) {
           const data = await response.json();
           const newStats = [
@@ -85,6 +98,47 @@ export default function StatsSection() {
             },
           ];
           setStats(newStats);
+        } else if (response.status === 401) {
+          // If we get a 401 (unauthorized) error, the token might have expired
+          console.error('Authentication token expired, logging out user');
+          // Log out the user since token is no longer valid
+          await AuthService.logout();
+        } else if (response.status === 403) {
+          // If we get a 403 (forbidden) error, user doesn't have permission
+          console.error('User does not have permission to access stats');
+          // Get user role to display in access level
+          const userData = await AuthService.getCurrentUser();
+          // Set default stats for users without permission
+          setStats([
+            {
+              title: "Your Documents",
+              value: "0",
+              icon: FileText,
+              color: "text-primary",
+              bgColor: "bg-primary/10",
+            },
+            {
+              title: "Your Downloads",
+              value: "0",
+              icon: Download,
+              color: "text-secondary",
+              bgColor: "bg-secondary/10",
+            },
+            {
+              title: "Your Views",
+              value: "0",
+              icon: Eye,
+              color: "text-accent",
+              bgColor: "bg-accent/10",
+            },
+            {
+              title: "Access Level",
+              value: userData?.role || "User",
+              icon: Users,
+              color: "text-primary",
+              bgColor: "bg-primary/10",
+            },
+          ]);
         } else {
           console.error('Failed to fetch stats:', response.status);
           // Set default stats if API call fails

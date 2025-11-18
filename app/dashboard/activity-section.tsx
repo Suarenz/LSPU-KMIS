@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Activity } from "@/lib/types";
+import AuthService from "@/lib/services/auth-service";
 
 const ActivityItem = ({ activity, delay }: { activity: Activity; delay?: number }) => {
   const style = delay !== undefined ? { animationDelay: `${delay}s` } : {};
@@ -30,10 +31,32 @@ export default function ActivitySection() {
   useEffect(() => {
     const fetchRecentActivity = async () => {
       try {
-        const response = await fetch('/api/analytics');
+        // Get the access token to ensure it's still valid
+        const token = await AuthService.getAccessToken();
+        if (!token) {
+          // If no token is available, don't make the API call
+          return;
+        }
+
+        const response = await fetch('/api/analytics', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
         if (response.ok) {
           const data = await response.json();
           setRecentActivity(data.recentActivity || []);
+        } else if (response.status === 401) {
+          // If we get a 401 (unauthorized) error, the token might have expired
+          console.error('Authentication token expired, logging out user');
+          // Log out the user since token is no longer valid
+          await AuthService.logout();
+        } else if (response.status === 403) {
+          // If we get a 403 (forbidden) error, user doesn't have permission
+          console.error('User does not have permission to access recent activity');
+          // Set empty array for users without permission
+          setRecentActivity([]);
         } else {
           console.error('Failed to fetch recent activity:', response.status);
           // Set empty array if API call fails

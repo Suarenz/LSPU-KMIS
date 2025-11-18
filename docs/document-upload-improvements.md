@@ -65,7 +65,7 @@ WITH CHECK (
   bucket_id = 'repository-files'
   AND (EXISTS (
     SELECT 1 FROM users
-    WHERE users.supabase_auth_id::text = auth.uid()::text
+    WHERE users.id::text = auth.uid()::text
     AND users.role IN ('ADMIN', 'FACULTY')
   ))
 );
@@ -80,7 +80,7 @@ USING (
     owner_id::text = auth.uid()::text
     OR EXISTS (
       SELECT 1 FROM users
-      WHERE users.supabase_auth_id::text = auth.uid()::text
+      WHERE users.id::text = auth.uid()::text
       AND users.role = 'ADMIN'
     )
   )
@@ -96,7 +96,7 @@ USING (
     owner_id::text = auth.uid()::text
     OR EXISTS (
       SELECT 1 FROM users
-      WHERE users.supabase_auth_id::text = auth.uid()::text
+      WHERE users.id::text = auth.uid()::text
       AND users.role = 'ADMIN'
     )
   )
@@ -136,7 +136,6 @@ The document upload system has been significantly improved with:
 - Accurate progress calculation during uploads
 - Proper user feedback through toast notifications
 - Reliable document visibility after upload
-- Correct Supabase Storage RLS policies for secure access
 - Better error handling and user experience
 
 These fixes should resolve all the issues mentioned in the original problem statement, providing users with accurate progress feedback, clear success notifications, and immediate visibility of their uploaded documents.

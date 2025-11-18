@@ -1,27 +1,19 @@
 # Database Configuration Guide
 
-## Supabase Database Connection Setup
+## Azure Database Connection Setup
 
-This application uses Supabase as the database provider with Prisma ORM for database operations. Proper configuration is essential for the application to work correctly.
+This application uses Azure Database for PostgreSQL as the database provider with Prisma ORM for database operations. Proper configuration is essential for the application to work correctly.
 
 ### Environment Variables
 
 You need to properly configure the following environment variables in your `.env` file:
 
 ```env
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# Database (for Prisma - use connection pooling string for serverless)
-# For development, use local database; for production, use Supabase connection
-
-# Connect to Supabase via connection pooling (for serverless environments)
-DATABASE_URL="postgresql://postgres.your-project-id:[your-actual-password]@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
+# Azure Database Configuration
+DATABASE_URL="postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres?sslmode=require"
 
 # Direct connection to the database (used for migrations)
-DIRECT_URL="postgresql://postgres:[your-actual-password]@db.your-project-id.supabase.co:5432/postgres"
+DIRECT_URL="postgresql://lspuadmin:laguna@123@lspu-kmis-db.postgres.database.azure.com:5432/postgres"
 ```
 
 ### Database Connection Types
@@ -36,15 +28,15 @@ The application uses two different connection strings for different purposes:
 If you encounter database connection errors:
 
 1. **Verify your credentials**: Make sure the password in your connection string is correct
-2. **Check project ID**: Ensure your Supabase project ID matches in the URLs
-3. **Network access**: Verify that your network/firewall allows connections to Supabase
-4. **Database region**: Ensure the region in your connection string matches your Supabase project region
+2. **Check server name**: Ensure your Azure Database server name matches in the URLs
+3. **Network access**: Verify that your network/firewall allows connections to Azure Database
+4. **SSL settings**: Ensure SSL mode is set to 'require' for Azure connections
 
 ### Common Error Messages
 
 - **"Authentication failed against database server"**: This usually indicates incorrect username/password in your connection string
-- **"infinite recursion detected in policy"**: This indicates a circular reference in your Row Level Security (RLS) policies
 - **"Connection timeout"**: This may indicate network issues or firewall restrictions
+- **"SSL connection required"**: This indicates SSL is not properly configured in the connection string
 
 ### Testing Database Connection
 
@@ -54,12 +46,12 @@ You can test your database connection using the provided script:
 npx tsx scripts/test-database-connection.ts
 ```
 
-### RLS Policy Best Practices
+### Database Security Best Practices
 
-To avoid infinite recursion in RLS policies:
-- Avoid querying the same table from within its own policy
-- Use JWT claims for admin checks instead of querying the users table
-- Keep policies as simple as possible while maintaining security
+For secure database operations:
+- Use proper role-based access controls through the application layer
+- Implement server-side validation for all database operations
+- Keep database operations as simple as possible while maintaining security
 
 ### Migration Commands
 

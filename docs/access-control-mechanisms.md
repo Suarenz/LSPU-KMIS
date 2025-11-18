@@ -162,12 +162,9 @@ async getDocuments(
       where: { id: userId },
     });
 
-    // If not found, try to find user by supabase_auth_id
-    if (!user) {
-      user = await prisma.user.findUnique({
-        where: { supabase_auth_id: userId },
-      });
-    }
+    // In the new system, we only use the database ID
+    // If not found by database ID, we just continue with the assumption that the user doesn't have access
+    // The permission checks later will handle access control
 
     if (user && user.role !== 'ADMIN') {
       // For non-admin users, we need to check department permissions and document permissions
@@ -269,12 +266,9 @@ async createDocument(
       where: { id: userId },
     });
 
-    // If not found, try to find user by supabase_auth_id
-    if (!user) {
-      user = await prisma.user.findUnique({
-        where: { supabase_auth_id: userId },
-      });
-    }
+    // In the new system, we only use the database ID
+    // If not found by database ID, we just continue with the assumption that the user doesn't have access
+    // The permission checks later will handle access control
     
     console.log('User lookup result:', { user: !!user, role: user?.role });
 
@@ -463,12 +457,12 @@ USING (
     AND dp.permission IN ('READ', 'WRITE', 'ADMIN')
   )
   OR
-  uploadedById = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())
+  uploadedById = (SELECT id FROM users WHERE id = auth.uid())
   OR
   id IN (
     SELECT document_id
     FROM document_permissions
-    WHERE user_id = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())
+    WHERE user_id = (SELECT id FROM users WHERE id = auth.uid())
   )
 );
 
@@ -480,7 +474,7 @@ WITH CHECK (
  (EXISTS (
     SELECT 1 FROM department_permissions dp
     WHERE dp.department_id = NEW.department_id
-    AND dp.user_id = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())
+    AND dp.user_id = (SELECT id FROM users WHERE id = auth.uid())
     AND dp.permission = 'ADMIN'
   ))
   OR
@@ -488,14 +482,14 @@ WITH CHECK (
   (EXISTS (
     SELECT 1 FROM department_permissions dp
     WHERE dp.department_id = NEW.department_id
-    AND dp.user_id = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())
+    AND dp.user_id = (SELECT id FROM users WHERE id = auth.uid())
     AND dp.permission = 'WRITE'
   ))
   OR
   -- User is faculty and belongs to the unit
   (EXISTS (
     SELECT 1 FROM users u
-    WHERE u.supabase_auth_id = auth.uid()
+    WHERE u.id = auth.uid()
     AND u.role = 'FACULTY'
     AND u.department_id = NEW.department_id
   ))
@@ -503,7 +497,7 @@ WITH CHECK (
  -- User is system admin
   (EXISTS (
     SELECT 1 FROM users u
-    WHERE u.supabase_auth_id = auth.uid()
+    WHERE u.id = auth.uid()
     AND u.role = 'ADMIN'
   ))
 );
@@ -512,25 +506,25 @@ WITH CHECK (
 CREATE POLICY "Allow document updates by owner or unit admins" ON documents
 FOR UPDATE TO authenticated
 USING (
-  uploadedById = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())  -- Document owner
+  uploadedById = (SELECT id FROM users WHERE id = auth.uid())  -- Document owner
   OR
   department_id IN (
     SELECT dp.department_id
     FROM department_permissions dp
-    WHERE dp.user_id = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())
+    WHERE dp.user_id = (SELECT id FROM users WHERE id = auth.uid())
     AND dp.permission = 'ADMIN'
   )
   OR
   department_id IN (
     SELECT dp.department_id
     FROM department_permissions dp
-    WHERE dp.user_id = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())
+    WHERE dp.user_id = (SELECT id FROM users WHERE id = auth.uid())
     AND dp.permission = 'WRITE'
   )
   OR
   EXISTS (
     SELECT 1 FROM users u
-    WHERE u.supabase_auth_id = auth.uid()
+    WHERE u.id = auth.uid()
     AND u.role = 'ADMIN'
   )
 );
@@ -539,18 +533,18 @@ USING (
 CREATE POLICY "Allow document deletion by owner or unit admins" ON documents
 FOR DELETE TO authenticated
 USING (
-  uploadedById = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())  -- Document owner
+  uploadedById = (SELECT id FROM users WHERE id = auth.uid())  -- Document owner
   OR
   department_id IN (
     SELECT dp.department_id
     FROM department_permissions dp
-    WHERE dp.user_id = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())
+    WHERE dp.user_id = (SELECT id FROM users WHERE id = auth.uid())
     AND dp.permission = 'ADMIN'
   )
   OR
   EXISTS (
     SELECT 1 FROM users u
-    WHERE u.supabase_auth_id = auth.uid()
+    WHERE u.id = auth.uid()
     AND u.role = 'ADMIN'
   )
 );
@@ -565,13 +559,13 @@ USING (
   EXISTS (
     SELECT 1 FROM department_permissions dp2
     WHERE dp2.department_id = department_permissions.department_id
-    AND dp2.user_id = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())
+    AND dp2.user_id = (SELECT id FROM users WHERE id = auth.uid())
     AND dp2.permission = 'ADMIN'
   )
   OR
   EXISTS (
     SELECT 1 FROM users u
-    WHERE u.supabase_auth_id = auth.uid()
+    WHERE u.id = auth.uid()
     AND u.role = 'ADMIN'
   )
 );
@@ -583,13 +577,13 @@ WITH CHECK (
   EXISTS (
     SELECT 1 FROM department_permissions dp2
     WHERE dp2.department_id = NEW.department_id
-    AND dp2.user_id = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())
+    AND dp2.user_id = (SELECT id FROM users WHERE id = auth.uid())
     AND dp2.permission = 'ADMIN'
   )
   OR
   EXISTS (
     SELECT 1 FROM users u
-    WHERE u.supabase_auth_id = auth.uid()
+    WHERE u.id = auth.uid()
     AND u.role = 'ADMIN'
   )
 );
@@ -601,13 +595,13 @@ USING (
   EXISTS (
     SELECT 1 FROM department_permissions dp2
     WHERE dp2.department_id = department_permissions.department_id
-    AND dp2.user_id = (SELECT id FROM users WHERE supabase_auth_id = auth.uid())
+    AND dp2.user_id = (SELECT id FROM users WHERE id = auth.uid())
     AND dp2.permission = 'ADMIN'
   )
   OR
   EXISTS (
     SELECT 1 FROM users u
-    WHERE u.supabase_auth_id = auth.uid()
+    WHERE u.id = auth.uid()
     AND u.role = 'ADMIN'
   )
 );

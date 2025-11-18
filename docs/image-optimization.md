@@ -9,7 +9,7 @@ This document outlines the image optimization improvements implemented in the LS
 - Updated `next.config.mjs` to enable image optimization
 - Set `images.unoptimized` to `false` to enable Next.js image optimization
 - Added allowed domains for image loading:
-  - `mydcfacggxluyljslcbp.supabase.co` (Supabase storage)
+  - `lspukmisstorage.blob.core.windows.net` (Azure Blob Storage)
   - `localhost` and `127.0.1` for local development
 - Configured remote patterns for secure image loading
 - Added performance optimizations:

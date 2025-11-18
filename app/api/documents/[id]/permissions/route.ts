@@ -17,7 +17,7 @@ export async function GET(
     }
     
     const { user } = authResult;
-    const userId = user.userId;
+    const userId = user.id;
 
     // Get document permissions using the document service
     const permissions = await documentService.getDocumentPermissions(id, userId);
@@ -47,7 +47,7 @@ export async function POST(
     
     const { user } = authResult;
 
-    const userId = user.userId;
+    const userId = user.id;
     const userRole = user.role;
 
     // Only admins and document admins can manage permissions

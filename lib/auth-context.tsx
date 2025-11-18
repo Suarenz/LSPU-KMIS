@@ -68,14 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.warn('Comprehensive user data fetch failed, falling back to standard method:', comprehensiveError);
           // Fallback to the original method
           try {
-            const { data: { session }, error: sessionError } = await authService.getSupabaseClient().auth.getSession();
-            if (sessionError || !session) {
-              if (isMounted) {
-                setUser(null);
-                setIsAuthenticated(false);
-                setIsLoading(false);
-              }
-            } else if (session?.user) {
+            // Use the database authentication method
+            const currentUser = await authService.getCurrentUser();
+            if (currentUser) {
               // Set basic auth state immediately to prevent loading
               if (isMounted) {
                 setIsAuthenticated(true);
@@ -83,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
               
               // Fetch user profile in background
-              const currentUser = await authService.getCurrentUser();
               if (isMounted) {
                 setUser(currentUser);
                 setIsLoading(false);
@@ -114,121 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    // Set up Supabase auth state listener to handle session changes
-    const { data: { subscription } } = authService.getSupabaseClient().auth.onAuthStateChange(
-      async (event, session) => {
-        // Only set loading for specific events that require full validation
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-          setIsLoading(true);
-        } else if (event === 'TOKEN_REFRESHED') {
-          // For token refresh, we can update state without showing loading if we have cached data
-          const cachedSession = authService.getCachedSession();
-          if (cachedSession && cachedSession.authenticated) {
-            if (isMounted) {
-              setUser(cachedSession.user);
-              setIsAuthenticated(true);
-            }
-          } else {
-            setIsLoading(true);
-          }
-        } else if (event !== 'INITIAL_SESSION') {
-          // For other events, set loading
-          setIsLoading(true);
-        }
-        
-        try {
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-            // Set isAuthenticated immediately to allow faster redirects
-            if (isMounted) {
-              setIsAuthenticated(true);
-              // Only set loading if we don't have cached data for token refresh
-              if (event !== 'TOKEN_REFRESHED' || !authService.getCachedSession()) {
-                setIsLoading(true); // Set loading while we fetch comprehensive user data
-              }
-            }
-            
-            // Try to fetch comprehensive user data first, fall back to standard method
-            try {
-              const comprehensiveData = await authService.getComprehensiveUserData();
-              if (comprehensiveData && comprehensiveData.authenticated) {
-                if (isMounted) {
-                  setUser(comprehensiveData.user);
-                  setIsLoading(false);
-                }
-              } else {
-                if (isMounted) {
-                  setUser(null);
-                  setIsAuthenticated(false);
-                  setIsLoading(false);
-                }
-              }
-            } catch (comprehensiveError) {
-              console.warn('Comprehensive user data fetch failed during auth state change:', comprehensiveError);
-              // Fallback to the original method
-              const currentUser = await authService.getCurrentUser();
-              if (isMounted) {
-                setUser(currentUser);
-                setIsLoading(false);
-              }
-            }
-          } else if (event === 'SIGNED_OUT') {
-            if (isMounted) {
-              setUser(null);
-              setIsAuthenticated(false);
-              setIsLoading(false);
-            }
-          } else if (event === 'INITIAL_SESSION') {
-            // This handles the initial session check on page load
-            if (session) {
-              // Set auth state immediately
-              if (isMounted) {
-                setIsAuthenticated(true);
-                setIsLoading(true); // Loading while fetching user details
-              }
-              
-              // Try to fetch comprehensive user data first, fall back to standard method
-              try {
-                const comprehensiveData = await authService.getComprehensiveUserData();
-                if (comprehensiveData && comprehensiveData.authenticated) {
-                  if (isMounted) {
-                    setUser(comprehensiveData.user);
-                    setIsLoading(false);
-                  }
-                } else {
-                  if (isMounted) {
-                    setUser(null);
-                    setIsAuthenticated(false);
-                    setIsLoading(false);
-                  }
-                }
-              } catch (comprehensiveError) {
-                console.warn('Comprehensive user data fetch failed during initial session:', comprehensiveError);
-                // Fallback to the original method
-                const currentUser = await authService.getCurrentUser();
-                if (isMounted) {
-                  setUser(currentUser);
-                  setIsLoading(false);
-                }
-              }
-            } else {
-              if (isMounted) {
-                setUser(null);
-                setIsAuthenticated(false);
-                setIsLoading(false);
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Auth state change error:', err);
-          if (isMounted) {
-            setUser(null);
-            setIsAuthenticated(false);
-            setIsLoading(false);
-          }
-        }
-      }
-    );
-
     // Add page visibility change handler to prevent loading state on tab focus
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
@@ -255,23 +134,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Run initial session check
     if (typeof window !== 'undefined') {
-      checkInitialSession();
+      // Add a small delay to ensure React hydration is complete
+      const timer = setTimeout(() => {
+        if (isMounted) {
+          checkInitialSession();
+        }
+      }, 0);
       
       // Add visibility change listener
       document.addEventListener('visibilitychange', handleVisibilityChange);
-    }
-
-    // Cleanup function
-    return () => {
-      isMounted = false;
-      subscription?.unsubscribe();
       
-      // Remove visibility change listener
-      if (typeof window !== 'undefined') {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-      }
-    };
- }, []); // Empty dependency array since we only want to run this once on mount
+      return () => {
+        clearTimeout(timer);
+        isMounted = false;
+        
+        // Remove visibility change listener
+        if (typeof window !== 'undefined') {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+        }
+      };
+    } else {
+      // For server-side rendering, set initial state and return
+      setIsLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+}, []); // Empty dependency array since we only want to run this once on mount
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
     setIsLoading(true);
@@ -284,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Set user and authentication state immediately to allow faster redirects
         setUser(result.user);
         setIsAuthenticated(true);
+        setIsLoading(false); // Set loading to false after successful login
         return result;
       } else {
         setError(result.error || 'Login failed');

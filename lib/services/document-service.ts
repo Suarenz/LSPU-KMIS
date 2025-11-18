@@ -4,20 +4,13 @@ import fileStorageService from './file-storage-service';
 
 class DocumentService {
   /**
-   * Helper method to find a user by either database ID or Supabase auth ID
+   * Helper method to find a user by database ID only
    */
   private async findUserById(userId: string): Promise<User | null> {
-    // First, try to find user by the provided userId (which might be the database ID)
-    let user = await prisma.user.findUnique({
+    // Find user by the provided userId (database ID)
+    const user = await prisma.user.findUnique({
       where: { id: userId },
     });
-
-    // If not found, try to find user by supabase_auth_id
-    if (!user) {
-      user = await prisma.user.findUnique({
-        where: { supabase_auth_id: userId },
-      });
-    }
 
     if (!user) {
       return null;
@@ -28,7 +21,7 @@ class DocumentService {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
+      role: user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
       unitId: user.unitId || undefined, // Convert null to undefined
       avatar: user.avatar || undefined, // Convert null to undefined
       createdAt: user.createdAt,
@@ -201,7 +194,8 @@ class DocumentService {
         downloadsCount: document.downloadsCount || 0, // Convert null to 0
         viewsCount: document.viewsCount || 0, // Convert null to 0
         uploadedBy: document.uploadedByUser?.name || document.uploadedBy,
-        unit: document.documentUnit ? {
+        status: document.status as 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW',
+        unit: document.documentUnit && document.documentUnit.code ? {
           id: document.documentUnit.id,
           name: document.documentUnit.name,
           code: document.documentUnit.code,
@@ -212,6 +206,10 @@ class DocumentService {
         uploadedAt: new Date(document.uploadedAt),
         createdAt: new Date(document.createdAt),
         updatedAt: new Date(document.updatedAt),
+        colivaraDocumentId: document.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: document.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: document.colivaraProcessedAt ? new Date(document.colivaraProcessedAt) : undefined,
+        colivaraChecksum: document.colivaraChecksum ?? undefined,
       };
     } catch (error) {
       console.error('Database connection error in getDocumentById:', error);
@@ -299,17 +297,30 @@ class DocumentService {
       console.log('Document permissions granted');
       
       return {
-        ...document,
+        id: document.id,
+        title: document.title,
+        description: document.description,
+        category: document.category,
         tags: Array.isArray(document.tags) ?
           (document.tags as any[]).map(tag => String(tag)) :
           (typeof document.tags === 'object' && document.tags !== null ?
             Object.values(document.tags).map(tag => String(tag)) : []),
-        unitId: document.unitId || undefined, // Convert null to undefined
-        versionNotes: document.versionNotes || undefined, // Convert null to undefined
+        uploadedBy: document.uploadedByUser?.name || document.uploadedBy,
+        uploadedById: document.uploadedById,
+        uploadedAt: new Date(document.uploadedAt),
+        fileUrl: document.fileUrl,
+        fileName: document.fileName,
+        fileType: document.fileType,
+        fileSize: document.fileSize,
         downloadsCount: document.downloadsCount || 0, // Convert null to 0
         viewsCount: document.viewsCount || 0, // Convert null to 0
-        uploadedBy: document.uploadedByUser?.name || document.uploadedBy,
-        unit: document.documentUnit ? {
+        version: document.version || 1,
+        versionNotes: document.versionNotes || undefined, // Convert null to undefined
+        status: document.status as 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW',
+        createdAt: new Date(document.createdAt),
+        updatedAt: new Date(document.updatedAt),
+        unitId: document.unitId || undefined, // Convert null to undefined
+        unit: document.documentUnit && document.documentUnit.code ? {
           id: document.documentUnit.id,
           name: document.documentUnit.name,
           code: document.documentUnit.code,
@@ -317,9 +328,10 @@ class DocumentService {
           createdAt: document.documentUnit.createdAt,
           updatedAt: document.documentUnit.updatedAt,
         } : undefined,
-        uploadedAt: new Date(document.uploadedAt),
-        createdAt: new Date(document.createdAt),
-        updatedAt: new Date(document.updatedAt),
+        colivaraDocumentId: document.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: document.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: document.colivaraProcessedAt ? new Date(document.colivaraProcessedAt) : undefined,
+        colivaraChecksum: document.colivaraChecksum ?? undefined,
       };
     } catch (error) {
       console.error('Database connection error in createDocument:', error);
@@ -344,7 +356,8 @@ class DocumentService {
     category?: string,
     tags?: string[],
     unitId?: string, // NEW: Unit assignment
-    userId?: string
+    userId?: string,
+    fileUrl?: string // NEW: File URL for Colivara reprocessing
   ): Promise<Document | null> {
     try {
       const document = await prisma.document.findUnique({
@@ -395,17 +408,30 @@ class DocumentService {
       });
 
       return {
-        ...updatedDocument,
+        id: updatedDocument.id,
+        title: updatedDocument.title,
+        description: updatedDocument.description,
+        category: updatedDocument.category,
         tags: Array.isArray(updatedDocument.tags) ?
           (updatedDocument.tags as any[]).map(tag => String(tag)) :
           (typeof updatedDocument.tags === 'object' && updatedDocument.tags !== null ?
             Object.values(updatedDocument.tags).map(tag => String(tag)) : []),
-        unitId: updatedDocument.unitId || undefined, // Convert null to undefined
-        versionNotes: updatedDocument.versionNotes || undefined, // Convert null to undefined
+        uploadedBy: updatedDocument.uploadedByUser?.name || updatedDocument.uploadedBy,
+        uploadedById: updatedDocument.uploadedById,
+        uploadedAt: new Date(updatedDocument.uploadedAt),
+        fileUrl: updatedDocument.fileUrl,
+        fileName: updatedDocument.fileName,
+        fileType: updatedDocument.fileType,
+        fileSize: updatedDocument.fileSize,
         downloadsCount: updatedDocument.downloadsCount || 0, // Convert null to 0
         viewsCount: updatedDocument.viewsCount || 0, // Convert null to 0
-        uploadedBy: updatedDocument.uploadedByUser?.name || updatedDocument.uploadedBy,
-        unit: updatedDocument.documentUnit ? {
+        version: updatedDocument.version || 1,
+        versionNotes: updatedDocument.versionNotes || undefined, // Convert null to undefined
+        status: updatedDocument.status as 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW',
+        createdAt: new Date(updatedDocument.createdAt),
+        updatedAt: new Date(updatedDocument.updatedAt),
+        unitId: updatedDocument.unitId || undefined, // Convert null to undefined
+        unit: updatedDocument.documentUnit && updatedDocument.documentUnit.code ? {
           id: updatedDocument.documentUnit.id,
           name: updatedDocument.documentUnit.name,
           code: updatedDocument.documentUnit.code,
@@ -413,9 +439,10 @@ class DocumentService {
           createdAt: updatedDocument.documentUnit.createdAt,
           updatedAt: updatedDocument.documentUnit.updatedAt,
         } : undefined,
-        uploadedAt: new Date(updatedDocument.uploadedAt),
-        createdAt: new Date(updatedDocument.createdAt),
-        updatedAt: new Date(updatedDocument.updatedAt),
+        colivaraDocumentId: updatedDocument.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: updatedDocument.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: updatedDocument.colivaraProcessedAt ? new Date(updatedDocument.colivaraProcessedAt) : undefined,
+        colivaraChecksum: updatedDocument.colivaraChecksum ?? undefined,
       };
     } catch (error) {
       console.error('Database connection error in updateDocument:', error);
@@ -527,6 +554,7 @@ class DocumentService {
   
       return permissions.map((perm: any) => ({
         ...perm,
+        permission: perm.permission as 'READ' | 'WRITE' | 'ADMIN',
         createdAt: new Date(perm.createdAt),
       }));
     } catch (error) {
@@ -599,6 +627,7 @@ class DocumentService {
   
       return {
         ...permissionRecord,
+        permission: permissionRecord.permission as 'READ' | 'WRITE' | 'ADMIN',
         createdAt: new Date(permissionRecord.createdAt),
       };
     } catch (error) {

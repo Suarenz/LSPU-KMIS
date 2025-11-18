@@ -49,7 +49,6 @@ model User {
   avatar           String?
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
-  supabase_auth_id String?              @unique
   role             UserRole             @default(STUDENT)
   comments         DocumentComment[]
   downloads        DocumentDownload[]
@@ -131,7 +130,6 @@ model User {
   avatar           String?
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
-  supabase_auth_id String?              @unique
   role             UserRole             @default(STUDENT)
   
   // Relationships

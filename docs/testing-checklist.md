@@ -1,13 +1,13 @@
-# Supabase Authentication Migration - Testing Checklist
+# Database Authentication Migration - Testing Checklist
 
-This document outlines the testing procedures needed to verify that the Supabase authentication migration is working correctly.
+This document outlines the testing procedures needed to verify that the database authentication migration is working correctly.
 
 ## Pre-Migration Verification
 
 ### Environment Setup
 - [ ] Supabase project created and configured
 - [ ] Environment variables set correctly
-- [ ] Database schema updated with `supabase_auth_id` field
+- [ ] Database schema updated with authentication fields
 - [ ] All new files created successfully
 
 ## Authentication Flow Testing

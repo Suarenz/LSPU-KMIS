@@ -1,26 +1,25 @@
+import { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions } from '@azure/storage-blob';
 import { randomUUID } from 'crypto';
 import { createHash } from 'crypto';
-import { createClient } from '@/lib/supabase/server';
 
 class FileStorageService {
-  private readonly bucketName: string = 'repository-files'; // Supabase bucket name
+  private readonly blobServiceClient: BlobServiceClient;
+  private readonly containerName: string = 'repository-files';
 
   constructor() {
-    // Initialize Supabase client
- }
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    if (!connectionString) {
+      throw new Error('Azure Storage connection string is not configured');
+    }
+    this.blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+  }
 
   async saveFile(file: File, originalFileName: string): Promise<{url: string, metadata: any}> {
-    console.log('Starting file upload process...');
-    console.log('File details:', {
-      name: originalFileName,
-      size: file.size,
-      type: file.type
-    });
+    console.log('Starting file upload process to Azure Blob Storage...');
     
     // Validate file type
     const allowedTypes = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'jpg', 'jpeg', 'png'];
     const fileExt = this.getFileExtension(originalFileName).toLowerCase();
-    console.log('File extension:', fileExt);
     
     if (!allowedTypes.includes(fileExt)) {
       throw new Error(`File type ${fileExt} is not allowed. Allowed types: ${allowedTypes.join(', ')}`);
@@ -44,38 +43,18 @@ class FileStorageService {
     await this.scanFileForMaliciousContent(buffer);
     console.log('File security scan completed');
 
-    // Upload to Supabase Storage
-    console.log('Initializing Supabase client...');
-    const supabase = await createClient();
-    console.log('Supabase client initialized');
+    // Upload to Azure Blob Storage
+    const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
+    const blockBlobClient = containerClient.getBlockBlobClient(uniqueFileName);
     
-    console.log('Uploading file to bucket:', this.bucketName);
-    const { data, error } = await supabase.storage
-      .from(this.bucketName)
-      .upload(uniqueFileName, buffer, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type || this.getMimeTypeFromExtension(fileExt)
-      });
-    
-    console.log('Upload result:', { data: !!data, error: !!error });
-    if (error) {
-      console.error('Supabase upload error:', error);
-      // Provide more specific error messages based on common issues
-      if (error.message.includes('Bucket not found')) {
-        throw new Error(`Storage bucket '${this.bucketName}' not found. Please ensure the bucket exists in your Supabase project.`);
-      } else if (error.message.includes('Access Denied')) {
-        throw new Error(`Access denied to storage bucket '${this.bucketName}'. Please check your Supabase Storage RLS policies.`);
-      } else {
-        throw new Error(`Failed to upload file to Supabase: ${error.message}`);
+    const uploadOptions = {
+      blobHTTPHeaders: {
+        blobContentType: file.type || this.getMimeTypeFromExtension(fileExt)
       }
-    }
-    
-    if (!data) {
-      throw new Error('Upload completed but no data returned from Supabase');
-    }
-    
-    console.log('File uploaded successfully:', data.path);
+    };
+
+    const uploadBlobResponse = await blockBlobClient.uploadData(buffer, uploadOptions);
+    console.log('Upload result:', uploadBlobResponse.requestId);
 
     // Extract basic metadata from the file
     const metadata = {
@@ -89,10 +68,8 @@ class FileStorageService {
     };
 
     // Return both the URL and metadata
-    // Note: We'll return the filename for now; the full URL will be constructed when needed
-    console.log('Returning upload result');
     return {
-      url: uniqueFileName,
+      url: blockBlobClient.url,
       metadata
     };
   }
@@ -100,23 +77,15 @@ class FileStorageService {
   async deleteFile(fileUrl: string): Promise<boolean> {
     try {
       console.log('Deleting file:', fileUrl);
-      // Extract filename from URL
       const fileName = this.getFileNameFromUrl(fileUrl);
       console.log('Extracted filename:', fileName);
       
-      const supabase = await createClient();
-      console.log('Removing file from bucket:', this.bucketName);
-      const { error } = await supabase.storage
-        .from(this.bucketName)
-        .remove([fileName]);
+      const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
+      const blockBlobClient = containerClient.getBlockBlobClient(fileName);
       
-      console.log('Delete result:', { error: !!error });
+      const deleteResponse = await blockBlobClient.delete();
+      console.log('Delete result:', deleteResponse.requestId);
 
-      if (error) {
-        console.error('Error deleting file from Supabase:', error);
-        return false;
-      }
-      
       return true;
     } catch (error) {
       console.error('Error deleting file:', error);
@@ -126,17 +95,49 @@ class FileStorageService {
 
   async getFileUrl(fileName: string): Promise<string> {
     console.log('Getting file URL for:', fileName);
-    const supabase = await createClient();
-    const { data } = supabase.storage
-      .from(this.bucketName)
-      .getPublicUrl(fileName);
-      
-    console.log('Public URL result:', { data: !!data, publicUrl: data?.publicUrl });
-    if (!data || !data.publicUrl) {
-      throw new Error(`File ${fileName} does not exist`);
-    }
+    const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
+    const blockBlobClient = containerClient.getBlockBlobClient(fileName);
     
-    return data.publicUrl;
+    // Generate a time-limited SAS URL for secure access
+    const expiryDate = new Date();
+    expiryDate.setHours(expiryDate.getHours() + 1); // URL expires in 1 hour
+    
+    // Get the account name from the connection string for SAS generation
+    const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
+    if (!accountName) {
+      throw new Error('Azure Storage account name is not configured');
+    }
+
+    // Create SAS permissions object properly
+    const permissions = new BlobSASPermissions();
+    permissions.read = true;
+    
+    const sasOptions = {
+      containerName: this.containerName,
+      blobName: fileName,
+      permissions: permissions,
+      expiresOn: expiryDate,
+    };
+    
+    // Get the account key for SAS generation
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    if (!connectionString) {
+      throw new Error('Azure Storage connection string is not configured');
+    }
+
+    // Extract account key from connection string
+    const accountKeyMatch = connectionString.match(/AccountKey=([^;]+)/);
+    if (!accountKeyMatch) {
+      throw new Error('Account key not found in connection string');
+    }
+    const accountKey = accountKeyMatch[1];
+    
+    // Create a StorageSharedKeyCredential for SAS generation
+    const { StorageSharedKeyCredential } = await import('@azure/storage-blob');
+    const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
+    
+    const sasToken = generateBlobSASQueryParameters(sasOptions, sharedKeyCredential);
+    return `${blockBlobClient.url}?${sasToken}`;
   }
 
   async validateAndExtractMetadata(file: File, originalFileName: string) {

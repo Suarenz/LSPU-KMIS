@@ -1,4 +1,4 @@
-import type { Document, ForumPost } from "./types"
+import type { Document } from "./types"
 
 export const MOCK_DOCUMENTS: Document[] = [
   {
@@ -8,6 +8,7 @@ export const MOCK_DOCUMENTS: Document[] = [
     category: "Research",
     tags: ["research", "methodology", "guidelines"],
     uploadedBy: "Dr. Maria Santos",
+    uploadedById: "user-1",
     uploadedAt: new Date("2024-01-15"),
     fileUrl: "/documents/research-methodology.pdf",
     fileType: "PDF",
@@ -23,6 +24,7 @@ export const MOCK_DOCUMENTS: Document[] = [
     category: "Policy",
     tags: ["privacy", "compliance", "legal"],
     uploadedBy: "Admin User",
+    uploadedById: "user-2",
     uploadedAt: new Date("2024-02-01"),
     fileUrl: "/documents/data-privacy.pdf",
     fileType: "PDF",
@@ -38,6 +40,7 @@ export const MOCK_DOCUMENTS: Document[] = [
     category: "Academic",
     tags: ["curriculum", "computer science", "ched"],
     uploadedBy: "Dr. Maria Santos",
+    uploadedById: "user-3",
     uploadedAt: new Date("2024-03-10"),
     fileUrl: "/documents/cs-curriculum.pdf",
     fileType: "PDF",
@@ -53,6 +56,7 @@ export const MOCK_DOCUMENTS: Document[] = [
     category: "Extension",
     tags: ["extension", "community", "outreach"],
     uploadedBy: "External Partner",
+    uploadedById: "user-4",
     uploadedAt: new Date("2024-03-20"),
     fileUrl: "/documents/extension-practices.pdf",
     fileType: "PDF",
@@ -60,44 +64,5 @@ export const MOCK_DOCUMENTS: Document[] = [
     downloads: 98,
     views: 321,
     version: 1,
-  },
-]
-
-export const MOCK_FORUM_POSTS: ForumPost[] = [
-  {
-    id: "1",
-    title: "Best Practices for Online Teaching",
-    content:
-      "I would like to share some effective strategies for online teaching that I have implemented this semester...",
-    author: "Dr. Maria Santos",
-    authorRole: "FACULTY",
-    category: "Teaching",
-    tags: ["online learning", "pedagogy", "best practices"],
-    createdAt: new Date("2024-03-15"),
-    replies: [
-      {
-        id: "1-1",
-        content: "Thank you for sharing! The breakout room strategy is very helpful.",
-        author: "Juan Dela Cruz",
-        authorRole: "STUDENT",
-        createdAt: new Date("2024-03-16"),
-        likes: 5,
-      },
-    ],
-    likes: 23,
-    views: 156,
-  },
-  {
-    id: "2",
-    title: "Research Collaboration Opportunities",
-    content: "Looking for faculty members interested in AI and machine learning research collaboration...",
-    author: "External Partner",
-    authorRole: "EXTERNAL",
-    category: "Research",
-    tags: ["collaboration", "ai", "machine learning"],
-    createdAt: new Date("2024-03-18"),
-    replies: [],
-    likes: 12,
-    views: 89,
   },
 ]

@@ -1,7 +1,5 @@
-import { createClient } from '@/lib/supabase/client';
-import { AuthResponse, User } from '@supabase/supabase-js';
 import type { User as AppUser } from '../types';
-import { v4 as uuidv4 } from 'uuid';
+import jwtService from './jwt-service';
 
 interface LoginResult {
   success: boolean;
@@ -14,16 +12,11 @@ const SESSION_CACHE_KEY = 'lspu_kmis_session_cache';
 const LAST_CHECK_KEY = 'lspu_kmis_last_auth_check';
 const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-class SupabaseAuthService {
-  supabase;
+class DatabaseAuthService {
   private sessionValidationDebounce: NodeJS.Timeout | null = null;
 
   constructor() {
-    this.supabase = createClient();
-  }
-
-  getSupabaseClient() {
-    return this.supabase;
+    // No external client initialization needed
   }
 
   /**
@@ -96,364 +89,326 @@ class SupabaseAuthService {
     if (typeof window !== 'undefined') {
       localStorage.setItem(LAST_CHECK_KEY, timestamp.toString());
     }
-  }
+ }
 
   /**
    * Validate session without triggering loading state
    */
-  async validateSessionWithoutLoading(): Promise<boolean> {
-    if (this.sessionValidationDebounce) {
-      clearTimeout(this.sessionValidationDebounce);
-    }
-    
-    return new Promise((resolve) => {
-      this.sessionValidationDebounce = setTimeout(async () => {
-        try {
-          const { data: { session }, error } = await this.supabase.auth.getSession();
-          if (error) {
-            console.error('Session validation error:', error);
-            resolve(false);
-          } else {
-            resolve(!!session);
-          }
-        } catch (error) {
-          console.error('Session validation error:', error);
-          resolve(false);
-        }
-      }, 500); // Only validate after 500ms of inactivity
-    });
+ async validateSessionWithoutLoading(): Promise<boolean> {
+   if (this.sessionValidationDebounce) {
+     clearTimeout(this.sessionValidationDebounce);
+   }
+   
+   return new Promise((resolve) => {
+     this.sessionValidationDebounce = setTimeout(async () => {
+       try {
+         const token = this.getAccessTokenFromStorage();
+         if (!token) {
+           resolve(false);
+           return;
+         }
+
+         // Check if we're in the browser environment
+         if (typeof window !== 'undefined') {
+           // In browser, check if token is expired without full verification
+           const isExpired = jwtService.isTokenExpired(token);
+           if (isExpired) {
+             // Try to refresh the token
+             const refreshed = await this.refreshToken();
+             resolve(refreshed);
+           } else {
+             resolve(true);
+           }
+         } else {
+           // On server, verify the JWT token
+           jwtService.verifyToken(token).then(decoded => {
+             resolve(!!decoded);
+           }).catch(() => resolve(false));
+         }
+       } catch (error) {
+         console.error('Session validation error:', error);
+         resolve(false);
+       }
+     }, 500); // Only validate after 500ms of inactivity
+   });
  }
+
+  private getAccessTokenFromStorage(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('access_token');
+    }
+    return null;
+  }
+
+  private setAccessTokenInStorage(token: string): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('access_token', token);
+    }
+  }
+
+  private removeAccessTokenFromStorage(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+    }
+  }
 
   async login(email: string, password: string): Promise<LoginResult> {
     try {
-      const { data, error } = await this.supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Call the API route to perform login
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (error) {
-        console.error('Login error:', error);
-        return { success: false, error: error.message };
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { success: false, error: errorData.error || 'Login failed' };
       }
 
-      if (data.user) {
-        // Get user profile from database to include role and other details
-        const { data: profileData, error: profileError } = await this.supabase
-          .from('users')
-          .select('id, email, name, role, unitId')
-          .eq('supabase_auth_id', data.user.id)
-          .single();
+      const data = await response.json();
 
-        if (profileError) {
-          // Check if it's a "not found" error specifically or an empty error object
-          if (profileError.code === 'PGRST116' || profileError.message?.includes('not found') || (Object.keys(profileError).length === 0 && profileError.constructor === Object)) {
-            console.log('User profile not found in database, creating new profile for user:', data.user.id);
-            // User exists in Supabase Auth but not in our users table
-            // Create a minimal profile for the user if it doesn't exist
-            const id = uuidv4(); // Generate a unique ID
-            const { error: insertError } = await this.supabase
-              .from('users')
-              .insert([{
-                id,
-                supabase_auth_id: data.user.id,
-                email: data.user.email || email,
-                name: data.user.user_metadata?.name || email.split('@')[0] || email.split('@')[0],
-                role: data.user.user_metadata?.role || 'STUDENT',
-                updatedAt: new Date().toISOString(),
-              }]);
+      if (data.success && data.token && data.user) {
+        // Store the access token in localStorage
+        this.setAccessTokenInStorage(data.token);
+        
+        // Generate a mock refresh token and store it
+        const refreshToken = this.generateMockRefreshToken();
+        localStorage.setItem('refresh_token', refreshToken);
+        
+        // Store refresh token in mock store
+        this.refreshTokensStore.set(refreshToken, {
+          userId: data.user.id,
+          email: data.user.email,
+          role: data.user.role
+        });
 
-            if (insertError) {
-              console.error('Error creating user profile after login:', insertError);
-              // Still return a minimal user object even if profile creation fails
-              return {
-                success: true,
-                user: {
-                  id: data.user.id,
-                  email: data.user.email || email,
-                  name: data.user.user_metadata?.name || email.split('@')[0],
-                  role: data.user.user_metadata?.role || 'STUDENT',
-                }
-              };
-            } else {
-              console.log('New user profile created successfully during login for user:', data.user.id);
-              // Profile created successfully, fetch the database ID
-              const { data: newProfileData, error: newProfileError } = await this.supabase
-                .from('users')
-                .select('id, email, name, role, unitId')
-                .eq('supabase_auth_id', data.user.id)
-                .single();
-
-              if (newProfileError) {
-                console.error('Error fetching new user profile after creation:', newProfileError);
-                // Return user with Supabase auth ID if database profile fetch fails
-                return {
-                  success: true,
-                  user: {
-                    id: data.user.id,
-                    email: data.user.email || email,
-                    name: data.user.user_metadata?.name || email.split('@')[0],
-                    role: data.user.user_metadata?.role || 'STUDENT',
-                  }
-                };
-              }
-
-              // Return user data with database ID
-              const user = {
-                id: newProfileData.id,
-                email: newProfileData.email,
-                name: newProfileData.name,
-                role: newProfileData.role,
-                unitId: newProfileData.unitId || undefined,
-              };
-
-              return {
-                success: true,
-                user: user
-              };
-            }
-          } else {
-            // For other errors, return a minimal user object based on auth data
-            console.error('Unexpected profile fetch error during login:', {
-              code: profileError.code,
-              message: profileError.message,
-              details: profileError,
-              userId: data.user.id,
-              userEmail: data.user.email
-            });
-            return {
-              success: true,
-              user: {
-                id: data.user.id,
-                email: data.user.email || email,
-                name: data.user.user_metadata?.name || email.split('@')[0],
-                role: data.user.user_metadata?.role || 'STUDENT',
-              }
-            };
-          }
-        }
-
-        // Return user data immediately after successful login
-        const user = {
-          id: profileData.id,
-          email: profileData.email,
-          name: profileData.name,
-          role: profileData.role,
+        // Return user data
+        const userData: AppUser = {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name,
+          role: data.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
+          unitId: data.user.unitId || undefined,
         };
 
         return {
           success: true,
-          user: user
+          user: userData,
         };
+      } else {
+        return { success: false, error: data.error || 'Login failed' };
       }
-
-      return { success: false, error: 'Login failed' };
     } catch (error) {
-      console.error('Unexpected login error:', error);
+      console.error('Login error:', error);
       return { success: false, error: 'An unexpected error occurred during login' };
     }
   }
 
   async signup(email: string, password: string, name: string, role: 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL' = 'STUDENT', department?: string): Promise<LoginResult> {
-    const { data, error } = await this.supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-          role,
-          department,
+    try {
+      // Call the API route to perform signup
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+        body: JSON.stringify({ email, password, name, role, department }),
+      });
 
-    if (error) {
-      console.error('Signup error:', error);
-      return { success: false, error: error.message };
-    }
-
-    if (data.user) {
-      // Create user profile in our database
-      const id = uuidv4(); // Generate a unique ID
-      const { error: profileError } = await this.supabase
-        .from('users')
-        .insert([{
-          id,
-          supabase_auth_id: data.user.id,
-          email: data.user.email,
-          name: name,
-          role: role as any, // Type assertion since role is properly typed at function level
-          updatedAt: new Date().toISOString(),
-        }]);
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        return { success: false, error: 'Failed to create user profile' };
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { success: false, error: errorData.error || 'Signup failed' };
       }
 
-      // After successful profile creation, fetch the user's database ID to return it
-      const { data: profileData, error: fetchError } = await this.supabase
-        .from('users')
-        .select('id, email, name, role, unitId')
-        .eq('supabase_auth_id', data.user.id)
-        .single();
-      
-      if (fetchError) {
-        console.error('Error fetching user profile after signup:', fetchError);
-        // Return user with Supabase auth ID if database profile fetch fails
+      const data = await response.json();
+
+      if (data.success && data.token && data.user) {
+        // Store the access token in localStorage
+        this.setAccessTokenInStorage(data.token);
+        
+        // Generate a mock refresh token and store it
+        const refreshToken = this.generateMockRefreshToken();
+        localStorage.setItem('refresh_token', refreshToken);
+        
+        // Store refresh token in mock store
+        this.refreshTokensStore.set(refreshToken, {
+          userId: data.user.id,
+          email: data.user.email,
+          role: data.user.role
+        });
+
+        // Return user data
+        const userData: AppUser = {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name,
+          role: data.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
+          unitId: data.user.unitId || undefined,
+        };
+
         return {
           success: true,
-          user: {
-            id: data.user.id,
-            email: data.user.email!,
-            name: name,
-            role: role as any, // Type assertion since role is properly typed at function level,
-            unitId: undefined,
-          }
+          user: userData,
         };
-      }
-
-      return {
-        success: true,
-        user: {
-          id: profileData.id, // Use the database user ID
-          email: profileData.email,
-          name: profileData.name,
-          role: profileData.role,
-          unitId: profileData.unitId || undefined,
-        }
-      };
-    }
-
-    return { success: false, error: 'Signup failed' };
-  }
-
-  async logout(): Promise<void> {
-    try {
-      const { error } = await this.supabase.auth.signOut();
-      if (error) {
-        console.error('Logout error:', error);
+      } else {
+        return { success: false, error: data.error || 'Signup failed' };
       }
     } catch (error) {
-      console.error('Unexpected logout error:', error);
+      console.error('Signup error:', error);
+      return { success: false, error: 'An unexpected error occurred during signup' };
     }
  }
 
+  async logout(): Promise<void> {
+    try {
+      // Call the API route to perform logout (optional - mainly for server-side cleanup)
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAccessTokenFromStorage()}`
+        },
+      });
+
+      // Remove the tokens from localStorage
+      const refreshToken = localStorage.getItem('refresh_token');
+      this.removeAccessTokenFromStorage();
+      localStorage.removeItem('refresh_token');
+      
+      // Remove refresh token from mock store if it exists
+      if (refreshToken) {
+        this.refreshTokensStore.delete(refreshToken);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still remove the tokens from localStorage even if API call fails
+      const refreshToken = localStorage.getItem('refresh_token');
+      this.removeAccessTokenFromStorage();
+      localStorage.removeItem('refresh_token');
+      
+      // Remove refresh token from mock store if it exists
+      if (refreshToken) {
+        this.refreshTokensStore.delete(refreshToken);
+      }
+    }
+  }
+
   async getCurrentUser(): Promise<AppUser | null> {
     try {
-      // First try to get the session to ensure we have valid authentication
-      const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
-      
-      // If no session exists, return null immediately
-      if (sessionError || !session) {
+      const token = this.getAccessTokenFromStorage();
+      if (!token) {
         return null;
       }
 
-      // Check if the session is expired
-      if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
-        // Try to refresh the session
-        const { data: { session: refreshedSession }, error: refreshError } = await this.supabase.auth.refreshSession();
-        
-        if (refreshError || !refreshedSession) {
-          // If refresh fails, the user is not authenticated
+      // Check if we're in the browser environment
+      if (typeof window !== 'undefined') {
+        // In browser, check if token is expired without full verification
+        const isExpired = jwtService.isTokenExpired(token);
+        if (isExpired) {
+          // Try to refresh the token
+          const refreshed = await this.refreshToken();
+          if (refreshed) {
+            // Get the new token after refresh
+            const refreshedToken = this.getAccessTokenFromStorage();
+            if (refreshedToken) {
+              // Fetch user data from the API route with the refreshed token
+              const response = await fetch('/api/auth/me', {
+                headers: {
+                  'Authorization': `Bearer ${refreshedToken}`,
+                  'Content-Type': 'application/json',
+                }
+              });
+              
+              if (!response.ok) {
+                return null;
+              }
+              
+              const data = await response.json();
+              if (data.user) {
+                return {
+                  id: data.user.id,
+                  email: data.user.email,
+                  name: data.user.name,
+                  role: data.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
+                  unitId: data.user.unitId || undefined,
+                };
+              } else {
+                return null;
+              }
+            } else {
+              return null; // If no new token after refresh, return null
+            }
+          } else {
+            return null; // If refresh failed, return null
+          }
+        }
+      } else {
+        // On server, verify the JWT token
+        const decoded = await jwtService.verifyToken(token);
+        if (!decoded) {
           return null;
         }
       }
 
-      // Use getUser() instead of getSession() to authenticate the data by contacting the Supabase Auth server
-      const { data: { user }, error: userError } = await this.supabase.auth.getUser();
-      
-      if (userError || !user) {
+      // Fetch user data from the API route
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        // If the response is 401 (unauthorized), try to refresh the token
+        if (response.status === 401) {
+          const refreshed = await this.refreshToken();
+          if (refreshed) {
+            // If token was refreshed, try the request again
+            const newToken = this.getAccessTokenFromStorage();
+            if (newToken) {
+              const retryResponse = await fetch('/api/auth/me', {
+                headers: {
+                  'Authorization': `Bearer ${newToken}`,
+                  'Content-Type': 'application/json',
+                }
+              });
+              
+              if (!retryResponse.ok) {
+                return null;
+              }
+              
+              const retryData = await retryResponse.json();
+              if (retryData.user) {
+                return {
+                  id: retryData.user.id,
+                  email: retryData.user.email,
+                  name: retryData.user.name,
+                  role: retryData.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
+                  unitId: retryData.user.unitId || undefined,
+                };
+              }
+            }
+          }
+        }
         return null;
       }
 
-      // Get user profile from database to include role and other details
-      // Using Promise.allSettled to run operations in parallel where possible
-      const profilePromise = this.supabase
-        .from('users')
-        .select('id, email, name, role, unitId')
-        .eq('supabase_auth_id', user.id)
-        .single();
+      const data = await response.json();
 
-      const [profileResult] = await Promise.allSettled([profilePromise]);
-
-      if (profileResult.status === 'rejected' || profileResult.value.error) {
-        const profileError = profileResult.status === 'rejected' ? profileResult.reason : profileResult.value.error;
-        // Check if it's a "not found" error specifically or an empty error object
-        if (profileError?.code === 'PGRST116' || profileError?.message?.includes('not found') || (Object.keys(profileError).length === 0 && profileError.constructor === Object)) {
-          console.log('User profile not found in database, creating new profile for user:', user.id);
-          // User exists in Supabase Auth but not in our users table
-          // Create a minimal profile for the user if it doesn't exist
-          const id = uuidv4(); // Generate a unique ID
-          const { error: insertError } = await this.supabase
-            .from('users')
-            .insert([{
-              id,
-              supabase_auth_id: user.id,
-              email: user.email || '',
-              name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-              role: user.user_metadata?.role || 'STUDENT',
-              updatedAt: new Date().toISOString(),
-            }]);
-
-          if (insertError) {
-            console.error('Error creating user profile after missing profile detected:', insertError);
-            // Still return a minimal user object even if profile creation fails
-            return {
-              id: user.id,
-              email: user.email || '',
-              name: user.user_metadata?.name || user.email || 'User',
-              role: user.user_metadata?.role || 'student',
-              unitId: undefined,
-            };
-          } else {
-            console.log('New user profile created successfully for user:', user.id);
-            // Profile created successfully, return it
-            return {
-              id: user.id,
-              email: user.email || '',
-              name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-              role: user.user_metadata?.role || 'STUDENT',
-              unitId: undefined,
-            };
-          }
-        } else {
-          // For other errors, return a minimal user object based on auth data
-          console.error('Unexpected profile fetch error:', {
-            code: profileError?.code,
-            message: profileError?.message,
-            details: profileError,
-            userId: user.id,
-            userEmail: user.email
-          });
-          return {
-            id: user.id,
-            email: user.email || '',
-            name: user.user_metadata?.name || user.email || 'User',
-            role: user.user_metadata?.role || 'STUDENT',
-          };
-        }
-      }
-
-      const profileData = profileResult.value.data;
-
-      if (profileData) {
+      if (data.user) {
         return {
-          id: profileData.id,
-          email: profileData.email,
-          name: profileData.name,
-          role: profileData.role,
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name,
+          role: data.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
+          unitId: data.user.unitId || undefined,
         };
+      } else {
+        return null;
       }
-
-      // If no profile data but no error, return minimal user object
-      return {
-        id: user.id,
-        email: user.email || '',
-        name: user.user_metadata?.name || user.email || 'User',
-        role: user.user_metadata?.role || 'STUDENT',
-        unitId: undefined,
-      };
     } catch (error) {
       console.error('Error in getCurrentUser:', error);
       return null;
@@ -461,224 +416,333 @@ class SupabaseAuthService {
   }
 
   async getSession() {
-    const { data: { session } } = await this.supabase.auth.getSession();
-    return session;
+    const token = this.getAccessTokenFromStorage();
+    if (!token) {
+      return null;
+    }
+
+    // Check if we're in the browser environment
+    if (typeof window !== 'undefined') {
+      // In browser, decode token without verification
+      const decoded = jwtService.decodeToken(token);
+      if (!decoded) {
+        // If we can't decode the token, try to refresh it
+        const refreshed = await this.refreshToken();
+        if (refreshed) {
+          const newToken = this.getAccessTokenFromStorage();
+          if (newToken) {
+            const newDecoded = jwtService.decodeToken(newToken);
+            return newDecoded ? { access_token: newToken, expires_at: newDecoded.exp } : null;
+          }
+        }
+        return null;
+      }
+      return decoded ? { access_token: token, expires_at: decoded.exp } : null;
+    } else {
+      // On server, verify the JWT token
+      const decoded = await jwtService.verifyToken(token);
+      if (!decoded) {
+        // If token verification fails, try to refresh it
+        const refreshed = await this.refreshToken();
+        if (refreshed) {
+          const newToken = this.getAccessTokenFromStorage();
+          if (newToken) {
+            const newDecoded = await jwtService.verifyToken(newToken);
+            return newDecoded ? { access_token: newToken, expires_at: newDecoded.exp } : null;
+          }
+        }
+        return null;
+      }
+      return decoded ? { access_token: token, expires_at: decoded.exp } : null;
+    }
   }
 
   async getUser() {
-    const { data: { user } } = await this.supabase.auth.getUser();
-    return user;
+    return await this.getCurrentUser();
+  }
+
+  // Mock refresh token store - in a real implementation this would be a database
+  private refreshTokensStore: Map<string, { userId: string; email: string; role: string }> = new Map();
+
+  generateMockRefreshToken(): string {
+    // Generate a mock refresh token
+    return `mock_refresh_token_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  }
+
+  async refreshToken(): Promise<boolean> {
+    try {
+      // Get the refresh token from storage
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (!refreshToken) {
+        return false;
+      }
+
+      // Call the refresh endpoint
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) {
+        // If refresh fails, clear all tokens
+        this.removeAccessTokenFromStorage();
+        localStorage.removeItem('refresh_token');
+        // Remove refresh token from mock store if it exists
+        this.refreshTokensStore.delete(refreshToken);
+        return false;
+      }
+
+      const data = await response.json();
+      if (data.token) {
+        // Store the new access token
+        this.setAccessTokenInStorage(data.token);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      return false;
+    }
   }
 
   async updatePassword(newPassword: string) {
-    const { error } = await this.supabase.auth.updateUser({
-      password: newPassword,
-    });
-    return { error };
+    try {
+      let token = await this.getAccessToken();
+      if (!token) {
+        return { error: 'User not authenticated' };
+      }
+
+      const response = await fetch('/api/auth/update-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ newPassword }),
+      });
+
+      if (!response.ok) {
+        // If the response is 401 (unauthorized), try to refresh the token
+        if (response.status === 401) {
+          const refreshed = await this.refreshToken();
+          if (refreshed) {
+            // Get the new token after refresh
+            const newToken = await this.getAccessToken();
+            if (newToken) {
+              // Try the request again with the new token
+              const retryResponse = await fetch('/api/auth/update-password', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${newToken}`
+                },
+                body: JSON.stringify({ newPassword }),
+              });
+
+              if (!retryResponse.ok) {
+                const errorData = await retryResponse.json().catch(() => ({}));
+                return { error: errorData.error || 'Failed to update password' };
+              }
+
+              return { error: null };
+            }
+          }
+        }
+        const errorData = await response.json().catch(() => ({}));
+        return { error: errorData.error || 'Failed to update password' };
+      }
+
+      return { error: null };
+    } catch (error) {
+      console.error('Error updating password:', error);
+      return { error: 'Failed to update password' };
+    }
   }
 
   async resetPassword(email: string) {
-    const { error } = await this.supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/update-password`,
-    });
-    return { error };
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { error: errorData.error || 'Failed to reset password' };
+      }
+
+      return { error: null };
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      return { error: 'Failed to reset password' };
+    }
   }
 
- async isAuthenticated(): Promise<boolean> {
+  async isAuthenticated(): Promise<boolean> {
     try {
-      // First try to get the session to ensure we have valid authentication
-      const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
-      
-      // If no session exists, return false immediately
-      if (sessionError || !session) {
+      const token = this.getAccessTokenFromStorage();
+      if (!token) {
         return false;
       }
 
-      // Check if the session is expired
-      if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
-        // Try to refresh the session
-        const { data: { session: refreshedSession }, error: refreshError } = await this.supabase.auth.refreshSession();
-        
-        if (refreshError || !refreshedSession) {
-          // If refresh fails, the user is not authenticated
-          return false;
+      // Check if we're in the browser environment
+      if (typeof window !== 'undefined') {
+        // In browser, check if token is expired without full verification
+        const isExpired = jwtService.isTokenExpired(token);
+        if (isExpired) {
+          // Try to refresh the token
+          const refreshed = await this.refreshToken();
+          return refreshed;
         }
+        return true;
+      } else {
+        // On server, verify the JWT token
+        const decoded = await jwtService.verifyToken(token);
+        return !!decoded;
       }
-
-      // Use getUser() instead of getSession() to authenticate the data by contacting the Supabase Auth server
-      const { data: { user }, error } = await this.supabase.auth.getUser();
-      if (error) {
-        console.error('User check error:', error);
-        return false;
-      }
-      return user !== null;
     } catch (error) {
       console.error('Error in isAuthenticated:', error);
       return false;
     }
   }
 
- async getAccessToken(): Promise<string | null> {
+  async getAccessToken(): Promise<string | null> {
     try {
-      // Try to get the session first
-      const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
-      
-      if (sessionError || !session) {
+      const token = this.getAccessTokenFromStorage();
+      if (!token) {
         return null;
       }
-      
-      if (session?.access_token) {
-        return session.access_token;
-      }
-      
-      // Check if the session is expired
-      if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
-        // Try to refresh the session
-        const { data: { session: refreshedSession }, error: refreshError } = await this.supabase.auth.refreshSession();
-        
-        if (refreshError || !refreshedSession) {
-          // If refresh fails, return null
-          return null;
+
+      // Check if we're in the browser environment
+      if (typeof window !== 'undefined') {
+        // In browser, check if token is expired without full verification
+        const isExpired = jwtService.isTokenExpired(token);
+        if (isExpired) {
+          // Try to refresh the token
+          const refreshed = await this.refreshToken();
+          if (refreshed) {
+            // Get the new token after refresh
+            const newToken = this.getAccessTokenFromStorage();
+            return newToken;
+          } else {
+            return null; // If refresh failed, return null
+          }
         }
-        
-        return refreshedSession.access_token || null;
+        return token;
+      } else {
+        // On server, verify the JWT token
+        const decoded = await jwtService.verifyToken(token);
+        return decoded ? token : null;
       }
-      
-      return null;
     } catch (error) {
       console.error('Error getting access token:', error);
       return null;
     }
   }
 
- /**
-  * Fetch comprehensive user data in a single call to optimize performance
-  * This method uses the new /api/auth/me endpoint to get all user information at once
-  */
-async getComprehensiveUserData(): Promise<any> {
-   try {
-     // Check if we have cached session data and it's still valid
-     const cachedSession = this.getCachedSession();
-     if (cachedSession) {
-       return cachedSession;
-     }
-     
-     const token = await this.getAccessToken();
-     
-     if (!token) {
-       // If no token is available, check if user is authenticated before throwing error
-       const isAuthenticated = await this.isAuthenticated();
-       if (!isAuthenticated) {
-         // User is not authenticated, return null to indicate this
-         return { authenticated: false, user: null };
-       } else {
-         // User is authenticated but we can't get a token, try alternative approach
-         // First try to get a session and refresh it if needed
-         const { data: { session }, error: sessionError } = await this.supabase.auth.getSession();
-         
-         if (sessionError || !session) {
-           return { authenticated: false, user: null };
-         }
-         
-         // Check if the session is expired and refresh if necessary
-         if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
-           const { data: { session: refreshedSession }, error: refreshError } = await this.supabase.auth.refreshSession();
-           
-           if (refreshError || !refreshedSession) {
-             // If refresh fails, return not authenticated
-             return { authenticated: false, user: null };
-           }
-         }
-         
-         // Now try to get the user data
-         const { data: { user }, error: userError } = await this.supabase.auth.getUser();
-         if (userError || !user) {
-           return { authenticated: false, user: null };
-         }
-         
-         // Get user profile from database
-         const { data: profileData, error: profileError } = await this.supabase
-           .from('users')
-           .select('id, email, name, role, unitId')
-           .eq('supabase_auth_id', user.id)
-           .single();
-         
-         if (profileError) {
-           // Return minimal user data based on auth if profile doesn't exist
-           const userData = {
-             authenticated: true,
-             user: {
-               id: user.id,
-               email: user.email || '',
-               name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-               role: user.user_metadata?.role || 'STUDENT',
-             }
-           };
-           
-           // Cache this data for future use
-           this.setCachedSession(userData);
-           return userData;
-         }
-         
-         // Return user data from database
-         const userData = {
-           authenticated: true,
-           user: {
-             id: profileData.id,
-             email: profileData.email,
-             name: profileData.name,
-             role: profileData.role,
-           }
-         };
-         
-         // Cache this data for future use
-         this.setCachedSession(userData);
-         return userData;
-       }
-     }
+  /**
+   * Fetch comprehensive user data in a single call to optimize performance
+   * This method uses the new /api/auth/me endpoint to get all user information at once
+   */
+  async getComprehensiveUserData(): Promise<any> {
+    try {
+      // Check if we have cached session data and it's still valid
+      const cachedSession = this.getCachedSession();
+      if (cachedSession) {
+        return cachedSession;
+      }
 
-     const response = await fetch('/api/auth/me', {
-       headers: {
-         'Authorization': `Bearer ${token}`,
-         'Content-Type': 'application/json',
-       }
-     });
+      let token = await this.getAccessToken();
+      
+      if (!token) {
+        // If no token is available, check if user is authenticated before throwing error
+        const isAuthenticated = await this.isAuthenticated();
+        if (!isAuthenticated) {
+          // User is not authenticated, return null to indicate this
+          return { authenticated: false, user: null };
+        } else {
+          // User is authenticated but we can't get a token, return not authenticated
+          return { authenticated: false, user: null };
+        }
+      }
+      
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        // If the error is authentication-related, try to refresh the token
+        if (response.status === 401 || response.status === 404) {
+          // Try to refresh the token
+          const refreshed = await this.refreshToken();
+          if (refreshed) {
+            // Get the new token after refresh
+            const refreshedToken = await this.getAccessToken();
+            if (refreshedToken) {
+              // Try the request again with the refreshed token
+              const retryResponse = await fetch('/api/auth/me', {
+                headers: {
+                  'Authorization': `Bearer ${refreshedToken}`,
+                  'Content-Type': 'application/json',
+                }
+              });
+              
+              if (!retryResponse.ok) {
+                // Clear cache on authentication failure
+                this.clearCachedSession();
+                return { authenticated: false, user: null };
+              }
+              
+              const retryData = await retryResponse.json();
+              // Cache the comprehensive user data
+              this.setCachedSession(retryData);
+              return retryData;
+            }
+          }
+          // Clear cache on authentication failure
+          this.clearCachedSession();
+          return { authenticated: false, user: null };
+        }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to fetch user data: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Cache the comprehensive user data
+      this.setCachedSession(data);
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching comprehensive user data:', error);
+      // Check if this is an authentication error
+      if (error instanceof Error && error.message.includes('No authentication token available')) {
+        // Clear cache on authentication failure
+        this.clearCachedSession();
+        return { authenticated: false, user: null };
+      }
+      // For any other error, return not authenticated to prevent the error from propagating
+      this.clearCachedSession();
+      return { authenticated: false, user: null };
+    }
+  }
 
-     if (!response.ok) {
-       const errorData = await response.json().catch(() => ({}));
-       // If the error is authentication-related, return appropriate response
-       if (response.status === 401) {
-         // Clear cache on authentication failure
-         this.clearCachedSession();
-         return { authenticated: false, user: null };
-       }
-       throw new Error(errorData.error || `Failed to fetch user data: ${response.status} ${response.statusText}`);
-     }
-
-     const data = await response.json();
-     
-     // Cache the comprehensive user data
-     this.setCachedSession(data);
-     
-     return data;
-   } catch (error) {
-     console.error('Error fetching comprehensive user data:', error);
-     // Check if this is an authentication error
-     if (error instanceof Error && error.message.includes('No authentication token available')) {
-       // Clear cache on authentication failure
-       this.clearCachedSession();
-       return { authenticated: false, user: null };
-     }
-     throw error;
-   }
- }
- 
- /**
-  * Clear cached session data
-  */
- clearCache() {
-   this.clearCachedSession();
- }
+  /**
+   * Clear cached session data
+   */
+  clearCache() {
+    this.clearCachedSession();
+  }
 }
 
-export default new SupabaseAuthService();
+export default new DatabaseAuthService();

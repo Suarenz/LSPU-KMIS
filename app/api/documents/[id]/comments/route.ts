@@ -22,7 +22,7 @@ export async function GET(
     }
     
     const { user } = authResult;
-    const userId = user.userId;
+    const userId = user.id;
 
     // Get document comments using the document service
     const { comments, total } = await documentService.getDocumentComments(id, page, limit);
@@ -57,7 +57,7 @@ export async function POST(
     }
     
     const { user } = authResult;
-    const userId = user.userId;
+    const userId = user.id;
 
     // Parse request body
     const body = await request.json();

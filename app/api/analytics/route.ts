@@ -5,8 +5,8 @@ import { requireAuth } from '@/lib/middleware/auth-middleware';
 
 // GET /api/analytics
 export async function GET(request: NextRequest) {
-  // Check authentication
-  const authResult = await requireAuth(request, ['ADMIN', 'FACULTY']);
+  // Check authentication - allow any authenticated user, not just ADMIN/FACULTY
+  const authResult = await requireAuth(request);
   
   // Check if it's an error response
   if ('status' in authResult && authResult.status >= 400) {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   const { user } = authResult as { user: any };
   
   try {
-    const analytics = await analyticsService.getAnalytics();
+    const analytics = await analyticsService.getAnalytics(user.id, user.role);
     
     return NextResponse.json(analytics);
   } catch (error) {

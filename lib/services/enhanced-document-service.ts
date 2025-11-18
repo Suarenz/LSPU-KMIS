@@ -1,5 +1,8 @@
 import prisma from '@/lib/prisma';
 import { Document } from '@/lib/api/types';
+import ColivaraService from './colivara-service';
+
+const colivaraService = new ColivaraService();
 
 class EnhancedDocumentService {
   /**
@@ -60,12 +63,9 @@ class EnhancedDocumentService {
         where: { id: userId },
       });
 
-      // If not found, try to find user by supabase_auth_id
-      if (!user) {
-        user = await prisma.user.findUnique({
-          where: { supabase_auth_id: userId },
-        });
-      }
+      // In the new system, we only use the database ID
+      // If not found by database ID, we just continue with the assumption that the user doesn't have access
+      // The permission checks later will handle access control
 
       if (user && user.role !== 'ADMIN' && user.role !== 'FACULTY') {
         // For non-admin and non-faculty users, we need to check document permissions
@@ -110,6 +110,7 @@ class EnhancedDocumentService {
           unitId: doc.unitId ?? undefined,
           versionNotes: doc.versionNotes ?? undefined, // Convert null to undefined
           uploadedBy: doc.uploadedByUser?.name || doc.uploadedBy,
+          status: doc.status as 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW', // Ensure proper type
           unit: doc.documentUnit ? {
             id: doc.documentUnit.id,
             name: doc.documentUnit.name,
@@ -121,6 +122,11 @@ class EnhancedDocumentService {
           uploadedAt: new Date(doc.uploadedAt),
           createdAt: new Date(doc.createdAt),
           updatedAt: new Date(doc.updatedAt),
+          // Colivara fields
+          colivaraDocumentId: doc.colivaraDocumentId ?? undefined,
+          colivaraProcessingStatus: doc.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+          colivaraProcessedAt: doc.colivaraProcessedAt ? new Date(doc.colivaraProcessedAt) : undefined,
+          colivaraChecksum: doc.colivaraChecksum ?? undefined,
         })),
         total,
       };
@@ -155,12 +161,9 @@ class EnhancedDocumentService {
           where: { id: userId },
         });
 
-        // If not found, try to find user by supabase_auth_id
-        if (!user) {
-          user = await prisma.user.findUnique({
-            where: { supabase_auth_id: userId },
-          });
-        }
+        // In the new system, we only use the database ID
+        // If not found by database ID, we just continue with the assumption that the user doesn't have access
+        // The permission checks later will handle access control
 
         if (user && user.role !== 'ADMIN' && user.role !== 'FACULTY') {
           // Check if document is public or user has explicit permission
@@ -178,11 +181,26 @@ class EnhancedDocumentService {
       }
 
       return {
-        ...document,
+        id: document.id,
+        title: document.title,
+        description: document.description,
+        category: document.category,
         tags: Array.isArray(document.tags) ? document.tags as string[] : [],
-        unitId: document.unitId || undefined, // Convert null to undefined
-        versionNotes: document.versionNotes || undefined, // Convert null to undefined
         uploadedBy: document.uploadedByUser?.name || document.uploadedBy,
+        uploadedById: document.uploadedById,
+        uploadedAt: new Date(document.uploadedAt),
+        fileUrl: document.fileUrl,
+        fileName: document.fileName,
+        fileType: document.fileType,
+        fileSize: document.fileSize,
+        downloadsCount: document.downloadsCount || 0,
+        viewsCount: document.viewsCount || 0,
+        version: document.version || 1,
+        versionNotes: document.versionNotes || undefined, // Convert null to undefined
+        status: document.status as 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW', // Ensure proper type
+        createdAt: new Date(document.createdAt),
+        updatedAt: new Date(document.updatedAt),
+        unitId: document.unitId || undefined, // Convert null to undefined
         unit: document.documentUnit ? {
           id: document.documentUnit.id,
           name: document.documentUnit.name,
@@ -191,9 +209,11 @@ class EnhancedDocumentService {
           createdAt: document.documentUnit.createdAt,
           updatedAt: document.documentUnit.updatedAt,
         } : undefined,
-        uploadedAt: new Date(document.uploadedAt),
-        createdAt: new Date(document.createdAt),
-        updatedAt: new Date(document.updatedAt),
+        // Colivara fields
+        colivaraDocumentId: document.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: document.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: document.colivaraProcessedAt ? new Date(document.colivaraProcessedAt) : undefined,
+        colivaraChecksum: document.colivaraChecksum ?? undefined,
       };
     } catch (error) {
       console.error('Database connection error in getDocumentById:', error);
@@ -232,21 +252,30 @@ class EnhancedDocumentService {
         userId
       });
       
+      // First, check if userId is defined
+      if (!userId) {
+        console.error('No userId provided to createDocument function');
+        throw new Error('User ID is required to upload documents');
+      }
+
+      console.log('Attempting to find user with ID:', userId);
+      
       // First, try to find user by the provided userId (which might be the database ID)
       let user = await prisma.user.findUnique({
         where: { id: userId },
       });
 
-      // If not found, try to find user by supabase_auth_id
+      // In the new system, we only use the database ID
+      // If not found by database ID, we return null
       if (!user) {
-        user = await prisma.user.findUnique({
-          where: { supabase_auth_id: userId },
-        });
+        console.error('User not found with provided ID:', userId);
+        throw new Error('Only admins and faculty can upload documents');
       }
       
-      console.log('User lookup result:', { user: !!user, role: user?.role });
+      console.log('User lookup result:', { user: !!user, role: user?.role, id: user?.id });
 
       if (!user || !['ADMIN', 'FACULTY'].includes(user.role)) {
+        console.error('User does not have required role to upload documents:', user?.role);
         throw new Error('Only admins and faculty can upload documents');
       }
 
@@ -280,12 +309,7 @@ class EnhancedDocumentService {
       
       console.log('Document permissions granted');
 
-      // Update unitId using raw SQL if provided, since Prisma client may not recognize the field yet
-      if (unitId) {
-        await prisma.$executeRaw`UPDATE documents SET "unitId" = ${unitId} WHERE id = ${document.id}`;
-      }
-
-      // Get the updated document to ensure we have the latest unitId value after raw SQL update
+      // Get the updated document to ensure we have the latest unitId value after creation
       const finalDocument = await prisma.document.findUnique({
         where: { id: document.id },
         include: {
@@ -297,13 +321,36 @@ class EnhancedDocumentService {
       if (!finalDocument) {
         throw new Error(`Document with id ${document.id} not found after creation`);
       }
+
+      // Trigger Colivara processing asynchronously
+      try {
+        await colivaraService.processNewDocument(finalDocument as Document, fileUrl);
+      } catch (processingError) {
+        console.error(`Error triggering Colivara processing for document ${document.id}:`, processingError);
+        // Don't throw error as we don't want to fail the document creation due to processing issues
+      }
       
       return {
-        ...finalDocument,
+        id: finalDocument.id,
+        title: finalDocument.title,
+        description: finalDocument.description,
+        category: finalDocument.category,
         tags: Array.isArray(finalDocument.tags) ? finalDocument.tags as string[] : [],
-        unitId: finalDocument.unitId ?? undefined,
-        versionNotes: finalDocument.versionNotes ?? undefined, // Convert null to undefined
         uploadedBy: finalDocument.uploadedByUser?.name || finalDocument.uploadedBy,
+        uploadedById: finalDocument.uploadedById,
+        uploadedAt: new Date(finalDocument.uploadedAt),
+        fileUrl: finalDocument.fileUrl,
+        fileName: finalDocument.fileName,
+        fileType: finalDocument.fileType,
+        fileSize: finalDocument.fileSize,
+        downloadsCount: finalDocument.downloadsCount || 0,
+        viewsCount: finalDocument.viewsCount || 0,
+        version: finalDocument.version || 1,
+        versionNotes: finalDocument.versionNotes ?? undefined, // Convert null to undefined
+        status: finalDocument.status as 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW', // Ensure proper type
+        createdAt: new Date(finalDocument.createdAt),
+        updatedAt: new Date(finalDocument.updatedAt),
+        unitId: finalDocument.unitId ?? undefined,
         unit: finalDocument.documentUnit ? {
           id: finalDocument.documentUnit.id,
           name: finalDocument.documentUnit.name,
@@ -312,9 +359,11 @@ class EnhancedDocumentService {
           createdAt: finalDocument.documentUnit.createdAt,
           updatedAt: finalDocument.documentUnit.updatedAt,
         } : undefined,
-        uploadedAt: new Date(finalDocument.uploadedAt),
-        createdAt: new Date(finalDocument.createdAt),
-        updatedAt: new Date(finalDocument.updatedAt),
+        // Colivara fields
+        colivaraDocumentId: finalDocument.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: finalDocument.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: finalDocument.colivaraProcessedAt ? new Date(finalDocument.colivaraProcessedAt) : undefined,
+        colivaraChecksum: finalDocument.colivaraChecksum ?? undefined,
       };
     } catch (error) {
       console.error('Database connection error in createDocument:', error);
@@ -333,7 +382,8 @@ class EnhancedDocumentService {
     category?: string,
     tags?: string[],
     unitId?: string, // NEW: Unit assignment
-    userId?: string
+    userId?: string,
+    fileUrl?: string // NEW: File URL for Colivara reprocessing
   ): Promise<Document | null> {
     try {
       const document = await prisma.document.findUnique({
@@ -354,12 +404,9 @@ class EnhancedDocumentService {
           where: { id: userId },
         });
 
-        // If not found, try to find user by supabase_auth_id
-        if (!user) {
-          user = await prisma.user.findUnique({
-            where: { supabase_auth_id: userId },
-          });
-        }
+        // In the new system, we only use the database ID
+        // If not found by database ID, we just continue with the assumption that the user doesn't have access
+        // The permission checks later will handle access control
 
         if (user) {
           permission = await prisma.documentPermission.findFirst({
@@ -384,34 +431,54 @@ class EnhancedDocumentService {
           ...(description !== undefined && { description: description || "" }),
           ...(category !== undefined && { category: category || "Uncategorized" }),
           ...(tags !== undefined && { tags: tags || [] }),
+          ...(unitId !== undefined && { unitId: unitId }), // Include unitId in the update if provided
           updatedAt: new Date(),
         },
-      });
-
-      // Update unitId using raw SQL since Prisma client may not recognize the field yet
-      if (unitId !== undefined) {
-        await prisma.$executeRaw`UPDATE documents SET "unitId" = ${unitId} WHERE id = ${id}`;
-      }
-
-      // Get the updated document to ensure we have the latest unitId value after raw SQL update
-      const finalDocument = await prisma.document.findUnique({
-        where: { id },
         include: {
           uploadedByUser: true,
           documentUnit: true,
         }
       });
+
+      // Get the updated document
+      const finalDocument = updatedDocument;
       
       if (!finalDocument) {
         throw new Error(`Document with id ${id} not found after update`);
       }
+
+      // Check if file URL has changed to determine if we need to reprocess with Colivara
+      // In this implementation, we pass fileUrl as an optional parameter to determine if reprocessing is needed
+      if (fileUrl) {
+        try {
+          await colivaraService.handleDocumentUpdate(id, finalDocument as Document, fileUrl);
+        } catch (processingError) {
+          console.error(`Error triggering Colivara reprocessing for document ${id}:`, processingError);
+          // Don't throw error as we don't want to fail the document update due to processing issues
+        }
+      }
       
       return {
-        ...finalDocument,
+        id: finalDocument.id,
+        title: finalDocument.title,
+        description: finalDocument.description,
+        category: finalDocument.category,
         tags: Array.isArray(finalDocument.tags) ? finalDocument.tags as string[] : [],
-        unitId: finalDocument.unitId ?? undefined,
-        versionNotes: finalDocument.versionNotes ?? undefined, // Convert null to undefined
         uploadedBy: finalDocument.uploadedByUser?.name || finalDocument.uploadedBy,
+        uploadedById: finalDocument.uploadedById,
+        uploadedAt: new Date(finalDocument.uploadedAt),
+        fileUrl: finalDocument.fileUrl,
+        fileName: finalDocument.fileName,
+        fileType: finalDocument.fileType,
+        fileSize: finalDocument.fileSize,
+        downloadsCount: finalDocument.downloadsCount || 0,
+        viewsCount: finalDocument.viewsCount || 0,
+        version: finalDocument.version || 1,
+        versionNotes: finalDocument.versionNotes ?? undefined, // Convert null to undefined
+        status: finalDocument.status as 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW', // Ensure proper type
+        createdAt: new Date(finalDocument.createdAt),
+        updatedAt: new Date(finalDocument.updatedAt),
+        unitId: finalDocument.unitId ?? undefined,
         unit: finalDocument.documentUnit ? {
           id: finalDocument.documentUnit.id,
           name: finalDocument.documentUnit.name,
@@ -420,9 +487,11 @@ class EnhancedDocumentService {
           createdAt: finalDocument.documentUnit.createdAt,
           updatedAt: finalDocument.documentUnit.updatedAt,
         } : undefined,
-        uploadedAt: new Date(finalDocument.uploadedAt),
-        createdAt: new Date(finalDocument.createdAt),
-        updatedAt: new Date(finalDocument.updatedAt),
+        // Colivara fields
+        colivaraDocumentId: finalDocument.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: finalDocument.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: finalDocument.colivaraProcessedAt ? new Date(finalDocument.colivaraProcessedAt) : undefined,
+        colivaraChecksum: finalDocument.colivaraChecksum ?? undefined,
       };
     } catch (error) {
       console.error('Database connection error in updateDocument:', error);
@@ -466,12 +535,9 @@ class EnhancedDocumentService {
         where: { id: userId },
       });
 
-      // If not found, try to find user by supabase_auth_id
-      if (!user) {
-        user = await prisma.user.findUnique({
-          where: { supabase_auth_id: userId },
-        });
-      }
+      // In the new system, we only use the database ID
+      // If not found by database ID, we just continue with the assumption that the user doesn't have access
+      // The permission checks later will handle access control
 
       if (user && user.role === 'ADMIN') {
         // Admins can see all documents in the unit regardless of who uploaded them
@@ -518,6 +584,7 @@ class EnhancedDocumentService {
           unitId: doc.unitId ?? undefined,
           versionNotes: doc.versionNotes ?? undefined, // Convert null to undefined
           uploadedBy: doc.uploadedByUser?.name || doc.uploadedBy,
+          status: doc.status as 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW', // Ensure proper type
           unit: doc.documentUnit ? {
             id: doc.documentUnit.id,
             name: doc.documentUnit.name,
@@ -529,6 +596,11 @@ class EnhancedDocumentService {
           uploadedAt: new Date(doc.uploadedAt),
           createdAt: new Date(doc.createdAt),
           updatedAt: new Date(doc.updatedAt),
+          // Colivara fields
+          colivaraDocumentId: doc.colivaraDocumentId ?? undefined,
+          colivaraProcessingStatus: doc.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+          colivaraProcessedAt: doc.colivaraProcessedAt ? new Date(doc.colivaraProcessedAt) : undefined,
+          colivaraChecksum: doc.colivaraChecksum ?? undefined,
         })),
         total,
       };

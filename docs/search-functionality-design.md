@@ -262,16 +262,15 @@ async searchDocuments({
   
   // Apply permission-based filtering
   if (userId) {
-    // First, try to find the user by the provided userId (which might be the database ID)
+    // First, try to find the user by the provided userId (which should be the database ID)
     let user = await prisma.user.findUnique({
       where: { id: userId },
     });
 
-    // If not found, try to find user by supabase_auth_id
+    // In the new system, we only use the database ID
+    // If not found by database ID, we return null
     if (!user) {
-      user = await prisma.user.findUnique({
-        where: { supabase_auth_id: userId },
-      });
+      return null;
     }
 
     if (user && user.role !== 'ADMIN') {

@@ -8,14 +8,14 @@ The current authentication flow in the LSPU KMIS has performance issues due to s
 
 ### In `lib/auth-context.tsx`:
 1. `checkInitialSession()` performs:
-   - `authService.getSupabaseClient().auth.getSession()` 
-   - `authService.getCurrentUser()` (which internally makes more async calls)
+   - JWT token validation
+   - `authService.getCurrentUser()` (which internally makes database calls)
 2. Auth state listener performs similar sequential operations
 3. Each operation waits for the previous one to complete
 
 ### In `lib/services/auth-service.ts`:
 1. `getCurrentUser()` performs:
-   - `this.supabase.auth.getUser()` to get the user from Supabase
+   - JWT token validation to get user claims
    - Database query to get user profile from 'users' table
    - These operations are performed sequentially
 
@@ -23,30 +23,46 @@ The current authentication flow in the LSPU KMIS has performance issues due to s
 
 ### 1. Parallel User Data Retrieval
 
-Instead of making sequential calls to get Supabase user data and database profile, we can run them in parallel using `Promise.all()` or `Promise.allSettled()`.
+Instead of making sequential calls to get user data, we can run them in parallel using `Promise.all()` or `Promise.allSettled()`.
 
 **Current implementation:**
-```typescript
-const { data: { user }, error } = await supabase.auth.getUser();
-if (user) {
-  const { data: profileData, error: profileError } = await supabase
-    .from('users')
-    .select('id, email, name, role, department')
-    .eq('supabase_auth_id', user.id)
-    .single();
+// Get user from JWT token validation
+const token = this.getAccessTokenFromStorage();
+if (!token) {
+  return null;
+}
+
+const decoded = jwtService.verifyToken(token);
+if (!decoded) {
+  return null;
+}
+
+// Fetch user details from the database using the user ID from the token
+const profileData = await prisma.user.findUnique({
+  where: { id: decoded.userId },
+  select: { id: true, email: true, name: true, role: true, department: true }
+});
 }
 ```
 
 **Optimized implementation:**
 ```typescript
-const [userResult, profileResult] = await Promise.allSettled([
-  supabase.auth.getUser(),
-  supabase
-    .from('users')
-    .select('id, email, name, role, department')
-    .eq('supabase_auth_id', userId) // Need to get userId first
-    .single()
-]);
+// In the new system, we only use the database ID
+// Get user from JWT token validation
+const token = this.getAccessTokenFromStorage();
+if (!token) {
+  return { user: null, profile: null };
+}
+
+const decoded = jwtService.verifyToken(token);
+if (!decoded) {
+  return { user: null, profile: null };
+}
+
+// Fetch user details from the database using the user ID from the token
+const profileResult = await prisma.user.findUnique({
+  where: { id: decoded.userId },
+});
 ```
 
 ### 2. Combined API Endpoint

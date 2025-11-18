@@ -24,9 +24,20 @@ export default function NewUnitPage() {
   useEffect(() => {
     const fetchUnits = async () => {
       try {
+        // First, verify that we have a valid authentication state
+        if (!isAuthenticated || !user) {
+          // If not authenticated, redirect to login
+          router.push('/');
+          return;
+        }
+        
+        // Then try to get the access token
         const token = await AuthService.getAccessToken();
         if (!token) {
-          throw new Error('No authentication token found');
+          // If no token is available despite being authenticated, log out the user
+          await AuthService.logout();
+          router.push('/');
+          return;
         }
         
         const response = await fetch(`/api/units`, {
@@ -46,13 +57,17 @@ export default function NewUnitPage() {
       } catch (err) {
         console.error('Error fetching units:', err);
         setUnits([]);
+        // If there's an authentication error, redirect to login
+        if (err instanceof Error && err.message.includes('No authentication token found')) {
+          router.push('/');
+        }
       }
     };
     
     if (isAuthenticated && user) {
       fetchUnits();
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, router]);
 
   // Check if user is admin
   useEffect(() => {

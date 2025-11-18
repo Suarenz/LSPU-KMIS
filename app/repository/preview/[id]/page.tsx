@@ -12,6 +12,7 @@ import { ClientOnly } from '@/components/client-only-wrapper';
 import { useToast } from '@/components/ui/use-toast';
 import { Document } from '@/lib/api/types';
 import AuthService from '@/lib/services/auth-service';
+import { ExternalLink } from 'lucide-react';
 
 export default function DocumentPreviewPage() {
   const { id } = useParams();
@@ -83,35 +84,12 @@ export default function DocumentPreviewPage() {
 
     setIsDownloading(true);
     try {
-      // Get the JWT token from auth context
-      const token = await AuthService.getAccessToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      // Fetch download using the direct download endpoint
-      const response = await fetch(`/api/documents/${document.id}/download-direct`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to download document');
-      }
-      
-      // No need to fetch JSON response for direct download
-      const downloadData = {
-        fileName: document.fileName,
-        title: document.title
-      };
-
       // Create a temporary link and trigger download using the direct download endpoint
-      const directDownloadUrl = `/api/documents/${document.id}/download-direct`;
+      // The API endpoint will handle the redirect to the actual file
+      const directDownloadUrl = `/api/documents/${document.id}/download-direct?token=${await AuthService.getAccessToken()}`;
       const link = globalThis.document.createElement('a');
       link.href = directDownloadUrl;
-      link.download = downloadData.fileName || `document-${document.id}`;
+      link.download = document.fileName || `document-${document.id}`;
       globalThis.document.body.appendChild(link);
       link.click();
       globalThis.document.body.removeChild(link);
@@ -271,9 +249,23 @@ export default function DocumentPreviewPage() {
           />
         </div>
       );
+    } else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].some(type => fileType.includes(type))) {
+      // For Office documents, use Google Docs Viewer
+      const encodedUrl = encodeURIComponent(pdfUrl);
+      const externalViewerUrl = `https://docs.google.com/gview?url=${encodedUrl}&embedded=true`;
+      
+      return (
+        <div className="flex-1 bg-background">
+          <iframe
+            src={externalViewerUrl}
+            className="w-full h-full min-h-[70vh]"
+            style={{ height: 'calc(100vh - 200px)' }}
+            title={`Preview of ${document.title}`}
+          />
+        </div>
+      );
     } else {
-      // For other file types (doc, docx, ppt, pptx, xls, xlsx), we'll provide a message
-      // In a real implementation, you might want to convert these to PDF or use a service like Google Docs Viewer
+      // For other unsupported file types, provide a message
       return (
         <div className="flex-1 bg-background flex flex-col items-center justify-center p-8 text-center">
           <FileText className="w-16 h-16 text-muted-foreground mb-4" />

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const orderParam = searchParams.get('order') || 'desc';
     const order = orderParam === 'asc' ? 'asc' : 'desc'; // Ensure order is either 'asc' or 'desc'
 
-    const userId = user.userId;
+    const userId = user.id;
 
     let result;
     if (adminOnly && unitId) {
@@ -58,10 +58,31 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error fetching documents:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
-    );
+    // More specific error handling
+    if (error instanceof Error) {
+      // Check for specific error types
+      if (error.message.includes('database') || error.message.includes('connection')) {
+        return NextResponse.json(
+          { error: 'Database connection error' },
+          { status: 500 }
+        );
+      } else if (error.message.includes('permission') || error.message.includes('auth')) {
+        return NextResponse.json(
+          { error: 'Permission denied' },
+          { status: 403 }
+        );
+      } else {
+        return NextResponse.json(
+          { error: error.message || 'Internal server error' },
+          { status: 500 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
   }
 }
 
@@ -76,9 +97,9 @@ export async function POST(request: NextRequest) {
     }
     
     const { user } = authResult;
-    console.log('User authenticated:', user.userId, user.role);
+    console.log('User authenticated:', user.id, user.role);
 
-    const userId = user.userId;
+    const userId = user.id;
     const userRole = user.role;
 
     // Parse form data for file upload
@@ -129,8 +150,8 @@ export async function POST(request: NextRequest) {
       const fileName = file.name;
       const fileType = file.type;
       const fileSize = file.size;
-      // Get the full URL for the file from Supabase
-      const fileUrl = await fileStorageService.getFileUrl(result.url);
+      // Get the full URL for the file from Azure Storage
+      const fileUrl = result.url; // The URL is already returned by the saveFile function
       console.log('File URL generated:', fileUrl);
 
       // Create the document in the database
@@ -158,7 +179,7 @@ export async function POST(request: NextRequest) {
       console.error('Error in file storage or document creation:', storageError);
       const errorMessage = storageError instanceof Error ? storageError.message : 'Failed to create document';
       // Check if this is specifically a file storage error to return a more specific status
-      if (storageError instanceof Error && storageError.message.includes('Failed to upload file to Supabase')) {
+      if (storageError instanceof Error && storageError.message.includes('Failed to upload file to')) {
         return NextResponse.json(
           { error: `File upload failed: ${storageError.message}` },
           { status: 500 }
@@ -193,7 +214,7 @@ export async function POST(request: NextRequest) {
           { error: 'Authentication token is invalid or expired' },
           { status: 401 }
         );
-      } else if (error.message.includes('Failed to upload file to Supabase')) {
+      } else if (error.message.includes('Failed to upload file to')) {
         return NextResponse.json(
           { error: `File upload failed: ${error.message}` },
           { status: 500 }

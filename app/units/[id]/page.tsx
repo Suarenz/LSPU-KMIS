@@ -479,26 +479,9 @@ export default function UnitPage() {
                                     throw new Error('Download can only be initiated from the browser');
                                   }
 
-                                  // Get the JWT token from auth context
-                                  const downloadToken = await AuthService.getAccessToken();
-                                  if (!downloadToken) {
-                                    throw new Error('No authentication token found');
-                                  }
-
-                                  // Fetch download using the direct download endpoint
-                                  const response = await fetch(`/api/documents/${doc.id}/download-direct`, {
-                                    headers: {
-                                      'Authorization': `Bearer ${downloadToken}`,
-                                    }
-                                  });
-
-                                  if (!response.ok) {
-                                    const errorData = await response.json().catch(() => ({}));
-                                    throw new Error(errorData.error || 'Failed to download document');
-                                  }
-
                                   // Create a temporary link and trigger download using the direct download endpoint
-                                  const directDownloadUrl = `/api/documents/${doc.id}/download-direct`;
+                                  // The API endpoint will handle the redirect to the actual file
+                                  const directDownloadUrl = `/api/documents/${doc.id}/download-direct?token=${await AuthService.getAccessToken()}`;
                                   const link = document.createElement('a');
                                   link.href = directDownloadUrl;
                                   link.download = doc.fileName || `document-${doc.id}`;
@@ -519,17 +502,8 @@ export default function UnitPage() {
                           )}
                           
                           <div className="flex gap-2 mt-2">
-                            {(doc.fileType.toLowerCase().includes('pdf') ||
-                              doc.fileType.toLowerCase().includes('doc') ||
-                              doc.fileType.toLowerCase().includes('docx') ||
-                              doc.fileType.toLowerCase().includes('ppt') ||
-                              doc.fileType.toLowerCase().includes('pptx') ||
-                              doc.fileType.toLowerCase().includes('xls') ||
-                              doc.fileType.toLowerCase().includes('xlsx') ||
-                              doc.fileType.toLowerCase().includes('txt') ||
-                              doc.fileType.toLowerCase().includes('jpg') ||
-                              doc.fileType.toLowerCase().includes('jpeg') ||
-                              doc.fileType.toLowerCase().includes('png')) ? (
+                            {/* Show preview button for all supported file types */}
+                            {true ? (
                               <Button
                                 className="flex-1 gap-2"
                                 size="sm"
@@ -869,7 +843,7 @@ export default function UnitPage() {
                       type="file"
                       name="file"
                       required
-                      accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png"
+                      accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif"
                       className="w-full p-2 border-input rounded-md bg-background"
                     />
                   </div>

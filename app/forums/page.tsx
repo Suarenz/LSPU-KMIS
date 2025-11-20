@@ -205,7 +205,7 @@ export default function ForumsPage() {
                     </div>
                     <CardDescription className="text-base line-clamp-2 mb-3">{post.content}</CardDescription>
                     <div className="flex flex-wrap gap-1 mb-3">
-                      {post.tags.map((tag) => (
+                      {post.tags?.map((tag) => (
                         <Badge key={tag} variant="secondary" className="text-xs">
                           {tag}
                         </Badge>

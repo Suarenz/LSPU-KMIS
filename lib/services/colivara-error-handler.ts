@@ -10,6 +10,7 @@ export enum ColivaraErrorType {
   TIMEOUT = 'TIMEOUT',
   INVALID_RESPONSE = 'INVALID_RESPONSE',
   NETWORK_ERROR = 'NETWORK_ERROR',
+  DOCUMENT_NOT_FOUND = 'DOCUMENT_NOT_FOUND',
 }
 
 export class ColivaraError extends Error {
@@ -144,6 +145,10 @@ export class ColivaraErrorHandler {
       return new ColivaraError(ColivaraErrorType.AUTHENTICATION_FAILED, 'Authentication failed', error, error.status);
     }
 
+    if (error.status === 404) {
+      return new ColivaraError(ColivaraErrorType.DOCUMENT_NOT_FOUND, 'Document not found in Colivara collections', error, error.status);
+    }
+
     if (error.status >= 500) {
       return new ColivaraError(ColivaraErrorType.API_UNAVAILABLE, 'API temporarily unavailable', error, error.status);
     }
@@ -160,7 +165,8 @@ export class ColivaraErrorHandler {
     // These errors should not be retried
     return [
       ColivaraErrorType.AUTHENTICATION_FAILED,
-      ColivaraErrorType.INVALID_RESPONSE
+      ColivaraErrorType.INVALID_RESPONSE,
+      ColivaraErrorType.DOCUMENT_NOT_FOUND
     ].includes(error.type);
   }
 

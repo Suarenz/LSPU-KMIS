@@ -52,19 +52,32 @@ Previously, the login page (`/`) was showing marketing/feature content that shou
 
 These are the same features described on the actual dashboard, making it unclear what content was available before login.
 
+### RBAC Role Assignment Issue
+Additionally, there was an issue where default admin users were being assigned the STUDENT role instead of the ADMIN role, which caused access control problems throughout the system. The role-based access control wasn't functioning properly due to incorrect role assignments in the database.
+
 ### Solution Implemented
 
 1. **Simplified Login Page** (`app/page.tsx`)
    - Removed all marketing/feature content
    - Now only shows essential login functionality
    - Maintains demo account information for testing
-
+ 
 2. **Created Separate Landing Page** (`app/landing/page.tsx`)
    - Moved all marketing/feature content to this new page
    - Added authentication redirect to dashboard for logged-in users
    - Maintains clear distinction between public and authenticated content
-
-3. **Routing**
+ 
+3. **Fixed Role Assignment Issue** (`scripts/fix-user-roles.ts`)
+   - Created a script to fix incorrect user roles in the database
+   - Ensured admin users have ADMIN role, faculty users have FACULTY role, etc.
+   - Added proper role verification and assignment for default users
+ 
+4. **Enhanced RBAC System** (`lib/utils/rbac.ts`)
+   - Created comprehensive RBAC utilities for role checking
+   - Implemented role hierarchy and permission management
+   - Updated auth middleware to use the new RBAC system
+ 
+5. **Routing**
    - `/` now leads to the simplified login page
    - `/landing` leads to the marketing/feature content page
    - Authenticated users are automatically redirected to `/dashboard`

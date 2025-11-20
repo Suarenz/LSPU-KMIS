@@ -1,6 +1,10 @@
 import prisma from '@/lib/prisma';
 import { Document, DocumentPermission, DocumentComment, User } from '@/lib/api/types';
 import fileStorageService from './file-storage-service';
+import ColivaraService from './colivara-service';
+
+// Create a singleton instance of the Colivara service
+const colivaraService = new ColivaraService();
 
 class DocumentService {
   /**
@@ -464,6 +468,12 @@ class DocumentService {
     try {
       const document = await prisma.document.findUnique({
         where: { id },
+        include: {
+          permissions: true, // Include related permissions
+          comments: true,    // Include related comments
+          downloads: true,   // Include related downloads
+          views: true,       // Include related views
+        }
       });
   
       if (!document) {
@@ -489,6 +499,28 @@ class DocumentService {
         throw new Error('User does not have permission to delete this document');
       }
   
+      // Delete related records first (due to foreign key constraints)
+      await prisma.documentComment.deleteMany({
+        where: { documentId: id },
+      });
+      
+      await prisma.documentDownload.deleteMany({
+        where: { documentId: id },
+      });
+      
+      await prisma.documentView.deleteMany({
+        where: { documentId: id },
+      });
+      
+      await prisma.documentPermission.deleteMany({
+        where: { documentId: id },
+      });
+      
+      // Delete Colivara indexes if they exist
+      await prisma.colivaraIndex.deleteMany({
+        where: { documentId: id },
+      });
+
       // Delete the file from storage before removing the database record
       try {
         const fileName = document.fileUrl.split('/').pop(); // Extract filename from URL
@@ -505,6 +537,18 @@ class DocumentService {
         // Continue with database deletion even if file deletion fails to avoid orphaned records
       }
   
+      // Delete from Colivara index if it exists
+      try {
+        // Initialize the service if needed (in case it hasn't been initialized)
+        if (!colivaraService['isInitialized']) {
+          await colivaraService.initialize();
+        }
+        await colivaraService.deleteFromIndex(id);
+      } catch (colivaraError) {
+        console.error(`Failed to delete document ${id} from Colivara index:`, colivaraError);
+        // Continue with deletion even if Colivara deletion fails
+      }
+      
       // Delete the document from the database
       await prisma.document.delete({
         where: { id },

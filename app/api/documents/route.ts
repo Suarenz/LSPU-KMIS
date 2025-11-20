@@ -154,6 +154,20 @@ export async function POST(request: NextRequest) {
       const fileUrl = result.url; // The URL is already returned by the saveFile function
       console.log('File URL generated:', fileUrl);
 
+      // Convert file to base64 for Colivara processing since Azure Blob Storage is private
+      let base64Content: string | undefined;
+      try {
+        // Read the file as ArrayBuffer and convert to base64
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        base64Content = buffer.toString('base64');
+        console.log('File converted to base64 successfully');
+      } catch (error) {
+        console.error('Error converting file to base64:', error);
+        // Continue without base64 content, Colivara service will fall back to URL
+        base64Content = undefined;
+      }
+
       // Create the document in the database
       console.log('Creating document in database...');
       // Use default category since it's no longer provided in form
@@ -170,7 +184,8 @@ export async function POST(request: NextRequest) {
         fileType,
         fileSize,
         userId,
-        unitId || undefined // NEW: Pass unitId if provided
+        unitId || undefined, // NEW: Pass unitId if provided
+        base64Content // NEW: Pass base64 content for Colivara processing
       );
       console.log('Document created successfully:', document.id);
 

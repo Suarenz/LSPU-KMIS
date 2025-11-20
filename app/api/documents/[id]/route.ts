@@ -5,10 +5,10 @@ import { requireAuth } from '@/lib/middleware/auth-middleware';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Verify authentication
     const authResult = await requireAuth(request);
@@ -41,10 +41,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Verify authentication and check role
     const authResult = await requireAuth(request, ['ADMIN', 'FACULTY']);
@@ -92,13 +92,13 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
-    // Verify authentication and check role
-    const authResult = await requireAuth(request, ['ADMIN', 'FACULTY']);
+    // Verify authentication
+    const authResult = await requireAuth(request);
     if ('status' in authResult) { // Check if it's a NextResponse (error case)
       return authResult;
     }
@@ -106,6 +106,24 @@ export async function DELETE(
     const { user } = authResult;
 
     const userId = user.id;
+
+    // Check if user has required permissions to delete the document
+    // User can delete if they are an admin/faculty OR if they are the document owner
+    const document = await documentService.getDocumentById(id);
+    if (!document) {
+      return NextResponse.json(
+        { error: 'Document not found' },
+        { status: 404 }
+      );
+    }
+
+    const hasPermission = user.role === 'ADMIN' || user.role === 'FACULTY' || document.uploadedById === userId;
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: 'User does not have permission to delete this document' },
+        { status: 403 }
+      );
+    }
 
     // Delete the document (this will delete both database record and file)
     const success = await documentService.deleteDocument(id, userId);

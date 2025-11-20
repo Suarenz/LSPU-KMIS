@@ -306,7 +306,7 @@ export default function DocumentPreviewPage() {
             </div>
             
             <div className="max-w-7xl mx-auto mt-3 flex flex-wrap gap-2">
-              {document.tags.map((tag, index) => (
+              {document.tags?.map((tag, index) => (
                 <Badge key={index} variant="outline" className="text-xs">
                   {tag}
                 </Badge>

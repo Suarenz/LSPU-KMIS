@@ -15,6 +15,7 @@ import AuthService from '@/lib/services/auth-service';
 import { Document } from '@/lib/api/types';
 import ForumAPI from '@/lib/api/forum-api';
 import type { ForumPost } from '@/lib/types';
+import SuperMapper from '@/lib/utils/super-mapper';
 
 export default function SearchPage() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -80,7 +81,11 @@ export default function SearchPage() {
           const data = await response.json();
           
           // Extract documents from the enhanced search results
-          const documents = data.results.map((result: any) => result.document || result);
+          // Handle both direct document results and enhanced search results with additional metadata
+          const documents = data.results.map((result: any) => {
+            // If result has a document property, use it; otherwise use the result itself
+            return result.document || result;
+          });
           
           // Search for forums using ForumAPI
           const allForumPosts = await new ForumAPI().getForumPosts();
@@ -243,26 +248,26 @@ export default function SearchPage() {
                       const enhancedDoc = enhancedResult ? (searchResults as any).documents[index] : null;
                       
                       return (
-                        <Card key={doc.id} className="hover:shadow-lg transition-shadow">
+                        <Card key={`${doc.id}-${index}`} className="hover:shadow-lg transition-shadow">
                           <CardHeader>
                             <div className="flex items-start gap-3">
-                              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
                                 <FileText className="w-5 h-5 text-primary" />
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-start justify-between gap-2">
-                                  <CardTitle className="text-lg">{doc.title}</CardTitle>
-                                  <Badge variant="secondary">{doc.category}</Badge>
+                                  <CardTitle className="text-lg">{SuperMapper.getFieldValue(doc, 'title') || (doc as any).title || ((doc as any).document && SuperMapper.getFieldValue((doc as any).document, 'title')) || (doc as any).originalName || "Untitled Document"}</CardTitle>
+                                  <Badge variant="secondary">{SuperMapper.getFieldValue(doc, 'category') || (doc as any).category || (doc as any).type || "Uncategorized"}</Badge>
                                 </div>
                                 {/* Show enhanced content snippet if available */}
                                 {enhancedDoc?.snippet ? (
                                   <CardDescription className="mt-1" dangerouslySetInnerHTML={{ __html: enhancedDoc.snippet }} />
                                 ) : (
-                                  <CardDescription className="mt-1">{doc.description}</CardDescription>
+                                  <CardDescription className="mt-1">{(doc as any).snippet || (doc as any).content || (doc as any).text || doc.description || (doc as any).document?.description || (doc as any).summary || "No preview available"}</CardDescription>
                                 )}
                                 <div className="flex flex-wrap gap-1 mt-2">
-                                  {doc.tags.map((tag: string) => (
-                                    <Badge key={tag} variant="outline" className="text-xs">
+                                  {(doc.tags || (doc as any).keywords || []).map((tag: string, index: number) => (
+                                    <Badge key={index} variant="outline" className="text-xs">
                                       {tag}
                                     </Badge>
                                   ))}
@@ -287,7 +292,7 @@ export default function SearchPage() {
                       <Card key={post.id} className="hover:shadow-lg transition-shadow">
                         <CardHeader>
                           <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center shrink-0">
                               <MessageSquare className="w-5 h-5 text-secondary" />
                             </div>
                             <div className="flex-1">
@@ -324,26 +329,26 @@ export default function SearchPage() {
                     const enhancedDoc = enhancedResult ? (searchResults as any).documents[index] : null;
                     
                     return (
-                      <Card key={doc.id} className="hover:shadow-lg transition-shadow">
+                      <Card key={`${doc.id}-${index}`} className="hover:shadow-lg transition-shadow">
                         <CardHeader>
                           <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
                               <FileText className="w-5 h-5 text-primary" />
                             </div>
                             <div className="flex-1">
                               <div className="flex items-start justify-between gap-2">
-                                <CardTitle className="text-lg">{doc.title}</CardTitle>
-                                <Badge variant="secondary">{doc.category}</Badge>
+                                <CardTitle className="text-lg">{SuperMapper.getFieldValue(doc, 'title') || (doc as any).title || ((doc as any).document && SuperMapper.getFieldValue((doc as any).document, 'title')) || (doc as any).originalName || "Untitled Document"}</CardTitle>
+                                <Badge variant="secondary">{SuperMapper.getFieldValue(doc, 'category') || (doc as any).category || (doc as any).type || "Uncategorized"}</Badge>
                               </div>
                               {/* Show enhanced content snippet if available */}
                               {enhancedDoc?.snippet ? (
                                 <CardDescription className="mt-1" dangerouslySetInnerHTML={{ __html: enhancedDoc.snippet }} />
                               ) : (
-                                <CardDescription className="mt-1">{doc.description}</CardDescription>
+                                <CardDescription className="mt-1">{(doc as any).snippet || (doc as any).content || (doc as any).text || doc.description || (doc as any).document?.description || (doc as any).summary || "No preview available"}</CardDescription>
                               )}
                               <div className="flex flex-wrap gap-1 mt-2">
-                                {doc.tags.map((tag: string) => (
-                                  <Badge key={tag} variant="outline" className="text-xs">
+                                {(doc.tags || (doc as any).keywords || []).map((tag: string, index: number) => (
+                                  <Badge key={index} variant="outline" className="text-xs">
                                     {tag}
                                   </Badge>
                                 ))}
@@ -376,7 +381,7 @@ export default function SearchPage() {
                     <Card key={post.id} className="hover:shadow-lg transition-shadow">
                       <CardHeader>
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center shrink-0">
                             <MessageSquare className="w-5 h-5 text-secondary" />
                           </div>
                           <div className="flex-1">

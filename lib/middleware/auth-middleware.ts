@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import jwtService from '@/lib/services/jwt-service';
 import prisma from '@/lib/prisma';
+import { hasAnyRole, type UserRole } from '@/lib/utils/rbac';
 
 export async function requireAuth(request: NextRequest, roles?: string[]): Promise<{ user: any } | NextResponse> {
   // Extract the token from the Authorization header or cookies
@@ -75,7 +76,7 @@ export async function requireAuth(request: NextRequest, roles?: string[]): Promi
  }
 
   // Check if user has required roles
-  if (roles && roles.length > 0 && !roles.includes(user.role)) {
+  if (roles && roles.length > 0 && !hasAnyRole(user.role as UserRole, roles as UserRole[])) {
     // User doesn't have required role, return error for API routes
     if (request.nextUrl.pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'User does not have required role to perform this action' }, { status: 403 });

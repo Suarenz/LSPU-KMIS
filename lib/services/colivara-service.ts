@@ -18,7 +18,8 @@ interface ProcessingStatus {
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   progress?: number;
   error?: string;
- processedAt?: Date;
+  processedAt?: Date;
+  num_pages?: number;  // Add page count field
 }
 
 interface SearchFilters {
@@ -172,7 +173,7 @@ class ColivaraService {
     }
   }
 
-  async uploadDocument(fileUrl: string, documentId: string, metadata: DocumentMetadata): Promise<string> {
+  async uploadDocument(fileUrl: string, documentId: string, metadata: DocumentMetadata, base64Content?: string): Promise<string> {
     try {
       if (!this.isInitialized) {
         await this.initialize();
@@ -190,19 +191,79 @@ class ColivaraService {
         throw new ColivaraApiError('Colivara client does not have an upsertDocument method');
       }
       
-      const response = await this.client.upsertDocument({
-        name: `${documentId}_${metadata.originalName}`,
+      // Validate document metadata before upload
+      if (!documentId || typeof documentId !== 'string') {
+        throw new ColivaraApiError('Invalid document ID provided for upload');
+      }
+
+      // Validate document name
+      const documentName = `${documentId}_${metadata.originalName}`;
+      if (!documentName || documentName.length > 255) {
+        throw new ColivaraApiError('Document name is invalid or too long');
+      }
+
+      // Validate collection name
+      if (!this.config.defaultCollection || typeof this.config.defaultCollection !== 'string') {
+        throw new ColivaraApiError('Invalid collection name provided');
+      }
+
+      // Prepare upload parameters
+      const uploadParams: any = {
+        name: documentName,
         collection_name: this.config.defaultCollection,
-        document_url: fileUrl,
         metadata: {
           documentId,
           ...metadata
         },
         wait: false // Don't wait for processing to complete, we'll check status separately
-      });
+      };
+
+      // If base64 content is provided, use it instead of the URL
+      if (base64Content) {
+        console.log('Uploading document with base64 content:', {
+          name: documentName,
+          collection_name: this.config.defaultCollection,
+          metadata: {
+            documentId,
+            ...metadata
+          }
+        });
+        uploadParams.document_base64 = base64Content; // Use document_base64 instead of content for Colivara API
+      } else {
+        // If no base64 content provided, use the URL (fallback for backward compatibility)
+        if (!fileUrl || typeof fileUrl !== 'string') {
+          throw new ColivaraApiError('Invalid file URL provided for upload');
+        }
+        console.log('Uploading document with URL:', {
+          name: documentName,
+          collection_name: this.config.defaultCollection,
+          document_url: fileUrl,
+          metadata: {
+            documentId,
+            ...metadata
+          }
+        });
+        uploadParams.document_url = fileUrl;
+      }
+
+      const response = await this.client.upsertDocument(uploadParams);
+
+      console.log('Upload response received:', response);
 
       // Extract document ID from response - adjust based on actual API response structure
-      const documentIdFromResponse = (response as any).id || (response as any).documentId || (response as any).name || response;
+      // Ensure we return a string value, not the entire response object
+      const responseObj = response as any;
+      const documentIdFromResponse = responseObj.id || responseObj.documentId || responseObj.name ||
+                                    (typeof response === 'string' ? response : documentName);
+
+      if (!documentIdFromResponse) {
+        throw new ColivaraApiError('Invalid response from upsertDocument - no document ID returned');
+      }
+
+      // Validate that the document ID is a proper string
+      if (typeof documentIdFromResponse !== 'string' || documentIdFromResponse === '[object Object]') {
+        throw new ColivaraApiError(`Invalid document ID returned from API: ${typeof documentIdFromResponse}`);
+      }
 
       // Store the Colivara document ID using raw SQL
       await prisma.$executeRaw`
@@ -218,7 +279,7 @@ class ColivaraService {
       // Update document status to FAILED using raw SQL
       await prisma.$executeRaw`
         UPDATE documents
-        SET "colivaraProcessingStatus" = 'FAILED', "colivaraMetadata" = ${JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' })}
+        SET "colivaraProcessingStatus" = 'FAILED', "colivaraMetadata" = ${JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' })}::jsonb
         WHERE id = ${documentId}
       `;
 
@@ -239,13 +300,23 @@ class ColivaraService {
         await this.initialize();
       }
 
+      // Validate that colivaraDocumentId is actually a string, not an object
+      if (typeof colivaraDocumentId !== 'string' || colivaraDocumentId === '[object Object]' || !colivaraDocumentId) {
+        throw new ColivaraApiError('Invalid document ID provided to checkProcessingStatus');
+      }
+
+      console.log(`Checking processing status for document ID: ${colivaraDocumentId}`);
+
       if (typeof this.client.getDocument !== 'function') {
         throw new ColivaraApiError('Colivara client does not have a getDocument method');
       }
       
       const response = await this.client.getDocument({
-        document_name: colivaraDocumentId
+        document_name: colivaraDocumentId,
+        collection_name: this.config.defaultCollection  // Include collection name in the request
       });
+
+      console.log(`Processing status response for ${colivaraDocumentId}:`, response);
 
       // Handle the response based on the actual ColiVara API response structure
       // Since we don't have exact type information, we'll access fields safely
@@ -254,22 +325,43 @@ class ColivaraService {
         progress: (response as any).progress || 0,
         error: (response as any).error,
         processedAt: (response as any).processedAt ? new Date((response as any).processedAt) : undefined,
+        num_pages: (response as any).num_pages || (response as any).pages || (response as any).page_count || 0,  // Add page count information
       };
     } catch (error) {
       console.error(`Failed to check processing status for ${colivaraDocumentId}:`, error);
-      throw colivaraErrorHandler.convertErrorToColivaraError(error);
+      
+      // Convert error to ColivaraError to check if it's a 404
+      const colivaraError = colivaraErrorHandler.convertErrorToColivaraError(error);
+      
+      // If it's a document not found error, return appropriate status
+      if (colivaraError.type === ColivaraErrorType.DOCUMENT_NOT_FOUND) {
+        console.warn(`Document ${colivaraDocumentId} not found in Colivara collections`);
+        return {
+          status: 'FAILED',
+          error: `Document not found in Colivara: ${colivaraError.message}`,
+          processedAt: new Date(),
+        };
+      }
+      
+      // For other errors, log them and re-throw
+      console.error(`Error checking processing status for ${colivaraDocumentId}:`, colivaraError);
+      throw colivaraError;
     }
   }
 
-  async waitForProcessing(colivaraDocumentId: string, maxWaitTime: number = 300000): Promise<boolean> {
+  async waitForProcessing(colivaraDocumentId: string, maxWaitTime: number = 3000): Promise<boolean> {
     const startTime = Date.now();
     const checkInterval = 5000; // Check every 5 seconds
+
+    // Add a 2-second delay before starting the status check loop
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log(`Waiting 2 seconds before starting status check for document: ${colivaraDocumentId}`);
 
     while (Date.now() - startTime < maxWaitTime) {
       try {
         const status = await this.checkProcessingStatus(colivaraDocumentId);
         
-        if (status.status === 'COMPLETED') {
+        if (status.status === 'COMPLETED' || (status.num_pages !== undefined && status.num_pages > 0)) {
           return true;
         } else if (status.status === 'FAILED') {
           console.error(`Document processing failed for ${colivaraDocumentId}: ${status.error}`);
@@ -280,6 +372,11 @@ class ColivaraService {
         await new Promise(resolve => setTimeout(resolve, checkInterval));
       } catch (error) {
         console.error(`Error checking processing status for ${colivaraDocumentId}:`, error);
+        // If the error is due to document not being found, return false immediately
+        if (error instanceof ColivaraServiceError && (error as any).type === ColivaraErrorType.DOCUMENT_NOT_FOUND) {
+          console.error(`Document ${colivaraDocumentId} not found in Colivara, failing immediately`);
+          return false;
+        }
         return false;
       }
     }
@@ -330,17 +427,44 @@ class ColivaraService {
       const processingTime = Date.now() - startTime;
 
       // Format results to match our expected structure
-      const results: SearchResult[] = response.results.map((item: any) => ({
-        documentId: item.document_id || item.documentId,
-        title: item.title || item.metadata?.originalName || 'Untitled Document',
-        content: item.content || item.text || '',
-        score: item.score || item.similarity || 0,
-        pageNumbers: item.page_numbers || item.pageNumbers || [],
-        documentSection: item.section || item.documentSection,
-        confidenceScore: item.confidence_score || item.confidenceScore || item.score || 0,
-        snippet: item.snippet || item.content?.substring(0, 200) + '...' || item.text?.substring(0, 200) + '...' || '',
-        document: item.document || {} as Document,
-      }));
+      const results: SearchResult[] = response.results.map((item: any) => {
+        // Extract the original document ID from multiple possible locations
+        let originalDocumentId = item.metadata?.documentId ||
+                                (item.document && item.document.metadata?.documentId) ||
+                                item.metadata?.id ||
+                                item.id;
+                                
+        // If still not found, try to extract from document_metadata in the document object
+        if (!originalDocumentId && item.document && item.document_metadata) {
+          originalDocumentId = item.document.document_metadata.documentId;
+        }
+        
+        // If still not found, try to extract directly from document_metadata property
+        if (!originalDocumentId && item.document_metadata) {
+          originalDocumentId = item.document_metadata.documentId;
+        }
+        
+        // If still not found, try to extract from the document name (which contains the document ID)
+        if (!originalDocumentId && item.document?.document_name) {
+          // Extract document ID from document_name which is in format "docId_originalName.ext"
+          const nameParts = item.document.document_name.split('_');
+          if (nameParts.length >= 1) {
+            originalDocumentId = nameParts[0];
+          }
+        }
+                                  
+        return {
+          documentId: originalDocumentId,
+          title: item.title || item.metadata?.originalName || item.metadata?.title || item.name || 'Untitled Document',
+          content: item.content || item.text || item.metadata?.content || '',
+          score: item.score || item.similarity || item.confidence || 0,
+          pageNumbers: item.page_numbers || item.pageNumbers || item.pages || [item.document?.page_number] || [],
+          documentSection: item.section || item.documentSection || item.metadata?.section || '',
+          confidenceScore: item.confidence_score || item.confidenceScore || item.confidence || item.score || 0,
+          snippet: item.snippet || item.content?.substring(0, 200) + '...' || item.text?.substring(0, 200) + '...' || item.metadata?.content?.substring(0, 200) + '...' || '',
+          document: item.document || item.metadata?.document || item || {} as Document,
+        };
+      });
 
       return {
         results,
@@ -437,6 +561,11 @@ class ColivaraService {
         uploadedAt: new Date(doc.uploadedAt),
         createdAt: new Date(doc.createdAt),
         updatedAt: new Date(doc.updatedAt),
+        // Colivara fields (for consistency)
+        colivaraDocumentId: doc.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: doc.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: doc.colivaraProcessedAt ? new Date(doc.colivaraProcessedAt) : undefined,
+        colivaraChecksum: doc.colivaraChecksum ?? undefined,
       } as Document,
     }));
 
@@ -449,22 +578,27 @@ class ColivaraService {
   }
 
   private combineSearchResults(semanticResults: SearchResults, traditionalResults: SearchResults): SearchResult[] {
-    // This is a simplified combination - in a real implementation, we would have more sophisticated ranking
-    const combined = [...semanticResults.results];
-    
-    // Add traditional results that aren't already in semantic results
-    for (const tradResult of traditionalResults.results) {
-      const exists = combined.some(semResult => semResult.documentId === tradResult.documentId);
-      if (!exists) {
-        combined.push(tradResult);
-      }
-    }
-    
-    // Sort by score (or some combination of scores)
-    return combined.sort((a, b) => (b.score || 0) - (a.score || 0));
-  }
+   // This is a simplified combination - in a real implementation, we would have more sophisticated ranking
+   const combined = [...semanticResults.results];
+   
+   // Add traditional results that aren't already in semantic results
+   for (const tradResult of traditionalResults.results) {
+     // Check if document already exists in combined results using documentId field
+     const exists = combined.some(semResult => {
+       const semDocId = semResult.documentId;
+       const tradDocId = tradResult.documentId;
+       return semDocId && tradDocId && semDocId === tradDocId;
+     });
+     if (!exists) {
+       combined.push(tradResult);
+     }
+   }
+   
+   // Sort by score (or some combination of scores)
+   return combined.sort((a, b) => (b.score || 0) - (a.score || 0));
+ }
 
-  async indexDocument(documentId: string): Promise<boolean> {
+  async indexDocument(documentId: string, base64Content?: string): Promise<boolean> {
     try {
       if (!this.isInitialized) {
         await this.initialize();
@@ -502,8 +636,11 @@ class ColivaraService {
           uploadedAt: document.uploadedAt,
           lastModified: document.updatedAt,
           hash: (document as any).colivaraChecksum || ''
-        }
+        },
+        base64Content // Pass the base64 content if provided
       );
+
+      console.log('Upload result from upsertDocument:', { colivaraDocId, documentId });
 
       // Wait for processing to complete
       const completed = await this.waitForProcessing(colivaraDocId, this.config.processingTimeout);
@@ -562,7 +699,7 @@ class ColivaraService {
     }
   }
 
-   async updateIndex(documentId: string): Promise<boolean> {
+   async updateIndex(documentId: string, base64Content?: string): Promise<boolean> {
      try {
        // Get the current document to check if it has changed
        const document = await prisma.document.findUnique({
@@ -581,7 +718,7 @@ class ColivaraService {
          // For now, we'll just reprocess
        }
  
-       return await this.indexDocument(documentId);
+       return await this.indexDocument(documentId, base64Content);
      } catch (error) {
        console.error(`Failed to update index for document ${documentId}:`, error);
        return false;
@@ -620,12 +757,18 @@ class ColivaraService {
         await this.initialize();
       }
 
+      // Validate that colivaraDocumentId is actually a string, not an object
+      if (typeof colivaraDocumentId !== 'string' || colivaraDocumentId === '[object Object]') {
+        throw new ColivaraApiError('Invalid document ID provided to extractDocumentMetadata');
+      }
+
       if (typeof this.client.getDocument !== 'function') {
         throw new ColivaraApiError('Colivara client does not have a getDocument method');
       }
       
       const response = await this.client.getDocument({
-        document_name: colivaraDocumentId
+        document_name: colivaraDocumentId,
+        collection_name: this.config.defaultCollection  // Include collection name in the request
       });
       return response.metadata || response;
     } catch (error) {
@@ -634,14 +777,14 @@ class ColivaraService {
     }
   }
 
-  async processNewDocument(document: Document, fileUrl: string): Promise<void> {
+  async processNewDocument(document: Document, fileUrl: string, base64Content?: string): Promise<void> {
     try {
       // This method processes a newly uploaded document
       // It will be called after a document is successfully uploaded to the system
       
       // The document should already be in the database with PENDING status
       // We just need to trigger the Colivara processing
-      const success = await this.indexDocument(document.id);
+      const success = await this.indexDocument(document.id, base64Content);
       
       if (!success) {
         console.error(`Failed to process new document ${document.id} with Colivara`);
@@ -649,14 +792,18 @@ class ColivaraService {
     } catch (error) {
       console.error(`Error processing new document ${document.id}:`, error);
     }
-  }
+ }
 
-  async handleDocumentUpdate(documentId: string, updatedDocument: Document, fileUrl?: string): Promise<void> {
+  async handleDocumentUpdate(documentId: string, updatedDocument: Document, fileUrl?: string, base64Content?: string): Promise<void> {
     try {
       // Handle document updates
       // If the file has changed (fileUrl is provided), reprocess the document
       if (fileUrl) {
-        await this.updateIndex(documentId);
+        // Use updateIndex which will call indexDocument with the base64 content if provided
+        const success = await this.updateIndex(documentId, base64Content);
+        if (!success) {
+          console.error(`Failed to reprocess updated document ${documentId} with Colivara`);
+        }
       } else {
         // If only metadata changed, we might need to update the index differently
         // For now, just return

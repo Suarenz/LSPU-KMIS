@@ -236,7 +236,8 @@ class EnhancedDocumentService {
     fileType: string,
     fileSize: number,
     userId: string,
-    unitId?: string // NEW: Unit assignment
+    unitId?: string, // NEW: Unit assignment
+    base64Content?: string // NEW: Base64 content for Colivara processing
   ): Promise<Document> {
     try {
       console.log('Creating document in database...', {
@@ -324,7 +325,7 @@ class EnhancedDocumentService {
 
       // Trigger Colivara processing asynchronously
       try {
-        await colivaraService.processNewDocument(finalDocument as Document, fileUrl);
+        await colivaraService.processNewDocument(finalDocument as Document, fileUrl, base64Content);
       } catch (processingError) {
         console.error(`Error triggering Colivara processing for document ${document.id}:`, processingError);
         // Don't throw error as we don't want to fail the document creation due to processing issues
@@ -383,7 +384,8 @@ class EnhancedDocumentService {
     tags?: string[],
     unitId?: string, // NEW: Unit assignment
     userId?: string,
-    fileUrl?: string // NEW: File URL for Colivara reprocessing
+    fileUrl?: string, // NEW: File URL for Colivara reprocessing
+    base64Content?: string // NEW: Base64 content for Colivara processing
   ): Promise<Document | null> {
     try {
       const document = await prisma.document.findUnique({
@@ -451,7 +453,7 @@ class EnhancedDocumentService {
       // In this implementation, we pass fileUrl as an optional parameter to determine if reprocessing is needed
       if (fileUrl) {
         try {
-          await colivaraService.handleDocumentUpdate(id, finalDocument as Document, fileUrl);
+          await colivaraService.handleDocumentUpdate(id, finalDocument as Document, fileUrl, base64Content);
         } catch (processingError) {
           console.error(`Error triggering Colivara reprocessing for document ${id}:`, processingError);
           // Don't throw error as we don't want to fail the document update due to processing issues

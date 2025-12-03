@@ -15,7 +15,8 @@ export async function middleware(request: NextRequest) {
                            request.nextUrl.pathname.startsWith('/api/auth/signup') ||
                            request.nextUrl.pathname.startsWith('/api/auth/refresh') ||
                            request.nextUrl.pathname.startsWith('/api/auth/me') ||
-                           request.nextUrl.pathname.startsWith('/api/auth/logout');
+                           request.nextUrl.pathname.startsWith('/api/auth/logout') ||
+                           request.nextUrl.pathname.startsWith('/api/test-redis');
                            
       if (!isPublicRoute) {
         // Extract the token from the Authorization header

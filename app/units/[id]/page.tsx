@@ -37,6 +37,7 @@ export default function UnitPage() {
  const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [deletionSuccessMessage, setDeletionSuccessMessage] = useState<string | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null); // Track which document is being deleted
 
  // Determine if user can upload (roles are uppercase as per database enum)
  const canUpload = user?.role === "ADMIN" || user?.role === "FACULTY";
@@ -381,219 +382,242 @@ export default function UnitPage() {
 
               {/* Documents Grid */}
               {loading ? (
-                <div className="animate-fade-in">
-                  <div className="flex justify-center py-12">
-                    <div className="w-16 h-16 flex items-center justify-center">
-                      <Image
-                        src="/LSPULogo.png"
-                        alt="LSPULogo"
-                        width={64}
-                        height={64}
-                        className="object-contain animate-spin"
-                      />
+                  <div className="animate-fade-in">
+                    <div className="flex justify-center py-12">
+                      <div className="w-16 h-16 flex items-center justify-center">
+                        <Image
+                          src="/LSPULogo.png"
+                          alt="LSPULogo"
+                          width={64}
+                          height={64}
+                          className="object-contain animate-spin"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : error ? (
-                <Card className="animate-fade-in">
-                  <CardContent className="py-12 text-center">
-                    <div className="text-destructive mb-4">⚠️</div>
-                    <h3 className="text-lg font-semibold mb-2">Error Loading Documents</h3>
-                    <p className="text-muted-foreground mb-4">{error}</p>
-                    <Button onClick={() => window.location.reload()}>Retry</Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {documents.map((doc, index) => (
-                    <Card
-                      key={doc.id}
-                      className="animate-fade-in hover:shadow-xl transition-all hover:scale-[1.02] cursor-pointer overflow-hidden border-0 shadow-md flex flex-col h-full"
-                      style={{ animationDelay: `${index * 0.05}s` }}
-                    >
-                      <div className="bg-gradient-to-r from-primary/5 to-secondary/5 p-5 border-b">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
-                            <FileText className="w-6 h-6 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground line-clamp-2 mb-1">{doc.title}</h3>
-                            <Badge variant="secondary" className="text-xs px-2 py-1">
-                              {doc.category}
-                            </Badge>
+                ) : error ? (
+                  <Card className="animate-fade-in">
+                    <CardContent className="py-12 text-center">
+                      <div className="text-destructive mb-4">⚠️</div>
+                      <h3 className="text-lg font-semibold mb-2">Error Loading Documents</h3>
+                      <p className="text-muted-foreground mb-4">{error}</p>
+                      <Button onClick={() => window.location.reload()}>Retry</Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {documents.map((doc, index) => (
+                      <Card
+                        key={doc.id}
+                        className="animate-fade-in hover:shadow-xl transition-all hover:scale-[1.02] cursor-pointer overflow-hidden border-0 shadow-md flex flex-col h-full"
+                        style={{ animationDelay: `${index * 0.05}s` }}
+                      >
+                        <div className="bg-linear-to-r from-primary/5 to-secondary/5 p-5 border-b">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center shrink-0">
+                              <FileText className="w-6 h-6 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-foreground line-clamp-2 mb-1">{doc.title}</h3>
+                              <Badge variant="secondary" className="text-xs px-2 py-1">
+                                {doc.category}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <CardContent className="p-5 flex-grow">
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                          {doc.description}
-                        </p>
-                        <div className="space-y-4">
-                          <div className="flex flex-wrap gap-1">
-                            {doc.tags.slice(0, 3).map((tag) => (
-                              <Badge key={tag} variant="outline" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                            {doc.tags.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{doc.tags.length - 3} more
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-1">
-                                <Download className="w-3.5 h-3.5" />
-                                <span>{doc.downloadsCount}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>{doc.viewsCount}</span>
-                              </div>
+                        <CardContent className="p-5 grow">
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                            {doc.description}
+                          </p>
+                          <div className="space-y-4">
+                            <div className="flex flex-wrap gap-1">
+                              {doc.tags.slice(0, 3).map((tag) => (
+                                <Badge key={tag} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {doc.tags.length > 3 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{doc.tags.length - 3} more
+                                </Badge>
+                              )}
                             </div>
-                            <span>{formatFileSize(doc.fileSize)}</span>
-                          </div>
-                          
-                          <div className="text-xs text-muted-foreground flex items-center justify-between">
-                            <span>By {doc.uploadedBy}</span>
-                            <span>v{doc.version}</span>
-                          </div>
-                          
-                          {downloadingDocId === doc.id ? (
-                            <Button className="w-full gap-2 mt-2" size="sm" disabled>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                              Downloading...
-                            </Button>
-                          ) : (
-                            <Button
-                              className="w-full gap-2 mt-2"
-                              size="sm"
-                              onClick={async (e) => {
-                                e.stopPropagation(); // Prevent card click from triggering
-                                setDownloadingDocId(doc.id);
-                                try {
-                                  // Check if running on client side
-                                  if (typeof window === 'undefined') {
-                                    throw new Error('Download can only be initiated from the browser');
-                                  }
-
-                                  // Create a temporary link and trigger download using the direct download endpoint
-                                  // The API endpoint will handle the redirect to the actual file
-                                  const directDownloadUrl = `/api/documents/${doc.id}/download-direct?token=${await AuthService.getAccessToken()}`;
-                                  const link = document.createElement('a');
-                                  link.href = directDownloadUrl;
-                                  link.download = doc.fileName || `document-${doc.id}`;
-                                  document.body.appendChild(link);
-                                  link.click();
-                                  document.body.removeChild(link);
-                                } catch (error) {
-                                  console.error('Download error:', error);
-                                  alert(error instanceof Error ? error.message : 'Failed to download document. Please try again.');
-                                } finally {
-                                  setDownloadingDocId(null);
-                                }
-                              }}
-                            >
-                              <Download className="w-4 h-4" />
-                              Download
-                            </Button>
-                          )}
-                          
-                          <div className="flex gap-2 mt-2">
-                            {/* Show preview button for all supported file types */}
-                            {true ? (
-                              <Button
-                                className="flex-1 gap-2"
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Prevent card click from triggering
-                                  router.push(`/repository/preview/${doc.id}`);
-                                }}
-                              >
-                                <Eye className="w-4 h-4" />
-                                Preview
+                            
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1">
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>{doc.downloadsCount}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>{doc.viewsCount}</span>
+                                </div>
+                              </div>
+                              <span>{formatFileSize(doc.fileSize)}</span>
+                            </div>
+                            
+                            <div className="text-xs text-muted-foreground flex items-center justify-between">
+                              <span>By {doc.uploadedBy}</span>
+                              <span>v{doc.version}</span>
+                            </div>
+                            
+                            {downloadingDocId === doc.id ? (
+                              <Button className="w-full gap-2 mt-2" size="sm" disabled>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                Downloading...
                               </Button>
-                            ) : null}
-                          </div>
-                          
-                          {/* Delete button - only show if user can actually delete the document */}
-                          {user && (user.role === 'ADMIN' || doc.uploadedById === user.id) && (
-                            <Button
-                              className="w-full gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground mt-2"
-                              size="sm"
-                              variant="default"
-                              onClick={async (e) => {
-                                e.stopPropagation(); // Prevent card click from triggering
-                                if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
+                            ) : (
+                              <Button
+                                className="w-full gap-2 mt-2"
+                                size="sm"
+                                onClick={async (e) => {
+                                  e.stopPropagation(); // Prevent card click from triggering
+                                  setDownloadingDocId(doc.id);
                                   try {
-                                    const token = await AuthService.getAccessToken();
-                                    if (!token) {
-                                      throw new Error('No authentication token found');
+                                    // Check if running on client side
+                                    if (typeof window === 'undefined') {
+                                      throw new Error('Download can only be initiated from the browser');
                                     }
 
-                                    const response = await fetch(`/api/documents/${doc.id}`, {
-                                      method: 'DELETE',
-                                      headers: {
-                                        'Authorization': `Bearer ${token}`,
-                                        'Content-Type': 'application/json',
+                                    // Create a temporary link and trigger download using the direct download endpoint
+                                    // The API endpoint will handle the redirect to the actual file
+                                    const directDownloadUrl = `/api/documents/${doc.id}/download-direct?token=${await AuthService.getAccessToken()}`;
+                                    const link = document.createElement('a');
+                                    link.href = directDownloadUrl;
+                                    link.download = doc.fileName || `document-${doc.id}`;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                  } catch (error) {
+                                    console.error('Download error:', error);
+                                    alert(error instanceof Error ? error.message : 'Failed to download document. Please try again.');
+                                  } finally {
+                                    setDownloadingDocId(null);
+                                  }
+                                }}
+                              >
+                                <Download className="w-4 h-4" />
+                                Download
+                              </Button>
+                            )}
+                            
+                            <div className="flex gap-2 mt-2">
+                              {/* Show preview button for all supported file types */}
+                              {true ? (
+                                <Button
+                                  className="flex-1 gap-2"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Prevent card click from triggering
+                                    // Only navigate if document ID is valid
+                                    if (doc.id && doc.id !== 'undefined' && !doc.id.includes('undefined')) {
+                                      router.push(`/repository/preview/${doc.id}`);
+                                    } else {
+                                      // Show an error or do nothing if document ID is invalid
+                                      toast({
+                                        title: "Error",
+                                        description: "Document ID is invalid. Cannot preview this document.",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  Preview
+                                </Button>
+                              ) : null}
+                            </div>
+                            
+                            {/* Delete button - only show if user can actually delete the document */}
+                            {user && (user.role === 'ADMIN' || doc.uploadedById === user.id) && (
+                              <Button
+                                className="w-full gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground mt-2"
+                                size="sm"
+                                variant="default"
+                                onClick={async (e) => {
+                                  e.stopPropagation(); // Prevent card click from triggering
+                                  if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
+                                    setDeletingDocId(doc.id); // Set the document ID that is being deleted
+                                    try {
+                                      const token = await AuthService.getAccessToken();
+                                      if (!token) {
+                                        throw new Error('No authentication token found');
                                       }
-                                    });
-
-                                    if (response.ok) {
-                                      // Set deletion success message
-                                      setDeletionSuccessMessage(`Document "${doc.title}" deleted successfully!`);
-                                      // Clear the success message after 3 seconds
-                                      setTimeout(() => {
-                                        setDeletionSuccessMessage(null);
-                                      }, 300);
-                                      // Refresh the document list
-                                      const refreshResponse = await fetch(`/api/documents?unit=${unitId}`, {
+ 
+                                      const response = await fetch(`/api/documents/${doc.id}`, {
+                                        method: 'DELETE',
                                         headers: {
                                           'Authorization': `Bearer ${token}`,
                                           'Content-Type': 'application/json',
                                         }
                                       });
-
-                                      if (refreshResponse.ok) {
-                                        const data = await refreshResponse.json();
-                                        setDocuments(data.documents || []);
-                                      }
-                                    } else {
-                                      const errorData = await response.json();
-                                      if (response.status === 403) {
-                                        toast({
-                                          title: "Access Denied",
-                                          description: "You don't have permission to delete this document.",
-                                          variant: "destructive",
+ 
+                                      if (response.ok) {
+                                        // Set deletion success message
+                                        setDeletionSuccessMessage(`Document "${doc.title}" deleted successfully!`);
+                                        // Clear the success message after 3 seconds
+                                        setTimeout(() => {
+                                          setDeletionSuccessMessage(null);
+                                        }, 300);
+                                        // Refresh the document list
+                                        const refreshResponse = await fetch(`/api/documents?unit=${unitId}`, {
+                                          headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                            'Content-Type': 'application/json',
+                                          }
                                         });
+ 
+                                        if (refreshResponse.ok) {
+                                          const data = await refreshResponse.json();
+                                          setDocuments(data.documents || []);
+                                        }
                                       } else {
-                                        throw new Error(errorData.error || 'Failed to delete document');
+                                        const errorData = await response.json();
+                                        if (response.status === 403) {
+                                          toast({
+                                            title: "Access Denied",
+                                            description: "You don't have permission to delete this document.",
+                                            variant: "destructive",
+                                          });
+                                        } else {
+                                          throw new Error(errorData.error || 'Failed to delete document');
+                                        }
                                       }
+                                    } catch (error) {
+                                      console.error('Delete error:', error);
+                                      toast({
+                                        title: "Error",
+                                        description: error instanceof Error ? error.message : 'Failed to delete document. Please try again.',
+                                        variant: "destructive",
+                                      });
+                                    } finally {
+                                      setDeletingDocId(null); // Reset the deletion state
                                     }
-                                  } catch (error) {
-                                    console.error('Delete error:', error);
-                                    toast({
-                                      title: "Error",
-                                      description: error instanceof Error ? error.message : 'Failed to delete document. Please try again.',
-                                      variant: "destructive",
-                                    });
                                   }
-                                }
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Delete
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                                }}
+                                disabled={deletingDocId === doc.id} // Disable button while deleting
+                              >
+                                {deletingDocId === doc.id ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
 
               {documents.length === 0 && !loading && !error && (
                 <Card className="animate-fade-in">
@@ -832,7 +856,7 @@ export default function UnitPage() {
                     <label className="block text-sm font-medium mb-1">Description</label>
                     <textarea
                       name="description"
-                      className="w-full min-h-[80px] p-2 border border-input rounded-md bg-background"
+                      className="w-full min-h-20 p-2 border border-input rounded-md bg-background"
                       placeholder="Document description (optional)"
                     />
                   </div>

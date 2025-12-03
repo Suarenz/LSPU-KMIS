@@ -1,2 +1,0 @@
--- This file is no longer needed as we're using Azure Storage instead of Supabase Storage
--- The RLS policies for Supabase have been removed as part of the migration to Azure

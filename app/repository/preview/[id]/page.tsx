@@ -37,6 +37,15 @@ export default function DocumentPreviewPage() {
         return;
       }
 
+      // Validate that the document ID is in proper CUID format before making the API call
+      // We'll make this more flexible to handle both database IDs and Colivara IDs
+      const isValidId = typeof id === 'string' && id.trim() !== '' && id !== 'undefined' && !id.includes('undefined') && !id.includes('.pdf') && !id.includes('.');
+      if (!isValidId) {
+        setError('Invalid document ID format. Please check the URL and try again. Document ID should be an identifier, not a filename.');
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
@@ -55,8 +64,17 @@ export default function DocumentPreviewPage() {
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Failed to fetch document: ${response.status} ${response.statusText}`);
+          // Handle different response statuses appropriately
+          if (response.status === 404) {
+            throw new Error('Document not found. The requested document may have been deleted or the ID is incorrect.');
+          } else if (response.status === 400) {
+            throw new Error('Invalid document ID format. Please check the URL and try again.');
+          } else if (response.status === 403) {
+            throw new Error('Access denied. You do not have permission to view this document.');
+          } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to fetch document: ${response.status} ${response.statusText}`);
+          }
         }
 
         const data = await response.json();

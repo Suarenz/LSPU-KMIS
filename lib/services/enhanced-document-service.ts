@@ -166,14 +166,16 @@ class EnhancedDocumentService {
         // The permission checks later will handle access control
 
         if (user && user.role !== 'ADMIN' && user.role !== 'FACULTY') {
-          // Check if document is public or user has explicit permission
+          // Check if user has explicit permission for this document
           const permission = await prisma.documentPermission.findFirst({
             where: {
               documentId: id,
               userId: user.id, // Use the database user ID
+              permission: { in: ['READ', 'WRITE', 'ADMIN'] }, // User needs at least READ permission
             },
           });
 
+          // Allow access if user has explicit READ/WRITE/ADMIN permission OR if user uploaded the document
           if (!permission && document.uploadedById !== user.id) {
             return null; // User doesn't have access
           }
@@ -294,6 +296,7 @@ class EnhancedDocumentService {
           fileSize,
           unitId: unitId || null, // NEW: Assign unitId if provided
           status: 'ACTIVE',
+          colivaraProcessingStatus: 'PENDING', // Set initial processing status to PENDING
         },
       });
       
@@ -323,9 +326,9 @@ class EnhancedDocumentService {
         throw new Error(`Document with id ${document.id} not found after creation`);
       }
 
-      // Trigger Colivara processing asynchronously
+      // Trigger Colivara processing asynchronously without blocking document creation
       try {
-        await colivaraService.processNewDocument(finalDocument as Document, fileUrl, base64Content);
+        colivaraService.processNewDocument(finalDocument as Document, fileUrl, base64Content);
       } catch (processingError) {
         console.error(`Error triggering Colivara processing for document ${document.id}:`, processingError);
         // Don't throw error as we don't want to fail the document creation due to processing issues
@@ -453,7 +456,7 @@ class EnhancedDocumentService {
       // In this implementation, we pass fileUrl as an optional parameter to determine if reprocessing is needed
       if (fileUrl) {
         try {
-          await colivaraService.handleDocumentUpdate(id, finalDocument as Document, fileUrl, base64Content);
+          colivaraService.handleDocumentUpdate(id, finalDocument as Document, fileUrl, base64Content);
         } catch (processingError) {
           console.error(`Error triggering Colivara reprocessing for document ${id}:`, processingError);
           // Don't throw error as we don't want to fail the document update due to processing issues

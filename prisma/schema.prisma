@@ -19,6 +19,7 @@ model User {
   updatedAt       DateTime             @updatedAt
   password        String?
   role            UserRole             @default(STUDENT)
+  activities      Activity[]
   comments        DocumentComment[]
   downloads       DocumentDownload[]
   permissions     DocumentPermission[]
@@ -165,6 +166,24 @@ model ColivaraIndex {
   @@map("colivara_indexes")
 }
 
+
+
+model Activity {
+  id          String     @id @default(cuid())
+  type        String
+  userId      String
+  userRole    String?
+  postId      String?
+  action      String?
+  description String
+  timestamp   DateTime   @default(now())
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([timestamp])
+}
+
 enum UserRole {
   ADMIN
   FACULTY
@@ -183,3 +202,4 @@ enum PermissionLevel {
   WRITE
   ADMIN
 }
+

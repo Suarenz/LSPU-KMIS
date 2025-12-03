@@ -27,28 +27,7 @@ export interface Document {
   version: number
 }
 
-export interface ForumPost {
-  id: string
-  title: string
-  content: string
-  author: string
-  authorRole: UserRole
-  category: string
-  tags: string[]
-  createdAt: Date
-  replies: ForumReply[]
-  likes: number
-  views: number
-}
 
-export interface ForumReply {
-  id: string
-  content: string
-  author: string
-  authorRole: UserRole
-  createdAt: Date
-  likes: number
-}
 
 export interface AnalyticsData {
   totalDocuments: number
@@ -62,7 +41,7 @@ export interface AnalyticsData {
 
 export interface Activity {
   id: string
-  type: "upload" | "download" | "view" | "comment" | "forum"
+  type: "upload" | "download" | "view" | "comment"
   user: string
   description: string
   timestamp: Date

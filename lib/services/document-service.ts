@@ -156,6 +156,12 @@ class DocumentService {
    */
   async getDocumentById(id: string, userId?: string): Promise<Document | null> {
     try {
+      // Validate the document ID format before querying the database
+      if (!id || typeof id !== 'string' || id.trim() === '' || id.includes('undefined') || id.includes('.pdf') || id.includes('.')) {
+        console.warn('Invalid document ID format received in getDocumentById:', id);
+        return null;
+      }
+
       const document = await prisma.document.findUnique({
         where: { id },
         include: {
@@ -173,14 +179,16 @@ class DocumentService {
         const user = await this.findUserById(userId);
 
         if (user && user.role !== 'ADMIN' && user.role !== 'FACULTY') {
-          // Check if document is public or user has explicit permission
+          // Check if user has explicit permission for this document
           const permission = await prisma.documentPermission.findFirst({
             where: {
               documentId: id,
               userId: user.id, // Use the database user ID
+              permission: { in: ['READ', 'WRITE', 'ADMIN'] }, // User needs at least READ permission
             },
           });
 
+          // Allow access if user has explicit READ/WRITE/ADMIN permission OR if user uploaded the document
           if (!permission && document.uploadedById !== user.id) {
             return null; // User doesn't have access
           }
@@ -918,6 +926,7 @@ class DocumentService {
           where: {
             documentId,
             userId: user.id, // Use the database user ID
+            permission: { in: ['READ', 'WRITE', 'ADMIN'] }, // User needs at least READ permission to comment
           },
         });
 
@@ -954,6 +963,104 @@ class DocumentService {
       };
     } catch (error) {
       console.error('Database connection error in addDocumentComment:', error);
+      // Check if this is an authentication error
+      if (error instanceof Error &&
+          (error.message.includes('Authentication failed') ||
+           error.message.includes('password') ||
+           error.message.includes('credentials'))) {
+        throw new Error('Database authentication failed. Please check your database credentials.');
+      }
+      throw error; // Re-throw to be handled by the calling function
+    }
+  }
+
+  /**
+   * Get a document by its Colivara document ID
+   */
+  async getDocumentByColivaraId(colivaraDocumentId: string, userId?: string): Promise<Document | null> {
+    try {
+      // Validate the colivara document ID format before querying the database
+      if (!colivaraDocumentId || typeof colivaraDocumentId !== 'string' || colivaraDocumentId.trim() === '' || colivaraDocumentId.includes('undefined') || colivaraDocumentId.includes('.pdf') || colivaraDocumentId.includes('.')) {
+        console.warn('Invalid colivara document ID format received in getDocumentByColivaraId:', colivaraDocumentId);
+        return null;
+      }
+
+      // Find the document that has this colivaraDocumentId
+      const dbDocument = await prisma.document.findFirst({
+        where: {
+          colivaraDocumentId: colivaraDocumentId
+        },
+        include: {
+          uploadedByUser: true,
+          documentUnit: true,
+        }
+      });
+
+      if (!dbDocument) {
+        return null;
+      }
+
+      // Check if user has access to the document - reuse the same access logic as getDocumentById
+      if (userId) {
+        const user = await this.findUserById(userId);
+
+        if (user && user.role !== 'ADMIN' && user.role !== 'FACULTY') {
+          // Check if user has explicit permission for this document
+          const permission = await prisma.documentPermission.findFirst({
+            where: {
+              documentId: dbDocument.id,  // Use the database document ID for permission check
+              userId: user.id, // Use the database user ID
+              permission: { in: ['READ', 'WRITE', 'ADMIN'] }, // User needs at least READ permission
+            },
+          });
+
+          // Allow access if user has explicit READ/WRITE/ADMIN permission OR if user uploaded the document
+          if (!permission && dbDocument.uploadedById !== user.id) {
+            return null; // User doesn't have access
+          }
+        }
+      }
+
+      // Return the document in the expected format
+      return {
+        id: dbDocument.id,
+        title: dbDocument.title,
+        description: dbDocument.description,
+        category: dbDocument.category,
+        tags: Array.isArray(dbDocument.tags) ?
+          (dbDocument.tags as any[]).map(tag => String(tag)) :
+          (typeof dbDocument.tags === 'object' && dbDocument.tags !== null ?
+            Object.values(dbDocument.tags).map(tag => String(tag)) : []),
+        uploadedBy: dbDocument.uploadedByUser?.name || dbDocument.uploadedBy,
+        uploadedById: dbDocument.uploadedById,
+        uploadedAt: new Date(dbDocument.uploadedAt),
+        fileUrl: dbDocument.fileUrl,
+        fileName: dbDocument.fileName,
+        fileType: dbDocument.fileType,
+        fileSize: dbDocument.fileSize,
+        downloadsCount: dbDocument.downloadsCount || 0, // Convert null to 0
+        viewsCount: dbDocument.viewsCount || 0, // Convert null to 0
+        version: dbDocument.version || 1,
+        versionNotes: dbDocument.versionNotes || undefined, // Convert null to undefined
+        status: dbDocument.status as 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW',
+        createdAt: new Date(dbDocument.createdAt),
+        updatedAt: new Date(dbDocument.updatedAt),
+        unitId: dbDocument.unitId || undefined, // Convert null to undefined
+        unit: dbDocument.documentUnit ? {
+          id: dbDocument.documentUnit.id,
+          name: dbDocument.documentUnit.name,
+          code: dbDocument.documentUnit.code || "", // Provide empty string as fallback since Unit type requires string
+          description: dbDocument.documentUnit.description || undefined, // Convert null to undefined
+          createdAt: dbDocument.documentUnit.createdAt,
+          updatedAt: dbDocument.documentUnit.updatedAt,
+        } : undefined,
+        colivaraDocumentId: dbDocument.colivaraDocumentId ?? undefined,
+        colivaraProcessingStatus: dbDocument.colivaraProcessingStatus as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' ?? undefined,
+        colivaraProcessedAt: dbDocument.colivaraProcessedAt ? new Date(dbDocument.colivaraProcessedAt) : undefined,
+        colivaraChecksum: dbDocument.colivaraChecksum ?? undefined,
+      };
+    } catch (error) {
+      console.error('Database connection error in getDocumentByColivaraId:', error);
       // Check if this is an authentication error
       if (error instanceof Error &&
           (error.message.includes('Authentication failed') ||

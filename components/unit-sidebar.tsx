@@ -30,15 +30,15 @@ export function UnitSidebar({
   const isUnitAdmin = userRole === 'UNIT_ADMIN' || userRole === 'ADMIN';
 
   return (
-    <div className="w-64 bg-gradient-to-b from-background to-muted/20 border-r p-4 h-full flex flex-col shadow-sm">
-      <div className="mb-6">
-        <div className="mb-4 flex items-center gap-2">
+    <div className="w-64 bg-linear-to-b from-background to-muted/20 border-r p-4 h-full flex flex-col shadow-sm">
+      <div className="mb-4">
+        <div className="mb-3 flex items-center gap-2">
           <Building2 className="w-8 h-8 text-primary" />
           <h2 className="text-xl font-bold text-foreground">Units</h2>
         </div>
       </div>
 
-      <div className="space-y-1 flex-1 py-4">
+      <div className="space-y-1 flex-1 py-4 overflow-y-auto max-h-[calc(100vh-150px)]">
         <TooltipProvider>
           {units.map((unit) => (
             <div key={unit.id} className="mb-1">
@@ -48,8 +48,8 @@ export function UnitSidebar({
                     variant={currentUnit === unit.id ? "secondary" : "ghost"}
                     className={`w-full justify-start px-3 py-3 h-auto transition-all duration-200 max-w-full overflow-hidden ${
                       currentUnit === unit.id
-                        ? 'shadow-sm border-l-4 border-primary bg-secondary/50'
-                        : 'hover:bg-accent hover:shadow-sm'
+                        ? 'shadow-sm border-l-4 border-primary bg-secondary text-secondary-foreground font-semibold'
+                        : 'hover:bg-accent hover:shadow-sm text-foreground'
                     }`}
                     onClick={() => {
                       onUnitSelect(unit.id);
@@ -60,7 +60,7 @@ export function UnitSidebar({
                         {unit.code || unit.name}
                       </div>
                       {unit.code && (
-                        <div className="text-xs text-muted-foreground mt-1 leading-tight break-words pr-6 truncate">{unit.name}</div>
+                        <div className="text-xs text-muted-foreground mt-1 leading-tight wrap-break-word pr-6 truncate">{unit.name}</div>
                       )}
                     </div>
                   </Button>
@@ -75,10 +75,10 @@ export function UnitSidebar({
       </div>
 
       {(isAdmin || isUnitAdmin) && (
-        <div className="mt-auto pt-4 border-t border-border">
+        <div className="mt-auto pt-2 border-t border-border sticky bottom-0 bg-background">
           <Button
             variant="default"
-            className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-sm"
+            className="w-full bg-linear-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-sm"
             onClick={() => router.push('/units/new')}
           >
             <PlusCircle className="w-4 h-4 mr-2" />

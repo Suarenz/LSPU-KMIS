@@ -143,14 +143,16 @@ class UnitDocumentService {
         }
 
         if (user && user.role !== 'ADMIN' && user.role !== 'FACULTY') {
-          // Check if document is public or user has explicit permission
+          // Check if user has explicit permission for this document
           const permission = await prisma.documentPermission.findFirst({
             where: {
               documentId: id,
               userId: user.id, // Use the database user ID
+              permission: { in: ['READ', 'WRITE', 'ADMIN'] }, // User needs at least READ permission
             },
           });
 
+          // Allow access if user has explicit READ/WRITE/ADMIN permission OR if user uploaded the document
           if (!permission && document.uploadedById !== user.id) {
             return null; // User doesn't have access
           }

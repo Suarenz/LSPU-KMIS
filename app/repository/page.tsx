@@ -38,9 +38,10 @@ export default function RepositoryPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
   const [deletionSuccessMessage, setDeletionSuccessMessage] = useState<string | null>(null);
-  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null); // Track which document is being deleted
+ const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const [units, setUnits] = useState<Unit[]>([]); // NEW: Units for unit filtering
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+ const [sidebarOpen, setSidebarOpen] = useState(true);
   
 // Determine if user can upload (roles are uppercase as per database enum)
   const canUpload = user?.role === "ADMIN" || user?.role === "FACULTY"
@@ -487,7 +488,7 @@ export default function RepositoryPage() {
                   >
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
                           <FileText className="w-6 h-6 text-primary" />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -535,35 +536,6 @@ export default function RepositoryPage() {
                           By {doc.uploadedBy} • v{doc.version}
                         </div>
                         
-                        {/* Show Colivara processing status */}
-                        {doc.colivaraProcessingStatus && (
-                          <div className="flex items-center gap-1 mt-1 text-xs">
-                            {doc.colivaraProcessingStatus === 'PENDING' && (
-                              <>
-                                <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
-                                <span className="text-yellow-600">Processing: {doc.colivaraProcessingStatus}</span>
-                              </>
-                            )}
-                            {doc.colivaraProcessingStatus === 'PROCESSING' && (
-                              <>
-                                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-                                <span className="text-blue-600">Processing: {doc.colivaraProcessingStatus}</span>
-                              </>
-                            )}
-                            {doc.colivaraProcessingStatus === 'COMPLETED' && (
-                              <>
-                                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                                <span className="text-green-600">Processing: {doc.colivaraProcessingStatus}</span>
-                              </>
-                            )}
-                            {doc.colivaraProcessingStatus === 'FAILED' && (
-                              <>
-                                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                                <span className="text-red-600">Processing: {doc.colivaraProcessingStatus}</span>
-                              </>
-                            )}
-                          </div>
-                        )}
                         {downloadingDocId === doc.id ? (
                           <Button className="w-full gap-2" size="sm" disabled>
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -626,7 +598,17 @@ export default function RepositoryPage() {
                               variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation(); // Prevent card click from triggering
-                                router.push(`/repository/preview/${doc.id}`);
+                                // Only navigate if document ID is valid
+                                if (doc.id && doc.id !== 'undefined' && !doc.id.includes('undefined')) {
+                                  router.push(`/repository/preview/${doc.id}`);
+                                } else {
+                                  // Show an error or do nothing if document ID is invalid
+                                  toast({
+                                    title: "Error",
+                                    description: "Document ID is invalid. Cannot preview this document.",
+                                    variant: "destructive",
+                                  });
+                                }
                               }}
                             >
                               <EyeIcon className="w-4 h-4" />
@@ -643,6 +625,7 @@ export default function RepositoryPage() {
                             onClick={async (e) => {
                               e.stopPropagation(); // Prevent card click from triggering
                               if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
+                                setDeletingDocId(doc.id); // Set the document ID that is being deleted
                                 try {
                                   // First, verify that we have a valid authentication state
                                   if (!isAuthenticated || !user) {
@@ -673,7 +656,7 @@ export default function RepositoryPage() {
                                     // Clear the success message after 3 seconds
                                     setTimeout(() => {
                                       setDeletionSuccessMessage(null);
-                                    }, 3000);
+                                    }, 300);
                                     // Refresh the document list
                                     fetchDocuments();
                                   } else {
@@ -695,12 +678,24 @@ export default function RepositoryPage() {
                                     description: error instanceof Error ? error.message : 'Failed to delete document. Please try again.',
                                     variant: "destructive",
                                   });
+                                } finally {
+                                  setDeletingDocId(null); // Reset the deletion state
                                 }
                               }
                             }}
+                            disabled={deletingDocId === doc.id} // Disable button while deleting
                           >
-                            <Trash2 className="w-4 h-4" />
-                            Delete
+                            {deletingDocId === doc.id ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="w-4 h-4" />
+                                Delete
+                              </>
+                            )}
                           </Button>
                         )}
                       </div>
@@ -958,7 +953,7 @@ export default function RepositoryPage() {
                     <label className="block text-sm font-medium mb-1">Description</label>
                     <textarea
                       name="description"
-                      className="w-full min-h-[80px] p-2 border border-input rounded-md bg-background"
+                      className="w-full min-h-20 p-2 border border-input rounded-md bg-background"
                       placeholder="Document description (optional)"
                     />
                   </div>

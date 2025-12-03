@@ -6,10 +6,10 @@ import fileStorageService from '@/lib/services/file-storage-service';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Verify authentication
     const authResult = await requireAuth(request);

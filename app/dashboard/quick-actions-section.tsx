@@ -52,13 +52,6 @@ export default function QuickActionsSection() {
       href: "/search",
       color: "secondary",
     },
-    {
-      title: "Join Discussions",
-      description: "Collaborate with community",
-      icon: MessageSquare,
-      href: "/forums",
-      color: "accent",
-    },
   ];
 
   return (

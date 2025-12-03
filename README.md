@@ -27,7 +27,6 @@ app/
 ├── dashboard/           # User dashboard
 ├── repository/           # Document repository
 ├── search/              # Search functionality
-├── forums/              # Discussion forums
 ├── analytics/           # Analytics dashboard
 ├── layout.tsx           # Root layout with AuthProvider
 components/
@@ -94,6 +93,26 @@ npm run dev
 
 The application will be available at `http://localhost:3000`.
 
+## Prisma Database Setup
+
+This project uses Prisma ORM for database management. After making changes to the database schema or if you encounter TypeScript errors related to Prisma models, you may need to regenerate the Prisma client.
+
+```bash
+# Generate Prisma client (after schema changes)
+npm run db:generate
+
+# Push schema changes to database
+npm run db:push
+
+# Create and apply migration
+npm run db:migrate
+
+# Open Prisma Studio to view database content
+npm run db:studio
+```
+
+If you encounter TypeScript errors like `Property 'forumPost' does not exist on type 'PrismaClient'`, run `npm run db:generate` to regenerate the client based on the current schema.
+
 ## Demo Accounts
 
 - **Admin**: admin@lspu.edu.ph / admin
@@ -114,7 +133,6 @@ The application will be available at `http://localhost:3000`.
 - Download tracking and analytics
 
 ### Collaboration Tools
-- Discussion forums
 - Reply and like functionality
 - Category-based organization
 

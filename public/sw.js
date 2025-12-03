@@ -1,6 +1,6 @@
 // Service Worker for offline support
 const CACHE_NAME = "lspu-kmis-v2"
-const urlsToCache = ["/", "/dashboard", "/repository", "/search", "/forums", "/analytics"]
+const urlsToCache = ["/", "/dashboard", "/repository", "/search", "/analytics"]
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

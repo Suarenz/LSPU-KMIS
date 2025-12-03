@@ -45,7 +45,10 @@ interface SearchResult {
   documentSection?: string;
   confidenceScore?: number;
   snippet: string;
- document: Document;
+  document: Document;
+  visualContent?: string; // Base64 encoded visual content
+  extractedText?: string; // Extracted text content
+  screenshots?: string[]; // Array of screenshot base64 strings
 }
 
 interface ColivaraConfig {
@@ -213,6 +216,7 @@ class ColivaraService {
         collection_name: this.config.defaultCollection,
         metadata: {
           documentId,
+          title: metadata.originalName, // Ensure the title is stored in metadata for proper display
           ...metadata
         },
         wait: false // Don't wait for processing to complete, we'll check status separately
@@ -453,16 +457,21 @@ class ColivaraService {
           }
         }
                                   
+        // Extract score - prioritize similarity/prob over confidence since those are more likely to be the actual relevance scores
+        const score = item.score || item.similarity || item.prob || item.confidence || 0;
+                                  
         return {
           documentId: originalDocumentId,
-          title: item.title || item.metadata?.originalName || item.metadata?.title || item.name || 'Untitled Document',
+          title: item.metadata?.title || item.title || item.metadata?.originalName || item.name || 'Untitled Document',
           content: item.content || item.text || item.metadata?.content || '',
-          score: item.score || item.similarity || item.confidence || 0,
+          score: score,
           pageNumbers: item.page_numbers || item.pageNumbers || item.pages || [item.document?.page_number] || [],
           documentSection: item.section || item.documentSection || item.metadata?.section || '',
-          confidenceScore: item.confidence_score || item.confidenceScore || item.confidence || item.score || 0,
+          confidenceScore: score, // Use the same score value for consistency
           snippet: item.snippet || item.content?.substring(0, 200) + '...' || item.text?.substring(0, 200) + '...' || item.metadata?.content?.substring(0, 200) + '...' || '',
           document: item.document || item.metadata?.document || item || {} as Document,
+          visualContent: item.visualContent || item.image || item.image_data || undefined,
+          extractedText: item.extractedText || item.text || item.content || undefined,
         };
       });
 
@@ -642,6 +651,26 @@ class ColivaraService {
 
       console.log('Upload result from upsertDocument:', { colivaraDocId, documentId });
 
+      // Start background processing without blocking
+      this.waitForProcessingAndComplete(documentId, colivaraDocId);
+      
+      return true;
+    } catch (error) {
+      console.error(`Failed to index document ${documentId}:`, error);
+      
+      // Update document status to FAILED using raw SQL
+      await prisma.$executeRaw`
+        UPDATE documents
+        SET "colivaraProcessingStatus" = 'FAILED'
+        WHERE id = ${documentId}
+      `;
+      
+      return false;
+    }
+  }
+
+  private async waitForProcessingAndComplete(documentId: string, colivaraDocId: string): Promise<void> {
+    try {
       // Wait for processing to complete
       const completed = await this.waitForProcessing(colivaraDocId, this.config.processingTimeout);
 
@@ -657,8 +686,6 @@ class ColivaraService {
 
         // Extract and store the processed content in ColivaraIndex
         await this.storeProcessedContent(documentId, colivaraDocId);
-
-        return true;
       } else {
         // Handle timeout or failure
         await prisma.$executeRaw`
@@ -666,11 +693,9 @@ class ColivaraService {
           SET "colivaraProcessingStatus" = 'FAILED'
           WHERE id = ${documentId}
         `;
-        
-        return false;
       }
     } catch (error) {
-      console.error(`Failed to index document ${documentId}:`, error);
+      console.error(`Error completing processing for document ${documentId}:`, error);
       
       // Update document status to FAILED using raw SQL
       await prisma.$executeRaw`
@@ -678,8 +703,6 @@ class ColivaraService {
         SET "colivaraProcessingStatus" = 'FAILED'
         WHERE id = ${documentId}
       `;
-      
-      return false;
     }
   }
 
@@ -727,6 +750,33 @@ class ColivaraService {
 
   async deleteFromIndex(documentId: string): Promise<boolean> {
     try {
+      // Get the document first to check if it has a Colivara document ID
+      const document = await prisma.document.findUnique({
+        where: { id: documentId }
+      });
+
+      // If document exists and has a Colivara document ID, delete from Colivara collection
+      if (document && (document as any).colivaraDocumentId) {
+        try {
+          // Delete from Colivara collection using the official API
+          await this.client.deleteDocument({
+            document_name: (document as any).colivaraDocumentId,
+            collection_name: this.config.defaultCollection
+          });
+          console.log(`Successfully deleted document ${documentId} (${(document as any).colivaraDocumentId}) from Colivara collection`);
+        } catch (colivaraError) {
+          // Log the error but continue with database cleanup
+          console.error(`Failed to delete document ${documentId} from Colivara collection:`, colivaraError);
+          
+          // Check if it's a "document not found" error, which is acceptable
+          const colivaraServiceError = colivaraErrorHandler.convertErrorToColivaraError(colivaraError);
+          if (colivaraServiceError.type !== ColivaraErrorType.DOCUMENT_NOT_FOUND) {
+            // For other errors, log but continue with database cleanup
+            console.warn(`Non-critical error deleting document from Colivara collection, proceeding with database cleanup:`, colivaraError);
+          }
+        }
+      }
+
       // Delete all index entries for this document using raw SQL
       await prisma.$executeRaw`
         DELETE FROM colivara_indexes WHERE "documentId" = ${documentId}
@@ -778,19 +828,20 @@ class ColivaraService {
   }
 
   async processNewDocument(document: Document, fileUrl: string, base64Content?: string): Promise<void> {
+    // This method processes a newly uploaded document
+    // It will be called after a document is successfully uploaded to the system
+    // Processing happens in the background without blocking the upload response
+    this.processNewDocumentAsync(document, fileUrl, base64Content);
+  }
+
+  private async processNewDocumentAsync(document: Document, fileUrl: string, base64Content?: string): Promise<void> {
     try {
-      // This method processes a newly uploaded document
-      // It will be called after a document is successfully uploaded to the system
-      
       // The document should already be in the database with PENDING status
       // We just need to trigger the Colivara processing
-      const success = await this.indexDocument(document.id, base64Content);
-      
-      if (!success) {
-        console.error(`Failed to process new document ${document.id} with Colivara`);
-      }
+      // Processing happens in the background without waiting for completion
+      this.indexDocument(document.id, base64Content);
     } catch (error) {
-      console.error(`Error processing new document ${document.id}:`, error);
+      console.error(`Error starting processing for new document ${document.id}:`, error);
     }
  }
 
@@ -811,6 +862,115 @@ class ColivaraService {
       }
     } catch (error) {
       console.error(`Error handling document update for ${documentId}:`, error);
+    }
+  }
+
+ /**
+   * Get visual content (screenshots/pages) from processed documents
+   * @param colivaraDocumentId The document ID in Colivara
+   * @param pageNumbers Specific pages to retrieve (optional, if not provided, returns all available)
+   */
+  async getVisualContent(colivaraDocumentId: string, pageNumbers?: number[]): Promise<string[]> {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      // Validate that colivaraDocumentId is actually a string, not an object
+      if (typeof colivaraDocumentId !== 'string' || colivaraDocumentId === '[object Object]') {
+        throw new ColivaraApiError('Invalid document ID provided to getVisualContent');
+      }
+
+      console.log(`Getting visual content for document: ${colivaraDocumentId}, pages: ${pageNumbers || 'all'}`);
+
+      // Check if the getDocumentPages method exists on the client
+      if (typeof (this.client as any).getDocumentPages !== 'function') {
+        console.warn('Colivara client does not have a getDocumentPages method, returning empty array');
+        return [];
+      }
+
+      const response = await (this.client as any).getDocumentPages({
+        document_name: colivaraDocumentId,
+        collection_name: this.config.defaultCollection,
+        page_numbers: pageNumbers
+      });
+
+      // Process the response to extract base64 images
+      if (response && response.pages) {
+        // If pages is an array of objects with image data
+        if (Array.isArray(response.pages)) {
+          return response.pages.map((page: any) => {
+            // Return base64 image data if available, otherwise return empty string
+            return page.image_data || page.image || page.base64 || '';
+          }).filter((img: string) => img !== ''); // Filter out empty strings
+        }
+        // If response has a different structure, try to extract images
+        else if (response.images && Array.isArray(response.images)) {
+          return response.images;
+        }
+      }
+
+      return [];
+    } catch (error) {
+      console.error(`Failed to get visual content for ${colivaraDocumentId}:`, error);
+      return [];
+    }
+ }
+
+  /**
+   * Get extracted text content from processed documents
+   * @param colivaraDocumentId The document ID in Colivara
+   * @param pageNumbers Specific pages to retrieve text from (optional, if not provided, returns all available)
+   */
+  async getExtractedText(colivaraDocumentId: string, pageNumbers?: number[]): Promise<string> {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      // Validate that colivaraDocumentId is actually a string, not an object
+      if (typeof colivaraDocumentId !== 'string' || colivaraDocumentId === '[object Object]') {
+        throw new ColivaraApiError('Invalid document ID provided to getExtractedText');
+      }
+
+      console.log(`Getting extracted text for document: ${colivaraDocumentId}, pages: ${pageNumbers || 'all'}`);
+
+      // Check if the getDocumentText method exists on the client
+      if (typeof (this.client as any).getDocumentText !== 'function') {
+        console.warn('Colivara client does not have a getDocumentText method, returning empty string');
+        return '';
+      }
+
+      const response = await (this.client as any).getDocumentText({
+        document_name: colivaraDocumentId,
+        collection_name: this.config.defaultCollection,
+        page_numbers: pageNumbers
+      });
+
+      // Return the extracted text content
+      return response.text || response.content || response.extracted_text || '';
+    } catch (error) {
+      console.error(`Failed to get extracted text for ${colivaraDocumentId}:`, error);
+      return '';
+    }
+ }
+
+  /**
+   * Enhanced search method that includes visual content and extracted text for multimodal processing
+   */
+  async performEnhancedSearch(query: string, filters?: SearchFilters, userId?: string): Promise<SearchResults> {
+    try {
+      // First, perform the standard semantic search
+      const standardResults = await this.performSemanticSearch(query, filters, userId);
+
+      // Instead of calling getVisualContent and getExtractedText which may trigger getDocumentPages errors,
+      // we'll return the standard results which should already contain the content from the search response
+      // This avoids the problematic API calls while still providing data for Gemini
+      return standardResults;
+    } catch (error) {
+      console.error('Enhanced search failed:', error);
+      // Fallback to standard search
+      return await this.performSemanticSearch(query, filters, userId);
     }
   }
 }

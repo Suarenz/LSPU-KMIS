@@ -12,8 +12,8 @@ datasource db {
 model User {
   id              String               @id @default(dbgenerated("gen_random_uuid()"))
   email           String               @unique
-  name            String
-  unitId          String?              @map("unitId")
+ name            String
+ unitId          String?              @map("unitId")
   avatar          String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
@@ -25,6 +25,7 @@ model User {
   permissions     DocumentPermission[]
   views           DocumentView[]
   documents       Document[]
+  qproAnalyses    QPROAnalysis[]       // QPRO analyses created by this user
   unitPermissions UnitPermission[]
   userUnit        Unit?                @relation("UserUnit", fields: [unitId], references: [id])
 
@@ -59,11 +60,12 @@ model Document {
   colivaraProcessingStatus String?              @default("PENDING")
   colivaraProcessedAt      DateTime?
   colivaraChecksum         String?
-  colivaraIndexes          ColivaraIndex[]
+ colivaraIndexes          ColivaraIndex[]
   comments                 DocumentComment[]
   downloads                DocumentDownload[]
   permissions              DocumentPermission[]
   views                    DocumentView[]
+  qproAnalyses             QPROAnalysis[]       // QPRO analyses associated with this document
   parentDocument           Document?            @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
   documents                Document[]           @relation("DocumentVersions")
   documentUnit             Unit?                @relation(fields: [unitId], references: [id])
@@ -201,5 +203,26 @@ enum PermissionLevel {
   READ
   WRITE
   ADMIN
+}
+
+model QPROAnalysis {
+  id                String   @id @default(cuid())
+  documentId        String   // Reference to the document that was analyzed
+  documentTitle     String   // Title of the analyzed document
+  documentPath      String   // Path to the stored document file
+  documentType      String   // File type (PDF/DOCX)
+  analysisResult    String   // The full analysis result from the LLM
+  alignment         String?  // Section about alignment with strategic plan
+  opportunities     String? // Section about potential strategic opportunities
+  gaps              String?  // Section about gaps or conflicts
+  recommendations   String?  // Section with actionable recommendations
+  kras              Json?    // JSON array of related KRAs
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  uploadedById      String   // User who uploaded the document
+  document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade, map: "qpro_analysis_document_fkey")
+  user              User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade, map: "qpro_analysis_user_fkey")
+  
+  @@map("qpro_analyses")
 }
 

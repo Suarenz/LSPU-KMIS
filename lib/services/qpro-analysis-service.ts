@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { analysisEngineService } from './analysis-engine-service';
+import { analysisEngineService, QPROAnalysisOutput } from './analysis-engine-service';
 import { BlobServiceClient } from '@azure/storage-blob';
 
 const prisma = new PrismaClient();
@@ -15,6 +15,17 @@ interface QPROAnalysisInput {
   documentPath: string;
   documentType: string;
   uploadedById: string;
+  unitId?: string | null;
+  year?: number;
+  quarter?: number;
+}
+
+interface QPROAnalysesFilter {
+  unitId?: string;
+  year?: number;
+  quarter?: number;
+  userId?: string;
+  limit?: number;
 }
 
 export class QPROAnalysisService {
@@ -22,16 +33,25 @@ export class QPROAnalysisService {
     try {
       // Process the document with the analysis engine
       const fileBuffer = await this.getFileBuffer(input.documentPath);
-      const analysisResult = await analysisEngineService.processQPRO(fileBuffer, input.documentType);
+      const analysisOutput: QPROAnalysisOutput = await analysisEngineService.processQPRO(
+        fileBuffer, 
+        input.documentType,
+        input.unitId || undefined
+      );
       
-      // Parse the analysis result to extract specific sections
+      // Extract structured data from validated output
       const {
         alignment,
         opportunities,
         gaps,
         recommendations,
-        kras
-      } = this.parseAnalysisResult(analysisResult);
+        kras,
+        activities,
+        overallAchievement
+      } = analysisOutput;
+      
+      // Create full analysis result text for reference
+      const analysisResult = this.formatAnalysisForStorage(analysisOutput);
       
       // Create the QPRO analysis record in the database
       const qproAnalysis = await prisma.qPROAnalysis.create({
@@ -45,12 +65,18 @@ export class QPROAnalysisService {
           opportunities,
           gaps,
           recommendations,
-          kras: kras as any, // Type assertion for Prisma
+          kras: kras as any,
+          activities: activities as any,
+          achievementScore: overallAchievement,
           uploadedById: input.uploadedById,
+          unitId: input.unitId,
+          year: input.year || 2025,
+          quarter: input.quarter || 1,
         },
         include: {
           document: true,
-          user: true
+          user: true,
+          unit: true
         }
       });
       
@@ -133,6 +159,60 @@ export class QPROAnalysisService {
     }
   }
 
+  async getQPROAnalyses(filter: QPROAnalysesFilter) {
+    try {
+      const whereClause: any = {};
+      
+      if (filter.unitId) {
+        whereClause.unitId = filter.unitId;
+      }
+      
+      if (filter.year !== undefined) {
+        whereClause.year = filter.year;
+      }
+      
+      if (filter.quarter !== undefined) {
+        whereClause.quarter = filter.quarter;
+      }
+      
+      if (filter.userId) {
+        whereClause.uploadedById = filter.userId;
+      }
+      
+      const analyses = await prisma.qPROAnalysis.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        take: filter.limit,
+        include: {
+          document: {
+            select: {
+              title: true,
+              fileName: true,
+              fileType: true
+            }
+          },
+          user: {
+            select: {
+              name: true,
+              email: true
+            }
+          },
+          unit: {
+            select: {
+              name: true,
+              code: true
+            }
+          }
+        }
+      });
+      
+      return analyses;
+    } catch (error) {
+      console.error('Error fetching QPRO analyses:', error);
+      throw error;
+    }
+  }
+
   private async getFileBuffer(blobPath: string): Promise<Buffer> {
     try {
       // Get the blob from the QPRO-specific container
@@ -169,22 +249,47 @@ export class QPROAnalysisService {
     });
   }
 
-  private parseAnalysisResult(analysis: string) {
-    // Simple parsing of the analysis result to extract sections
-    // This is a basic implementation - in reality, you'd want more sophisticated parsing
+  /**
+   * Format structured analysis output into readable text for storage
+   */
+  private formatAnalysisForStorage(analysis: QPROAnalysisOutput): string {
+    const sections = [
+      '# QPRO Analysis Report',
+      '',
+      `## Overall Achievement Score: ${analysis.overallAchievement.toFixed(2)}%`,
+      '',
+      '## Strategic Alignment',
+      analysis.alignment,
+      '',
+      '## Opportunities',
+      analysis.opportunities,
+      '',
+      '## Gaps Identified',
+      analysis.gaps,
+      '',
+      '## Recommendations',
+      analysis.recommendations,
+      '',
+      '## KRA Summary',
+      ...analysis.kras.map(kra => `
+### ${kra.kraId}: ${kra.kraTitle}
+**Achievement Rate:** ${kra.achievementRate.toFixed(2)}%
+**Activities:** ${kra.activities.length}
+**Alignment:** ${kra.strategicAlignment}
+`),
+      '',
+      '## Detailed Activities',
+      ...analysis.activities.map(activity => `
+- **${activity.name}**
+  - KRA: ${activity.kraId}
+  - Target: ${activity.target}, Reported: ${activity.reported}
+  - Achievement: ${activity.achievement.toFixed(2)}%
+  - Confidence: ${(activity.confidence * 100).toFixed(0)}%
+  - Unit: ${activity.unit || 'N/A'}
+`)
+    ];
     
-    const alignmentMatch = analysis.match(/1\.?\s*Identifies alignment.*?(?=\n\d\.?|$)/s);
-    const opportunitiesMatch = analysis.match(/2\.?\s*Highlights potential.*?(?=\n\d\.?|$)/s);
-    const gapsMatch = analysis.match(/3\.?\s*Points out.*?(?=\n\d\.?|$)/s);
-    const recommendationsMatch = analysis.match(/4\.?\s*Provides actionable.*?(?=\n\d\.?|$)/s);
-    
-    return {
-      alignment: alignmentMatch ? alignmentMatch[0].replace(/\d\.?\s*/, '').trim() : null,
-      opportunities: opportunitiesMatch ? opportunitiesMatch[0].replace(/\d\.?\s*/, '').trim() : null,
-      gaps: gapsMatch ? gapsMatch[0].replace(/\d\.?\s*/, '').trim() : null,
-      recommendations: recommendationsMatch ? recommendationsMatch[0].replace(/\d\.?\s*/, '').trim() : null,
-      kras: [] // Extract KRA information if available in the analysis
-    };
+    return sections.join('\n');
   }
 }
 

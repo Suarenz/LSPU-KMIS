@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import AuthService from '@/lib/services/auth-service';
 
 interface QPROAnalysis {
   id: string;
@@ -31,7 +32,12 @@ export default function QPROAnalyzer() {
 
   const fetchAnalyses = async () => {
     try {
-      const response = await fetch('/api/qpro-analyses');
+      const token = await AuthService.getAccessToken();
+      const response = await fetch('/api/qpro-analyses', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await response.json();
       setAnalyses(data.analyses || []);
     } catch (error) {
@@ -73,7 +79,14 @@ export default function QPROAnalyzer() {
       }
 
       const data = await response.json();
-      setAnalysis(data.analysis);
+      console.log('Analysis response:', data);
+      console.log('Analysis result:', data.analysis?.analysisResult);
+      
+      // Set the analysis result - handle both object and string formats
+      if (data.analysis) {
+        const analysisText = data.analysis.analysisResult || data.analysis;
+        setAnalysis(typeof analysisText === 'string' ? analysisText : JSON.stringify(analysisText, null, 2));
+      }
       
       // Refresh the list of analyses
       fetchAnalyses();
@@ -109,14 +122,16 @@ export default function QPROAnalyzer() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="file">Upload QPRO Document</Label>
+              <Label htmlFor="file">Upload accomplished PDO forms</Label>
               <Input
                 id="file"
                 type="file"
                 accept=".pdf,.docx"
                 onChange={handleFileChange}
                 disabled={loading}
+                aria-label="Upload accomplished PDO forms"
               />
+              <span className="text-sm text-muted-foreground">Upload accomplished PDO forms</span>
             </div>
             
             <Button onClick={handleSubmit} disabled={!file || loading} className="w-full">

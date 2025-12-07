@@ -23,12 +23,15 @@ export async function POST(request: NextRequest) {
     const user = authResult.user;
     
     const formData = await request.formData();
-    const file = formData.get('qproFile') as File;
+    const file = formData.get('file') as File || formData.get('qproFile') as File;
     const title = formData.get('title') as string || 'Untitled QPRO Document';
+    const unitId = formData.get('unitId') as string;
+    const year = parseInt(formData.get('year') as string) || 2025;
+    const quarter = parseInt(formData.get('quarter') as string) || 1;
     
     // Validate file exists and is a File
     if (!file || !(file instanceof File)) {
-      return Response.json({ error: 'No file uploaded' }, { status: 40 });
+      return Response.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
     // Validate file type (support both PDF and DOCX)
@@ -67,12 +70,13 @@ export async function POST(request: NextRequest) {
         description: `QPRO document uploaded by ${user.name || user.email}`,
         category: 'QPRO',
         tags: [],
+        uploadedBy: user.name || user.email,
         uploadedById: user.id,
         fileUrl: blockBlobClient.url, // Use the Azure Blob URL
         fileName: fileName,
         fileType: file.type,
         fileSize: file.size,
-        unitId: user.unitId || null,
+        unitId: unitId || user.unitId || null,
       }
     });
     
@@ -83,10 +87,13 @@ export async function POST(request: NextRequest) {
       documentPath: blobName, // Store the blob path for reference
       documentType: file.type,
       uploadedById: user.id,
+      unitId: unitId || user.unitId || null,
+      year,
+      quarter,
     });
     
     return Response.json({
-      analysis: analysis.analysisResult,
+      analysis: analysis,
       documentId: document.id,
       analysisId: analysis.id
     });

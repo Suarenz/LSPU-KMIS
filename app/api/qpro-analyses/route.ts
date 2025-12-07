@@ -16,6 +16,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const documentId = searchParams.get('documentId');
     const analysisId = searchParams.get('id');
+    const unitId = searchParams.get('unitId');
+    const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined;
+    const quarter = searchParams.get('quarter') ? parseInt(searchParams.get('quarter')!) : undefined;
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
     
     if (analysisId) {
       // Get specific analysis by ID
@@ -25,7 +29,7 @@ export async function GET(request: NextRequest) {
       }
       
       // Check if user has permission to access this analysis
-      if (analysis.uploadedById !== user.id) {
+      if (analysis.uploadedById !== user.id && user.role !== 'ADMIN') {
         return Response.json({ error: 'Unauthorized to access this analysis' }, { status: 403 });
       }
       
@@ -35,14 +39,23 @@ export async function GET(request: NextRequest) {
       const analyses = await qproAnalysisService.getQPROAnalysesByDocument(documentId);
       
       // Check if user has permission to access analyses for this document
-      // For simplicity, we're allowing access if the user uploaded any of the analyses
-      // In a real implementation, you'd have more sophisticated permission checks
       const hasPermission = analyses.some((analysis: any) => analysis.uploadedById === user.id);
       if (!hasPermission && user.role !== 'ADMIN') {
         return Response.json({ error: 'Unauthorized to access analyses for this document' }, { status: 403 });
       }
       
       return Response.json({ analyses });
+    } else if (unitId || year || quarter) {
+      // Get analyses filtered by unit, year, and/or quarter
+      const analyses = await qproAnalysisService.getQPROAnalyses({
+        unitId,
+        year,
+        quarter,
+        limit,
+        userId: user.role === 'ADMIN' ? undefined : user.id, // Non-admin users only see their own
+      });
+      
+      return Response.json({ analyses, total: analyses.length });
     } else {
       // Get all analyses for the current user
       const analyses = await qproAnalysisService.getQPROAnalysesByUser(user.id);

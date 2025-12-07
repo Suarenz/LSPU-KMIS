@@ -27,15 +27,34 @@
             "initiate partnerships with relevant tech companies and research institutions to identify trends in emerging technologies",
             "form content development teams comprising faculty and industry partners to create course materials integrating emerging technologies"
           ],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Curriculum and Instruction Development Unit", "Deans"],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Curriculum and Instruction Development Unit",
+            "Deans"
+          ],
           "targets": {
             "type": "milestone",
             "timeline_data": [
-              { "year": 2025, "target_value": "Curriculum Updated" },
-              { "year": 2026, "target_value": "Curriculum Updated" },
-              { "year": 2027, "target_value": "Curriculum Updated" },
-              { "year": 2028, "target_value": "Curriculum Updated" },
-              { "year": 2029, "target_value": "Curriculum Updated" }
+              {
+                "year": 2025,
+                "target_value": "Curriculum Updated"
+              },
+              {
+                "year": 2026,
+                "target_value": "Curriculum Updated"
+              },
+              {
+                "year": 2027,
+                "target_value": "Curriculum Updated"
+              },
+              {
+                "year": 2028,
+                "target_value": "Curriculum Updated"
+              },
+              {
+                "year": 2029,
+                "target_value": "Curriculum Updated"
+              }
             ]
           }
         },
@@ -49,17 +68,40 @@
             "collaborate with industry experts, tech companies and research institutions to design relevant course content",
             "pilot new courses and gather feedback from students and faculty to refine content and delivery methods"
           ],
-          "programs_activities": ["organize specialized training workshops on emerging technologies relevant to your curricula."],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "HRMO", "Deans", "Faculty", "Curriculum and Instruction Development Unit"],
+          "programs_activities": [
+            "organize specialized training workshops on emerging technologies relevant to your curricula."
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "HRMO",
+            "Deans",
+            "Faculty",
+            "Curriculum and Instruction Development Unit"
+          ],
           "targets": {
             "type": "count",
             "unit_basis": "per program/college",
             "timeline_data": [
-              { "year": 2025, "target_value": 1 },
-              { "year": 2026, "target_value": 1 },
-              { "year": 2027, "target_value": 1 },
-              { "year": 2028, "target_value": 1 },
-              { "year": 2029, "target_value": 1 }
+              {
+                "year": 2025,
+                "target_value": 1
+              },
+              {
+                "year": 2026,
+                "target_value": 1
+              },
+              {
+                "year": 2027,
+                "target_value": 1
+              },
+              {
+                "year": 2028,
+                "target_value": 1
+              },
+              {
+                "year": 2029,
+                "target_value": 1
+              }
             ]
           }
         }
@@ -79,16 +121,37 @@
           "strategies": [
             "form advisory boards for agriculture, fisheries, and technology programs to facilitate ongoing dialogue with industry stakeholders"
           ],
-          "programs_activities": ["establish formal partnerships with industry leaders for internship placements"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Deans", "Alumni Affairs and Placement Services, Curriculum and Instruction Development Unit"],
+          "programs_activities": [
+            "establish formal partnerships with industry leaders for internship placements"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Deans",
+            "Alumni Affairs and Placement Services, Curriculum and Instruction Development Unit"
+          ],
           "targets": {
             "type": "milestone",
             "timeline_data": [
-              { "year": 2025, "target_value": "Advisory Board Established" },
-              { "year": 2026, "target_value": "Advisory Board Established" },
-              { "year": 2027, "target_value": "Advisory Board Established" },
-              { "year": 2028, "target_value": "Advisory Board Established" },
-              { "year": 2029, "target_value": "Advisory Board Established" }
+              {
+                "year": 2025,
+                "target_value": "Advisory Board Established"
+              },
+              {
+                "year": 2026,
+                "target_value": "Advisory Board Established"
+              },
+              {
+                "year": 2027,
+                "target_value": "Advisory Board Established"
+              },
+              {
+                "year": 2028,
+                "target_value": "Advisory Board Established"
+              },
+              {
+                "year": 2029,
+                "target_value": "Advisory Board Established"
+              }
             ]
           }
         },
@@ -106,15 +169,34 @@
             "establish a framework to regularly assess program outcomes, student employment rates, and industry satisfaction",
             "create a feedback system involving students, alumni, and industry stakeholders"
           ],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Deans", "Alumni Affairs and Placement Services, Curriculum and Instruction Development Unit"],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Deans",
+            "Alumni Affairs and Placement Services, Curriculum and Instruction Development Unit"
+          ],
           "targets": {
             "type": "milestone",
             "timeline_data": [
-              { "year": 2025, "target_value": "Curriculum Review Completed" },
-              { "year": 2026, "target_value": "Curriculum Review Completed" },
-              { "year": 2027, "target_value": "Curriculum Review Completed" },
-              { "year": 2028, "target_value": "Curriculum Review Completed" },
-              { "year": 2029, "target_value": "Curriculum Review Completed" }
+              {
+                "year": 2025,
+                "target_value": "Curriculum Review Completed"
+              },
+              {
+                "year": 2026,
+                "target_value": "Curriculum Review Completed"
+              },
+              {
+                "year": 2027,
+                "target_value": "Curriculum Review Completed"
+              },
+              {
+                "year": 2028,
+                "target_value": "Curriculum Review Completed"
+              },
+              {
+                "year": 2029,
+                "target_value": "Curriculum Review Completed"
+              }
             ]
           }
         }
@@ -136,16 +218,38 @@
             "strict implementation of admission and retention policies",
             "awarding of incentives and recognition to top successful examinees"
           ],
-          "programs_activities": ["in-house review programs", "incentive grant program"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Deans", "Quality Assurance Unit"],
+          "programs_activities": [
+            "in-house review programs",
+            "incentive grant program"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Deans",
+            "Quality Assurance Unit"
+          ],
           "targets": {
             "type": "text_condition",
             "timeline_data": [
-              { "year": 2025, "target_value": "Above National Passing Rate" },
-              { "year": 2026, "target_value": "Above National Passing Rate" },
-              { "year": 2027, "target_value": "Above National Passing Rate" },
-              { "year": 2028, "target_value": "Above National Passing Rate" },
-              { "year": 2029, "target_value": "Above National Passing Rate" }
+              {
+                "year": 2025,
+                "target_value": "Above National Passing Rate"
+              },
+              {
+                "year": 2026,
+                "target_value": "Above National Passing Rate"
+              },
+              {
+                "year": 2027,
+                "target_value": "Above National Passing Rate"
+              },
+              {
+                "year": 2028,
+                "target_value": "Above National Passing Rate"
+              },
+              {
+                "year": 2029,
+                "target_value": "Above National Passing Rate"
+              }
             ]
           }
         },
@@ -163,15 +267,33 @@
             "regularly assess the effectiveness of OJT programs through feedback from students, industry partners, and academic staff",
             "offer incentives or recognition for industry partners who provide OJT opportunities"
           ],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Deans"],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Deans"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 80 },
-              { "year": 2026, "target_value": 83 },
-              { "year": 2027, "target_value": 85 },
-              { "year": 2028, "target_value": 88 },
-              { "year": 2029, "target_value": 90 }
+              {
+                "year": 2025,
+                "target_value": 80
+              },
+              {
+                "year": 2026,
+                "target_value": 83
+              },
+              {
+                "year": 2027,
+                "target_value": 85
+              },
+              {
+                "year": 2028,
+                "target_value": 88
+              },
+              {
+                "year": 2029,
+                "target_value": 90
+              }
             ]
           }
         },
@@ -181,13 +303,25 @@
             "outputs": "100% compliance of Center of Flexible Learning",
             "outcomes": "resilience"
           },
-          "strategies": ["provide market-driven programs through responsive, relevant, and comprehensive curricula"],
-          "programs_activities": ["monitoring of the preparation and submission of SLMs"],
-          "responsible_offices": ["Office of the Vice Presidents", "Information Communication and Technology Services", "Curriculum Instruction Development", "Office of the Campus Directors"],
+          "strategies": [
+            "provide market-driven programs through responsive, relevant, and comprehensive curricula"
+          ],
+          "programs_activities": [
+            "monitoring of the preparation and submission of SLMs"
+          ],
+          "responsible_offices": [
+            "Office of the Vice Presidents",
+            "Information Communication and Technology Services",
+            "Curriculum Instruction Development",
+            "Office of the Campus Directors"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         },
@@ -201,16 +335,38 @@
             "build partnerships with local organizations, government agencies, and other stakeholders to enhance program reach and impact",
             "leverage the institution’s expertise and resources to design and implement programs that address community needs"
           ],
-          "programs_activities": ["form MOU/MOA with community groups", "use faculty and staff expertise in relevant fields to create programs that capitalize on the institution’s strengths"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Research, Extension and Innovation", "Deans"],
+          "programs_activities": [
+            "form MOU/MOA with community groups",
+            "use faculty and staff expertise in relevant fields to create programs that capitalize on the institution’s strengths"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Research, Extension and Innovation",
+            "Deans"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 70 },
-              { "year": 2026, "target_value": 75 },
-              { "year": 2027, "target_value": 80 },
-              { "year": 2028, "target_value": 85 },
-              { "year": 2029, "target_value": 90 }
+              {
+                "year": 2025,
+                "target_value": 70
+              },
+              {
+                "year": 2026,
+                "target_value": 75
+              },
+              {
+                "year": 2027,
+                "target_value": 80
+              },
+              {
+                "year": 2028,
+                "target_value": 85
+              },
+              {
+                "year": 2029,
+                "target_value": 90
+              }
             ]
           }
         },
@@ -225,16 +381,39 @@
             "strengthen career services and job",
             "alumni and employer feedback loop"
           ],
-          "programs_activities": ["annual graduate employability survey", "job fair and career expo", "alumni career support network"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Alumni Affairs and Placement Services", "Deans"],
+          "programs_activities": [
+            "annual graduate employability survey",
+            "job fair and career expo",
+            "alumni career support network"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Alumni Affairs and Placement Services",
+            "Deans"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 73 },
-              { "year": 2026, "target_value": 73 },
-              { "year": 2027, "target_value": 74 },
-              { "year": 2028, "target_value": 74 },
-              { "year": 2029, "target_value": 75 }
+              {
+                "year": 2025,
+                "target_value": 73
+              },
+              {
+                "year": 2026,
+                "target_value": 73
+              },
+              {
+                "year": 2027,
+                "target_value": 74
+              },
+              {
+                "year": 2028,
+                "target_value": 74
+              },
+              {
+                "year": 2029,
+                "target_value": 75
+              }
             ]
           }
         },
@@ -242,19 +421,48 @@
           "id": "KRA3-KPI6",
           "key_performance_indicator": {
             "outputs": "continuous tracer studies that assess graduates' employability, mobility, entrepreneurial activities and international career opportunities",
-            "outcomes": [" increased understanding of graduate employability and career trajectories leading to data-driven program improvements", "alumni engagement strengthened"]
+            "outcomes": [
+              " increased understanding of graduate employability and career trajectories leading to data-driven program improvements",
+              "alumni engagement strengthened"
+            ]
           },
-          "strategies": ["regularly conduct of tracer study, with integration of mobility and international opportunities", "graduate engagement and follow-up"],
-          "programs_activities": ["graduate support career services development", "development of Alumni Management System", "tracer studies and graduate career mobility tracking"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Alumni Affairs and Placement Services", "Research and Development Services"],
+          "strategies": [
+            "regularly conduct of tracer study, with integration of mobility and international opportunities",
+            "graduate engagement and follow-up"
+          ],
+          "programs_activities": [
+            "graduate support career services development",
+            "development of Alumni Management System",
+            "tracer studies and graduate career mobility tracking"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Alumni Affairs and Placement Services",
+            "Research and Development Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 1 },
-              { "year": 2026, "target_value": 1 },
-              { "year": 2027, "target_value": 1 },
-              { "year": 2028, "target_value": 1 },
-              { "year": 2029, "target_value": 1 }
+              {
+                "year": 2025,
+                "target_value": 1
+              },
+              {
+                "year": 2026,
+                "target_value": 1
+              },
+              {
+                "year": 2027,
+                "target_value": 1
+              },
+              {
+                "year": 2028,
+                "target_value": 1
+              },
+              {
+                "year": 2029,
+                "target_value": 1
+              }
             ]
           }
         },
@@ -262,15 +470,35 @@
           "id": "KRA3-KPI7",
           "key_performance_indicator": {
             "outputs": "percentage of compliance with IA-based instrument for other campuses",
-            "outcomes": ["increased compliance rates", "standardized processes"]
+            "outcomes": [
+              "increased compliance rates",
+              "standardized processes"
+            ]
           },
-          "strategies": ["training and awareness", "standardization", "monitoring and reporting", "feedback and improvement"],
-          "programs_activities": ["compliance workshops", "audit simulations", "compliance audits", "feedback sessions"],
-          "responsible_offices": ["Office of the Vice Presidents", "Quality Assurance Unit", "Office of the Campus Directors"],
+          "strategies": [
+            "training and awareness",
+            "standardization",
+            "monitoring and reporting",
+            "feedback and improvement"
+          ],
+          "programs_activities": [
+            "compliance workshops",
+            "audit simulations",
+            "compliance audits",
+            "feedback sessions"
+          ],
+          "responsible_offices": [
+            "Office of the Vice Presidents",
+            "Quality Assurance Unit",
+            "Office of the Campus Directors"
+          ],
           "targets": {
             "type": "milestone",
             "timeline_data": [
-              { "year": 2028, "target_value": "100% compliance Institutional Accreditation all campus" }
+              {
+                "year": 2028,
+                "target_value": "100% compliance Institutional Accreditation all campus"
+              }
             ]
           }
         },
@@ -278,15 +506,35 @@
           "id": "KRA3-KPI8",
           "key_performance_indicator": {
             "outputs": "percentage of compliance with SUC Level IV based on SUC Levelling  Instrument",
-            "outcomes": ["increased compliance rates", "standardized processes"]
+            "outcomes": [
+              "increased compliance rates",
+              "standardized processes"
+            ]
           },
-          "strategies": ["training and awareness", "standardization", "monitoring and reporting", "feedback and improvement"],
-          "programs_activities": ["compliance workshops", "audit simulations", "compliance audits", "feedback sessions"],
-          "responsible_offices": ["Office of the Vice Presidents", "Quality Assurance Unit", "Office of the Campus Directors"],
+          "strategies": [
+            "training and awareness",
+            "standardization",
+            "monitoring and reporting",
+            "feedback and improvement"
+          ],
+          "programs_activities": [
+            "compliance workshops",
+            "audit simulations",
+            "compliance audits",
+            "feedback sessions"
+          ],
+          "responsible_offices": [
+            "Office of the Vice Presidents",
+            "Quality Assurance Unit",
+            "Office of the Campus Directors"
+          ],
           "targets": {
             "type": "milestone",
             "timeline_data": [
-              { "year": 2029, "target_value": "SUC Level IV Compliance" }
+              {
+                "year": 2029,
+                "target_value": "SUC Level IV Compliance"
+              }
             ]
           }
         },
@@ -296,13 +544,33 @@
             "outputs": "programs accredited/candidate (Level 1 - 4)",
             "outcomes": "enhanced quality of education  and graduates’ competence"
           },
-          "strategies": ["regularly review and update curricula to align with industry standards and technological advancements", "implement robust internal and external quality assurance mechanisms", "foster a culture of continuous improvement among faculty and staff"],
-          "programs_activities": ["curriculum enhancement workshops", "faculty training and development programs", "research and innovation initiatives", "industry partnerships and internships", "student development programs", "community engagement and extension services"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Quality Assurance Unit", "Deans", "Curriculum and Instruction Development Unit"],
+          "strategies": [
+            "regularly review and update curricula to align with industry standards and technological advancements",
+            "implement robust internal and external quality assurance mechanisms",
+            "foster a culture of continuous improvement among faculty and staff"
+          ],
+          "programs_activities": [
+            "curriculum enhancement workshops",
+            "faculty training and development programs",
+            "research and innovation initiatives",
+            "industry partnerships and internships",
+            "student development programs",
+            "community engagement and extension services"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Quality Assurance Unit",
+            "Deans",
+            "Curriculum and Instruction Development Unit"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100, "note": "accredited programs" }
+              {
+                "year": 2029,
+                "target_value": 100,
+                "note": "accredited programs"
+              }
             ]
           }
         },
@@ -310,15 +578,37 @@
           "id": "KRA3-KPI10",
           "key_performance_indicator": {
             "outputs": "COD/COE program",
-            "outcomes": ["compliance rates", "standardized processes"]
+            "outcomes": [
+              "compliance rates",
+              "standardized processes"
+            ]
           },
-          "strategies": ["training and awareness", "standardization", "monitoring and reporting", "feedback and improvement", "benchmark on top universities"],
-          "programs_activities": ["assess the current state of the program and perform a gap analysis to identify areas that need improvement", "revise the curriculum, course content, and program structure", "ensure that faculty members meet the required qualifications"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Deans", "Quality Assurance Unit", "Curriculum and Instruction Development Unit"],
+          "strategies": [
+            "training and awareness",
+            "standardization",
+            "monitoring and reporting",
+            "feedback and improvement",
+            "benchmark on top universities"
+          ],
+          "programs_activities": [
+            "assess the current state of the program and perform a gap analysis to identify areas that need improvement",
+            "revise the curriculum, course content, and program structure",
+            "ensure that faculty members meet the required qualifications"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Deans",
+            "Quality Assurance Unit",
+            "Curriculum and Instruction Development Unit"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2029, "target_value": 1, "note": "1 new COD/COE" }
+              {
+                "year": 2029,
+                "target_value": 1,
+                "note": "1 new COD/COE"
+              }
             ]
           }
         },
@@ -328,17 +618,43 @@
             "outputs": "percentage of developed instructional material (IM) per program",
             "outcomes": "increased quantity and quality of IM"
           },
-          "strategies": ["professional development: provide ongoing training for teachers on creating high-quality instructional materials", "feedback mechanisms: Implement systems for regular feedback on instructional materials from both teachers and students."],
-          "programs_activities": ["workshops and training sessions: regular workshops focused on instructional design, use of digital tools, and curriculum alignment", "peer review sessions: Scheduled sessions where teachers can review and provide feedback on each other’s materials."],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "Deans", "Quality Assurance Unit", "Curriculum and Instruction Development Unit"],
+          "strategies": [
+            "professional development: provide ongoing training for teachers on creating high-quality instructional materials",
+            "feedback mechanisms: Implement systems for regular feedback on instructional materials from both teachers and students."
+          ],
+          "programs_activities": [
+            "workshops and training sessions: regular workshops focused on instructional design, use of digital tools, and curriculum alignment",
+            "peer review sessions: Scheduled sessions where teachers can review and provide feedback on each other’s materials."
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "Deans",
+            "Quality Assurance Unit",
+            "Curriculum and Instruction Development Unit"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 30},
-              { "year": 2026, "target_value": 33},
-              { "year": 2027, "target_value": 35},
-              { "year": 2028, "target_value": 38},
-              { "year": 2029, "target_value": 40}
+              {
+                "year": 2025,
+                "target_value": 30
+              },
+              {
+                "year": 2026,
+                "target_value": 33
+              },
+              {
+                "year": 2027,
+                "target_value": 35
+              },
+              {
+                "year": 2028,
+                "target_value": 38
+              },
+              {
+                "year": 2029,
+                "target_value": 40
+              }
             ]
           }
         },
@@ -346,19 +662,51 @@
           "id": "KRA3-KPI12",
           "key_performance_indicator": {
             "outputs": "ISO certification for Management Systems for Educational Organizations (ISO 21001:2018) and Quality Management System (ISO 9001:2015))",
-            "outcomes": ["increased compliance rates", "standardized processes"]
+            "outcomes": [
+              "increased compliance rates",
+              "standardized processes"
+            ]
           },
-          "strategies":  ["training and awareness", "standardization", "monitoring and reporting", "feedback and improvement"],
-          "programs_activities": ["compliance workshops", "audit simulations", "compliance audits", "feedback sessions"],
-          "responsible_offices": ["Office of the Vice Presidents", "Quality Assurance Unit", "Office of the Campus Directors"],
+          "strategies": [
+            "training and awareness",
+            "standardization",
+            "monitoring and reporting",
+            "feedback and improvement"
+          ],
+          "programs_activities": [
+            "compliance workshops",
+            "audit simulations",
+            "compliance audits",
+            "feedback sessions"
+          ],
+          "responsible_offices": [
+            "Office of the Vice Presidents",
+            "Quality Assurance Unit",
+            "Office of the Campus Directors"
+          ],
           "targets": {
             "type": "milestone",
             "timeline_data": [
-              { "year": 2025, "target_value": "Recertification"},
-              { "year": 2026, "target_value": "Recertification"},
-              { "year": 2027, "target_value": "Recertification"},
-              { "year": 2028, "target_value": "Recertification"},
-              { "year": 2029, "target_value": "Recertification"}
+              {
+                "year": 2025,
+                "target_value": "Recertification"
+              },
+              {
+                "year": 2026,
+                "target_value": "Recertification"
+              },
+              {
+                "year": 2027,
+                "target_value": "Recertification"
+              },
+              {
+                "year": 2028,
+                "target_value": "Recertification"
+              },
+              {
+                "year": 2029,
+                "target_value": "Recertification"
+              }
             ]
           }
         },
@@ -368,18 +716,43 @@
             "outputs": "number of completed GAD-initiated programs every year",
             "outcomes": "4 activities/year"
           },
-          "strategies": ["conduct trainings, seminars, fora, focus group discussions"],
-          "programs_activities": ["trainings", "seminars", "fora", "focus group discussions"],
-          "responsible_offices": ["Offices of the Vice President", "Gender and Development"],
+          "strategies": [
+            "conduct trainings, seminars, fora, focus group discussions"
+          ],
+          "programs_activities": [
+            "trainings",
+            "seminars",
+            "fora",
+            "focus group discussions"
+          ],
+          "responsible_offices": [
+            "Offices of the Vice President",
+            "Gender and Development"
+          ],
           "targets": {
             "type": "count",
             "unit_basis": "per year",
             "timeline_data": [
-              { "year": 2025, "target_value": 4 },
-              { "year": 2026, "target_value": 4 },
-              { "year": 2027, "target_value": 4 },
-              { "year": 2028, "target_value": 4 },
-              { "year": 2029, "target_value": 4 }
+              {
+                "year": 2025,
+                "target_value": 4
+              },
+              {
+                "year": 2026,
+                "target_value": 4
+              },
+              {
+                "year": 2027,
+                "target_value": 4
+              },
+              {
+                "year": 2028,
+                "target_value": 4
+              },
+              {
+                "year": 2029,
+                "target_value": 4
+              }
             ]
           }
         },
@@ -389,17 +762,43 @@
             "outputs": "percentage of faculty and staff who attended GAD mainstreaming and issue",
             "outcomes": "95% faculty and staff attended the GAD mainstreaming and issue"
           },
-          "strategies": ["conduct of training/seminar on GAD mainstreaming"],
-          "programs_activities": ["trainings", "seminars", "fora", "focus group discussions"],
-          "responsible_offices": ["HRMO", "Gender and Development", "Offices of the Vice President"],
+          "strategies": [
+            "conduct of training/seminar on GAD mainstreaming"
+          ],
+          "programs_activities": [
+            "trainings",
+            "seminars",
+            "fora",
+            "focus group discussions"
+          ],
+          "responsible_offices": [
+            "HRMO",
+            "Gender and Development",
+            "Offices of the Vice President"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 95 },
-              { "year": 2026, "target_value": 95 },
-              { "year": 2027, "target_value": 95 },
-              { "year": 2028, "target_value": 95 },
-              { "year": 2029, "target_value": 95 }
+              {
+                "year": 2025,
+                "target_value": 95
+              },
+              {
+                "year": 2026,
+                "target_value": 95
+              },
+              {
+                "year": 2027,
+                "target_value": 95
+              },
+              {
+                "year": 2028,
+                "target_value": 95
+              },
+              {
+                "year": 2029,
+                "target_value": 95
+              }
             ]
           }
         },
@@ -407,16 +806,43 @@
           "id": "KRA3-KPI15",
           "key_performance_indicator": {
             "outputs": "number of enrolled foreign students",
-            "outcomes": ["increased number of foreign students graduates across curriculum and employment after a year or two of graduation", "students’ very satisfactory evaluation"]
+            "outcomes": [
+              "increased number of foreign students graduates across curriculum and employment after a year or two of graduation",
+              "students’ very satisfactory evaluation"
+            ]
           },
-          "strategies": ["offering English as a Foreign Language (EFL) as a coursework to foreign students who come for cultural immersion and summer camps, and freshmen who will enroll in any curricular program","offering lower tuition and other related fees", "offering or assisting students in finding scholarships", "offering ODL"],
-          "programs_activities": ["enrolment of students", "orientation for foreign students", "application or renewal of visa and other Bureau of Immigration & DFA documents", "development of Instructional materials", "educational tours", "close monitoring of students’ performance"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "International/Local Affairs", "Deans"],
+          "strategies": [
+            "offering English as a Foreign Language (EFL) as a coursework to foreign students who come for cultural immersion and summer camps, and freshmen who will enroll in any curricular program",
+            "offering lower tuition and other related fees",
+            "offering or assisting students in finding scholarships",
+            "offering ODL"
+          ],
+          "programs_activities": [
+            "enrolment of students",
+            "orientation for foreign students",
+            "application or renewal of visa and other Bureau of Immigration & DFA documents",
+            "development of Instructional materials",
+            "educational tours",
+            "close monitoring of students’ performance"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "International/Local Affairs",
+            "Deans"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 5, "note": "new students per year" },
-              { "year": 2026, "target_value": 5, "note": "new students per year" }
+              {
+                "year": 2025,
+                "target_value": 5,
+                "note": "new students per year"
+              },
+              {
+                "year": 2026,
+                "target_value": 5,
+                "note": "new students per year"
+              }
             ]
           }
         },
@@ -426,17 +852,43 @@
             "outputs": "number of Student enrolled in CHED/RDC Priority programs",
             "outcomes": "increased the number of student enrolled in CHED/RDC priority programs"
           },
-          "strategies": ["enhanced outreach and awareness campaigns", "program enhancement and innovation", "enhancing student support services"],
-          "programs_activities": ["conduct of outreach and awareness campaign", "regularly update and enhance the curriculum of priority programs", "provide strong academic advising services, mentoring, monitoring and counseling"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "International/Local Affairs"],
+          "strategies": [
+            "enhanced outreach and awareness campaigns",
+            "program enhancement and innovation",
+            "enhancing student support services"
+          ],
+          "programs_activities": [
+            "conduct of outreach and awareness campaign",
+            "regularly update and enhance the curriculum of priority programs",
+            "provide strong academic advising services, mentoring, monitoring and counseling"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "International/Local Affairs"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 55 },
-              { "year": 2026, "target_value": 57 },
-              { "year": 2027, "target_value": 58 },
-              { "year": 2028, "target_value": 60 },
-              { "year": 2029, "target_value": 62 }
+              {
+                "year": 2025,
+                "target_value": 55
+              },
+              {
+                "year": 2026,
+                "target_value": 57
+              },
+              {
+                "year": 2027,
+                "target_value": 58
+              },
+              {
+                "year": 2028,
+                "target_value": 60
+              },
+              {
+                "year": 2029,
+                "target_value": 62
+              }
             ]
           }
         }
@@ -453,17 +905,47 @@
             "outputs": "number of MOUs/MOAs per year with top 1000 World Universities",
             "outcomes": "increased number of international partners including one (1 per year) polytechnic university in the ASEAN region and/or international university among the top 1000 universities in the world"
           },
-          "strategies": ["invite prospective international university", "renew old partnerships with performing universities", "promote LSPU through social media", "international conferences attendees ROI"],
-          "programs_activities": ["benchmarking", "employees’ participation in international conferences", "constant and continued communications with the prospective partner", "endorsement to internal and external Offices & BOR", "signing"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "International/Local Affairs", "Deans/Colleges"],
+          "strategies": [
+            "invite prospective international university",
+            "renew old partnerships with performing universities",
+            "promote LSPU through social media",
+            "international conferences attendees ROI"
+          ],
+          "programs_activities": [
+            "benchmarking",
+            "employees’ participation in international conferences",
+            "constant and continued communications with the prospective partner",
+            "endorsement to internal and external Offices & BOR",
+            "signing"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "International/Local Affairs",
+            "Deans/Colleges"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 2 },
-              { "year": 2026, "target_value": 2 },
-              { "year": 2027, "target_value": 2 },
-              { "year": 2028, "target_value": 2 },
-              { "year": 2029, "target_value": 2 }
+              {
+                "year": 2025,
+                "target_value": 2
+              },
+              {
+                "year": 2026,
+                "target_value": 2
+              },
+              {
+                "year": 2027,
+                "target_value": 2
+              },
+              {
+                "year": 2028,
+                "target_value": 2
+              },
+              {
+                "year": 2029,
+                "target_value": 2
+              }
             ]
           }
         },
@@ -471,19 +953,49 @@
           "id": "KRA4-KPI2",
           "key_performance_indicator": {
             "outputs": "internationalization accomplishments (per college/office)",
-            "outcomes": ["recognition from national and international award-giving organizations", "impact on the community", "secured position in World University Ranking"]
+            "outcomes": [
+              "recognition from national and international award-giving organizations",
+              "impact on the community",
+              "secured position in World University Ranking"
+            ]
           },
-          "strategies": ["coordinate university-wide international initiatives to ensure integration and coordination across the University’s international partnerships, collaborations, programs, and services"],
-          "programs_activities": ["monitoring of international activities project", "regular meetings with deans & directors", "public promotions of internationalization accomplishments"],
-          "responsible_offices": ["Office of the Vice President for Academic Affairs", "International Local/Affairs", "Information Office", "Deans"],
+          "strategies": [
+            "coordinate university-wide international initiatives to ensure integration and coordination across the University’s international partnerships, collaborations, programs, and services"
+          ],
+          "programs_activities": [
+            "monitoring of international activities project",
+            "regular meetings with deans & directors",
+            "public promotions of internationalization accomplishments"
+          ],
+          "responsible_offices": [
+            "Office of the Vice President for Academic Affairs",
+            "International Local/Affairs",
+            "Information Office",
+            "Deans"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 1 },
-              { "year": 2026, "target_value": 2 },
-              { "year": 2027, "target_value": 3 },
-              { "year": 2028, "target_value": 4 },
-              { "year": 2029, "target_value": 5 }
+              {
+                "year": 2025,
+                "target_value": 1
+              },
+              {
+                "year": 2026,
+                "target_value": 2
+              },
+              {
+                "year": 2027,
+                "target_value": 3
+              },
+              {
+                "year": 2028,
+                "target_value": 4
+              },
+              {
+                "year": 2029,
+                "target_value": 5
+              }
             ]
           }
         }
@@ -500,17 +1012,41 @@
             "outputs": "number of IP (patent, UM, copyrights, etc.) generated",
             "outcomes": "IP Protections and IP registrations of the university researches"
           },
-          "strategies": ["assessment of researches for IP registration for potential commercialization"],
-          "programs_activities": ["conduct of IP foundation courses, patent search trainings and patent draft training"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "SAO Finance", "Budget and Finance", "Center of Innovation and Emerging Technologies"],
+          "strategies": [
+            "assessment of researches for IP registration for potential commercialization"
+          ],
+          "programs_activities": [
+            "conduct of IP foundation courses, patent search trainings and patent draft training"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "SAO Finance",
+            "Budget and Finance",
+            "Center of Innovation and Emerging Technologies"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 47 },
-              { "year": 2026, "target_value": 50 },
-              { "year": 2027, "target_value": 53 },
-              { "year": 2028, "target_value": 56 },
-              { "year": 2029, "target_value": 59 }
+              {
+                "year": 2025,
+                "target_value": 47
+              },
+              {
+                "year": 2026,
+                "target_value": 50
+              },
+              {
+                "year": 2027,
+                "target_value": 53
+              },
+              {
+                "year": 2028,
+                "target_value": 56
+              },
+              {
+                "year": 2029,
+                "target_value": 59
+              }
             ]
           }
         },
@@ -520,17 +1056,44 @@
             "outputs": "number of income-generating research-based products/outputs",
             "outcomes": "establish more innovative research (faculty and students) for income generation of the university, continuity of technology commercialization"
           },
-          "strategies": ["secure income generating projects to strengthen industry-academic partnerships through collaboration", "focus on market-relevant research to identify gaps, trends, and opportunities to addressed through research-based products", "enhance technology transfer offices to support researchers in the commercialization process, including patenting, licensing, and marketing"],
-          "programs_activities": ["technology transfer programs that focused on transferring research innovations, including support for patenting, licensing, and partnership development", "incubation and acceleration programs awareness campaign"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "SAO Finance", "Budget and Finance", "Center of Innovation and Emerging Technologies"],
+          "strategies": [
+            "secure income generating projects to strengthen industry-academic partnerships through collaboration",
+            "focus on market-relevant research to identify gaps, trends, and opportunities to addressed through research-based products",
+            "enhance technology transfer offices to support researchers in the commercialization process, including patenting, licensing, and marketing"
+          ],
+          "programs_activities": [
+            "technology transfer programs that focused on transferring research innovations, including support for patenting, licensing, and partnership development",
+            "incubation and acceleration programs awareness campaign"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "SAO Finance",
+            "Budget and Finance",
+            "Center of Innovation and Emerging Technologies"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 6 },
-              { "year": 2026, "target_value": 8 },
-              { "year": 2027, "target_value": 10 },
-              { "year": 2028, "target_value": 12 },
-              { "year": 2029, "target_value": 14 }
+              {
+                "year": 2025,
+                "target_value": 6
+              },
+              {
+                "year": 2026,
+                "target_value": 8
+              },
+              {
+                "year": 2027,
+                "target_value": 10
+              },
+              {
+                "year": 2028,
+                "target_value": 12
+              },
+              {
+                "year": 2029,
+                "target_value": 14
+              }
             ]
           }
         },
@@ -538,19 +1101,50 @@
           "id": "KRA5-KPI3",
           "key_performance_indicator": {
             "outputs": "number of spinoff/start-up companies established for faculty and students",
-            "outcomes": ["commercialization journey will encourage faculty researchers to enroll in the incubation process", "spin-off companies will help the community develop entrepreneurs to improved their livelihood and to improve economic status"]
+            "outcomes": [
+              "commercialization journey will encourage faculty researchers to enroll in the incubation process",
+              "spin-off companies will help the community develop entrepreneurs to improved their livelihood and to improve economic status"
+            ]
           },
-          "strategies": ["promote a culture of innovation – foster a culture that encourages innovation and risktaking by celebrating successful start-ups and promoting entrepreneurial success stories", "craft policy advocacy that supports start-ups and spin-offs, such as tax incentives, research funding, and supportive regulatory frameworks", "enhance IP policy manual on incentives/benefits for technology developers/creators"],
-          "programs_activities": ["value formation through training and development for sustainability of entrepreneurial mindset", "offer entrepreneurship courses through seminars and workshop, business development, and commercialization for faculty and students", "Commercialization Assistance: Provide resources and support for turning research findings into commercial products"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "SAO Finance", "Budget Office", "Center of Innovation and Emerging Technologies"],
+          "strategies": [
+            "promote a culture of innovation – foster a culture that encourages innovation and risktaking by celebrating successful start-ups and promoting entrepreneurial success stories",
+            "craft policy advocacy that supports start-ups and spin-offs, such as tax incentives, research funding, and supportive regulatory frameworks",
+            "enhance IP policy manual on incentives/benefits for technology developers/creators"
+          ],
+          "programs_activities": [
+            "value formation through training and development for sustainability of entrepreneurial mindset",
+            "offer entrepreneurship courses through seminars and workshop, business development, and commercialization for faculty and students",
+            "Commercialization Assistance: Provide resources and support for turning research findings into commercial products"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "SAO Finance",
+            "Budget Office",
+            "Center of Innovation and Emerging Technologies"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 2 },
-              { "year": 2026, "target_value": 3 },
-              { "year": 2027, "target_value": 4 },
-              { "year": 2028, "target_value": 5 },
-              { "year": 2029, "target_value": 6 }
+              {
+                "year": 2025,
+                "target_value": 2
+              },
+              {
+                "year": 2026,
+                "target_value": 3
+              },
+              {
+                "year": 2027,
+                "target_value": 4
+              },
+              {
+                "year": 2028,
+                "target_value": 5
+              },
+              {
+                "year": 2029,
+                "target_value": 6
+              }
             ]
           }
         },
@@ -560,17 +1154,42 @@
             "outputs": "number of research-based programs/projects delivered for extension to the community",
             "outcomes": "enhanced local knowledge and 3-5 year sustainable solutions addressing community needs"
           },
-          "strategies": ["conduct in-house review of PPAs", "enhance REI funding and support"],
-          "programs_activities": ["annual REI proposal writeshop", "monitoring of on-going PPAs"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Extension and Training Services", "Research and Development Services"],
+          "strategies": [
+            "conduct in-house review of PPAs",
+            "enhance REI funding and support"
+          ],
+          "programs_activities": [
+            "annual REI proposal writeshop",
+            "monitoring of on-going PPAs"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Extension and Training Services",
+            "Research and Development Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 3 },
-              { "year": 2026, "target_value": 4 },
-              { "year": 2027, "target_value": 5 },
-              { "year": 2028, "target_value": 6 },
-              { "year": 2029, "target_value": 7 }
+              {
+                "year": 2025,
+                "target_value": 3
+              },
+              {
+                "year": 2026,
+                "target_value": 4
+              },
+              {
+                "year": 2027,
+                "target_value": 5
+              },
+              {
+                "year": 2028,
+                "target_value": 6
+              },
+              {
+                "year": 2029,
+                "target_value": 7
+              }
             ]
           }
         },
@@ -582,15 +1201,35 @@
           },
           "strategies": "support for REI professional development and strengthen collaboration and partnerships with international and national organizations",
           "programs_activities": "nominations to REI-related award recognitions",
-          "responsible_offices": ["Vice President for Research Development and Extension", "SAO Finance", "Budget Office", "Research, Extension and Innovation Unit"],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "SAO Finance",
+            "Budget Office",
+            "Research, Extension and Innovation Unit"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 1 },
-              { "year": 2026, "target_value": 1 },
-              { "year": 2027, "target_value": 2 },
-              { "year": 2028, "target_value": 2 },
-              { "year": 2029, "target_value": 2 }
+              {
+                "year": 2025,
+                "target_value": 1
+              },
+              {
+                "year": 2026,
+                "target_value": 1
+              },
+              {
+                "year": 2027,
+                "target_value": 2
+              },
+              {
+                "year": 2028,
+                "target_value": 2
+              },
+              {
+                "year": 2029,
+                "target_value": 2
+              }
             ]
           }
         },
@@ -601,16 +1240,37 @@
             "outcomes": "institutional prestige gained and will help leverage to get more funds through the trust of the funding agencies"
           },
           "strategies": "partnerships with international and national institution and organizations",
-          "programs_activities": ["continuous effort with IP filling and registration", "excellent service of REI unit"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research, Extension and Innovation Unit"],
+          "programs_activities": [
+            "continuous effort with IP filling and registration",
+            "excellent service of REI unit"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Research, Extension and Innovation Unit"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 1 },
-              { "year": 2026, "target_value": 1 },
-              { "year": 2027, "target_value": 2 },
-              { "year": 2028, "target_value": 2 },
-              { "year": 2029, "target_value": 2 }
+              {
+                "year": 2025,
+                "target_value": 1
+              },
+              {
+                "year": 2026,
+                "target_value": 1
+              },
+              {
+                "year": 2027,
+                "target_value": 2
+              },
+              {
+                "year": 2028,
+                "target_value": 2
+              },
+              {
+                "year": 2029,
+                "target_value": 2
+              }
             ]
           }
         },
@@ -622,15 +1282,33 @@
           },
           "strategies": "collaboration with government and industry stakeholders",
           "programs_activities": "conduct of trainings for policy making and establishment of a compendium for policy briefs",
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research and Development Services"],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Research and Development Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 2 },
-              { "year": 2026, "target_value": 2 },
-              { "year": 2027, "target_value": 2 },
-              { "year": 2028, "target_value": 3 },
-              { "year": 2029, "target_value": 3 }
+              {
+                "year": 2025,
+                "target_value": 2
+              },
+              {
+                "year": 2026,
+                "target_value": 2
+              },
+              {
+                "year": 2027,
+                "target_value": 2
+              },
+              {
+                "year": 2028,
+                "target_value": 3
+              },
+              {
+                "year": 2029,
+                "target_value": 3
+              }
             ]
           }
         },
@@ -640,17 +1318,38 @@
             "outputs": "number of university refereed research journals",
             "outcomes": "enhancing the institution's academic reputation and contributing to global knowledge dissemination"
           },
-          "strategies": ["promotion of the journal to attract highquality submissions", "given incentives to faculty researchers who published, and incentives to faculty serving as evaluators"],
+          "strategies": [
+            "promotion of the journal to attract highquality submissions",
+            "given incentives to faculty researchers who published, and incentives to faculty serving as evaluators"
+          ],
           "programs_activities": "establish a peer-review system and support for a dedicated editorial board and review panel",
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research and Development Services"],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Research and Development Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 1 },
-              { "year": 2026, "target_value": 1 },
-              { "year": 2027, "target_value": 1 },
-              { "year": 2028, "target_value": 1 },
-              { "year": 2029, "target_value": 1 }
+              {
+                "year": 2025,
+                "target_value": 1
+              },
+              {
+                "year": 2026,
+                "target_value": 1
+              },
+              {
+                "year": 2027,
+                "target_value": 1
+              },
+              {
+                "year": 2028,
+                "target_value": 1
+              },
+              {
+                "year": 2029,
+                "target_value": 1
+              }
             ]
           }
         },
@@ -662,85 +1361,75 @@
           },
           "strategies": "deliver quality programs, projects and activities that will lead to extension, commercialization, and policy recommendations",
           "programs_activities": "monitoring of internally and externally funded research",
-          "responsible_offices": ["Vice President for Research Development and Extension", "SAO Finance", "Budget Office"],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "SAO Finance",
+            "Budget Office"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 150 },
-              { "year": 2026, "target_value": 152 },
-              { "year": 2027, "target_value": 155 },
-              { "year": 2028, "target_value": 157 },
-              { "year": 2029, "target_value": 160 }
+              {
+                "year": 2025,
+                "target_value": 150
+              },
+              {
+                "year": 2026,
+                "target_value": 152
+              },
+              {
+                "year": 2027,
+                "target_value": 155
+              },
+              {
+                "year": 2028,
+                "target_value": 157
+              },
+              {
+                "year": 2029,
+                "target_value": 160
+              }
             ]
           }
-         },
-         {
-           "id": "KRA5-KPI10",
+        },
+        {
+          "id": "KRA5-KPI10",
           "key_performance_indicator": {
             "outputs": "number of research findings presented in reputable conferences",
             "outcomes": "increased visibility and recognition of research, fostering collaborations and advancing knowledge through presentations at reputable conferences"
           },
           "strategies": "provide research presentation grants and target networking opportunities",
-          "programs_activities": ["endorse faculty researchers to international and national conferences", "conduct institutional REI conferences"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research and Development Services"],
+          "programs_activities": [
+            "endorse faculty researchers to international and national conferences",
+            "conduct institutional REI conferences"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Research and Development Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 15 },
-              { "year": 2026, "target_value": 16 },
-              { "year": 2027, "target_value": 20 },
-              { "year": 2028, "target_value": 20 },
-              { "year": 2029, "target_value": 24 }
-            ]
-          }
-        }
-      ]
-    },
-    
-    {
-      "kra_id": "KRA 6",
-      "kra_title": "Research, Extension, and Innovation Linkages",
-      "guiding_principle": "Advancing Research Excellence and Community Engagement",
-      "initiatives": [
-        {
-          "id": "KRA6-KPI1",
-          "key_performance_indicator": {
-            "outputs": "number of active partnerships with LGUs, industries, NGOs, NGAs, SMEs and other stakeholders",
-            "outcomes": ["strong linkages with partner agencies", "enhance existing relations with community and partner agencies, locally and internationally"]
-          },
-          "strategies": ["increase and intensify linkages with partner institutions, community stakeholders and industries, local and international, for REI PPAs"],
-          "programs_activities": ["conduct of needs assessments with potential partner agencies", "conduct of PPAs requested by partner agencies"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research, Extension and Innovation Unit"],
-          "targets": {
-            "type": "count",
-            "unit_basis": "total active",
-            "timeline_data": [
-              { "year": 2025, "target_value": 120, "note": "10 existing + 20 new" },
-              { "year": 2026, "target_value": 160 },
-              { "year": 2027, "target_value": 220 },
-              { "year": 2028, "target_value": 300 },
-              { "year": 2029, "target_value": 400 }
-            ]
-          }
-        },
-        {
-          "id": "KRA6-KPI2",
-          "key_performance_indicator": {
-            "outputs": "number of MOA/MOU with established or organized associations",
-            "outcomes": "shared resources"
-          },
-          "strategies": ["forge MOA/MOU with all the partner agencies"],
-          "programs_activities": ["conduct of REI PPAs with partner agencies"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research, Extension and Innovation Unit"],
-          "targets": {
-            "type": "count",
-            "unit_basis": "total active",
-            "timeline_data": [
-              { "year": 2025, "target_value": 100, "note": "80 existing + 20 new" },
-              { "year": 2026, "target_value": 130 },
-              { "year": 2027, "target_value": 170 },
-              { "year": 2028, "target_value": 220 },
-              { "year": 2029, "target_value": 280 }
+              {
+                "year": 2025,
+                "target_value": 15
+              },
+              {
+                "year": 2026,
+                "target_value": 16
+              },
+              {
+                "year": 2027,
+                "target_value": 20
+              },
+              {
+                "year": 2028,
+                "target_value": 20
+              },
+              {
+                "year": 2029,
+                "target_value": 24
+              }
             ]
           }
         }
@@ -755,20 +1444,47 @@
           "id": "KRA6-KPI1",
           "key_performance_indicator": {
             "outputs": "number of active partnerships with LGUs, industries, NGOs, NGAs, SMEs and other stakeholders",
-            "outcomes": ["strong linkages with partner agencies", "enhance existing relations with community and partner agencies, locally and internationally"]
+            "outcomes": [
+              "strong linkages with partner agencies",
+              "enhance existing relations with community and partner agencies, locally and internationally"
+            ]
           },
-          "strategies": ["increase and intensify linkages with partner institutions, community stakeholders and industries, local and international, for REI PPAs"],
-          "programs_activities": ["conduct of needs assessments with potential partner agencies", "conduct of PPAs requested by partner agencies"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research, Extension and Innovation Unit"],
+          "strategies": [
+            "increase and intensify linkages with partner institutions, community stakeholders and industries, local and international, for REI PPAs"
+          ],
+          "programs_activities": [
+            "conduct of needs assessments with potential partner agencies",
+            "conduct of PPAs requested by partner agencies"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Research, Extension and Innovation Unit"
+          ],
           "targets": {
             "type": "count",
             "unit_basis": "total active",
             "timeline_data": [
-              { "year": 2025, "target_value": 120, "note": "100 existing + 20 new" },
-              { "year": 2026, "target_value": 160 },
-              { "year": 2027, "target_value": 220 },
-              { "year": 2028, "target_value": 300 },
-              { "year": 2029, "target_value": 400 }
+              {
+                "year": 2025,
+                "target_value": 120,
+                "note": "10 existing + 20 new"
+              },
+              {
+                "year": 2026,
+                "target_value": 160
+              },
+              {
+                "year": 2027,
+                "target_value": 220
+              },
+              {
+                "year": 2028,
+                "target_value": 300
+              },
+              {
+                "year": 2029,
+                "target_value": 400
+              }
             ]
           }
         },
@@ -778,18 +1494,41 @@
             "outputs": "number of MOA/MOU with established or organized associations",
             "outcomes": "shared resources"
           },
-          "strategies": ["forge MOA/MOU with all the partner agencies"],
-          "programs_activities": ["conduct of REI PPAs with partner agencies"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research, Extension and Innovation Unit"],
+          "strategies": [
+            "forge MOA/MOU with all the partner agencies"
+          ],
+          "programs_activities": [
+            "conduct of REI PPAs with partner agencies"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Research, Extension and Innovation Unit"
+          ],
           "targets": {
             "type": "count",
             "unit_basis": "total active",
             "timeline_data": [
-              { "year": 2025, "target_value": 100, "note": "80 existing + 20 new" },
-              { "year": 2026, "target_value": 130 },
-              { "year": 2027, "target_value": 170 },
-              { "year": 2028, "target_value": 220 },
-              { "year": 2029, "target_value": 280 }
+              {
+                "year": 2025,
+                "target_value": 100,
+                "note": "80 existing + 20 new"
+              },
+              {
+                "year": 2026,
+                "target_value": 130
+              },
+              {
+                "year": 2027,
+                "target_value": 170
+              },
+              {
+                "year": 2028,
+                "target_value": 220
+              },
+              {
+                "year": 2029,
+                "target_value": 280
+              }
             ]
           }
         }
@@ -806,17 +1545,40 @@
             "outputs": "technologies/innovations adopted by the intended stakeholders. The adoption by which people become users of a technology or product, that is usable and useful and enable them to become long-term business goals",
             "outcomes": "increased number of technology/innovation on adopters"
           },
-          "strategies": ["ensure the adoption of the technologies/innovations by the intended stakeholders"],
-          "programs_activities": ["conduct PPAs that are needed and are beneficial to the targeted stakeholders"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Center of Innovation and Emerging Technologies", "Extension and Training Services"],
+          "strategies": [
+            "ensure the adoption of the technologies/innovations by the intended stakeholders"
+          ],
+          "programs_activities": [
+            "conduct PPAs that are needed and are beneficial to the targeted stakeholders"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Center of Innovation and Emerging Technologies",
+            "Extension and Training Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 6 },
-              { "year": 2026, "target_value": 8 },
-              { "year": 2027, "target_value": 10 },
-              { "year": 2028, "target_value": 12 },
-              { "year": 2029, "target_value": 14 }
+              {
+                "year": 2025,
+                "target_value": 6
+              },
+              {
+                "year": 2026,
+                "target_value": 8
+              },
+              {
+                "year": 2027,
+                "target_value": 10
+              },
+              {
+                "year": 2028,
+                "target_value": 12
+              },
+              {
+                "year": 2029,
+                "target_value": 14
+              }
             ]
           }
         },
@@ -826,17 +1588,39 @@
             "outputs": "number of generated partnerships from externally-funded research",
             "outcomes": "sustainable projects and improved REI facilities"
           },
-          "strategies": ["establish partnership with industry players, policy, and innovation centers"],
-          "programs_activities": ["research grants and projects"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research, Extension and Innovation Unit"],
+          "strategies": [
+            "establish partnership with industry players, policy, and innovation centers"
+          ],
+          "programs_activities": [
+            "research grants and projects"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Research, Extension and Innovation Unit"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 5 },
-              { "year": 2026, "target_value": 7 },
-              { "year": 2027, "target_value": 9 },
-              { "year": 2028, "target_value": 11 },
-              { "year": 2029, "target_value": 13 }
+              {
+                "year": 2025,
+                "target_value": 5
+              },
+              {
+                "year": 2026,
+                "target_value": 7
+              },
+              {
+                "year": 2027,
+                "target_value": 9
+              },
+              {
+                "year": 2028,
+                "target_value": 11
+              },
+              {
+                "year": 2029,
+                "target_value": 13
+              }
             ]
           }
         },
@@ -846,17 +1630,43 @@
             "outputs": "established 5 state-of-the-art laboratories on fisheries, agriculture, and otheremerging disciplines",
             "outcomes": "more technology innovations"
           },
-          "strategies": ["establish partnership with industry players, policy, and innovation center"],
-          "programs_activities": ["submission of proposal to funding agencies", "establishment of REI Centers"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Project Management Office", "Extension and Innovation Unit", "Planning Office", "Budget and Finance Unit"],
+          "strategies": [
+            "establish partnership with industry players, policy, and innovation center"
+          ],
+          "programs_activities": [
+            "submission of proposal to funding agencies",
+            "establishment of REI Centers"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Project Management Office",
+            "Extension and Innovation Unit",
+            "Planning Office",
+            "Budget and Finance Unit"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 1 },
-              { "year": 2026, "target_value": 1 },
-              { "year": 2027, "target_value": 1 },
-              { "year": 2028, "target_value": 1 },
-              { "year": 2029, "target_value": 1 }
+              {
+                "year": 2025,
+                "target_value": 1
+              },
+              {
+                "year": 2026,
+                "target_value": 1
+              },
+              {
+                "year": 2027,
+                "target_value": 1
+              },
+              {
+                "year": 2028,
+                "target_value": 1
+              },
+              {
+                "year": 2029,
+                "target_value": 1
+              }
             ]
           }
         },
@@ -867,16 +1677,37 @@
             "outcomes": "more technology innovations"
           },
           "strategies": "established partnership with industry players",
-          "programs_activities": ["submission of proposal to funding agencies", "establishment of REI Centers"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research and Development Services"],
+          "programs_activities": [
+            "submission of proposal to funding agencies",
+            "establishment of REI Centers"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Research and Development Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 0 },
-              { "year": 2026, "target_value": 1 },
-              { "year": 2027, "target_value": 1 },
-              { "year": 2028, "target_value": 1 },
-              { "year": 2029, "target_value": 1 }
+              {
+                "year": 2025,
+                "target_value": 0
+              },
+              {
+                "year": 2026,
+                "target_value": 1
+              },
+              {
+                "year": 2027,
+                "target_value": 1
+              },
+              {
+                "year": 2028,
+                "target_value": 1
+              },
+              {
+                "year": 2029,
+                "target_value": 1
+              }
             ]
           }
         },
@@ -884,20 +1715,50 @@
           "id": "KRA7-KPI5",
           "key_performance_indicator": {
             "outputs": "total income from commercialized technologies (pesos)",
-            "outcomes": ["subsidized services of the University", "encourage faculty researchers to enroll in the incubation process"]
+            "outcomes": [
+              "subsidized services of the University",
+              "encourage faculty researchers to enroll in the incubation process"
+            ]
           },
-          "strategies": ["market expansion thru segment your market that tailor to technology that meet the specific needs of different market segments", "innovations - continually improved researches"],
-          "programs_activities": ["innovation and commercialization programs thru commercialization grants", "technology transfer programs", "entrepreneurship workshops", "incubation and acceleration programs", "entrepreneurship workshops and seminars: conduct training sessions on entrepreneurship, business development, and commercialization strategies tailored for researchers and innovators"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Research, Extension and Innovation Unit"],
+          "strategies": [
+            "market expansion thru segment your market that tailor to technology that meet the specific needs of different market segments",
+            "innovations - continually improved researches"
+          ],
+          "programs_activities": [
+            "innovation and commercialization programs thru commercialization grants",
+            "technology transfer programs",
+            "entrepreneurship workshops",
+            "incubation and acceleration programs",
+            "entrepreneurship workshops and seminars: conduct training sessions on entrepreneurship, business development, and commercialization strategies tailored for researchers and innovators"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Research, Extension and Innovation Unit"
+          ],
           "targets": {
             "type": "financial",
             "currency": "PHP",
             "timeline_data": [
-              { "year": 2025, "target_value": 375000 },
-              { "year": 2026, "target_value": 425000 },
-              { "year": 2027, "target_value": 475000 },
-              { "year": 2028, "target_value": 525000 },
-              { "year": 2029, "target_value": 550000 }
+              {
+                "year": 2025,
+                "target_value": 375000
+              },
+              {
+                "year": 2026,
+                "target_value": 425000
+              },
+              {
+                "year": 2027,
+                "target_value": 475000
+              },
+              {
+                "year": 2028,
+                "target_value": 525000
+              },
+              {
+                "year": 2029,
+                "target_value": 550000
+              }
             ]
           }
         }
@@ -915,17 +1776,40 @@
             "outcomes": "improved quality of life of the target beneficiaries"
           },
           "strategies": "ensure that extension programs/projects to be conducted are in line with the expertise of the faculty, and at the same time supports the mandated and priority programs offered by the University",
-          "programs_activities": ["conduct of needs assessment among target beneficiaries", "conduct of in-house review for proposals"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Extension and Training Services", "Budget and Finance Unit", "SAO Finance"],
+          "programs_activities": [
+            "conduct of needs assessment among target beneficiaries",
+            "conduct of in-house review for proposals"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Extension and Training Services",
+            "Budget and Finance Unit",
+            "SAO Finance"
+          ],
           "targets": {
             "type": "count",
             "note": "new programs",
             "timeline_data": [
-              { "year": 2025, "target_value": 40 },
-              { "year": 2026, "target_value": 50 },
-              { "year": 2027, "target_value": 60 },
-              { "year": 2028, "target_value": 70 },
-              { "year": 2029, "target_value": 80 }
+              {
+                "year": 2025,
+                "target_value": 40
+              },
+              {
+                "year": 2026,
+                "target_value": 50
+              },
+              {
+                "year": 2027,
+                "target_value": 60
+              },
+              {
+                "year": 2028,
+                "target_value": 70
+              },
+              {
+                "year": 2029,
+                "target_value": 80
+              }
             ]
           }
         },
@@ -937,15 +1821,37 @@
           },
           "strategies": "conduct gender research and extension workshops/write shops",
           "programs_activities": "implementation of GAD-related REI programs, projects, and activities",
-          "responsible_offices": ["Vice President for Research Development and Extension", "Gender and Development Office", "SAO Finance", "Budget and Finance", "Research and Development Services", "Extension and Training Services"],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Gender and Development Office",
+            "SAO Finance",
+            "Budget and Finance",
+            "Research and Development Services",
+            "Extension and Training Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 17 },
-              { "year": 2026, "target_value": 19 },
-              { "year": 2027, "target_value": 20 },
-              { "year": 2028, "target_value": 23 },
-              { "year": 2029, "target_value": 25 }
+              {
+                "year": 2025,
+                "target_value": 17
+              },
+              {
+                "year": 2026,
+                "target_value": 19
+              },
+              {
+                "year": 2027,
+                "target_value": 20
+              },
+              {
+                "year": 2028,
+                "target_value": 23
+              },
+              {
+                "year": 2029,
+                "target_value": 25
+              }
             ]
           }
         },
@@ -953,19 +1859,45 @@
           "id": "KRA8-KPI3",
           "key_performance_indicator": {
             "outputs": "number of trainees weighted by the length of training",
-            "outcomes": ["application of skills learned for employment or livelihood", "employment or entrepreneurial activities that resulted from training"]
+            "outcomes": [
+              "application of skills learned for employment or livelihood",
+              "employment or entrepreneurial activities that resulted from training"
+            ]
           },
           "strategies": "ensure conduct of PPAs that are beneficial to community",
-          "programs_activities": ["conduct PPAs that are requested by the partners agencies", "conduct of BOR-approved extension programs/projects"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "SAO Finance", "Budget and Finance Unit", "Extension and Training Services"],
+          "programs_activities": [
+            "conduct PPAs that are requested by the partners agencies",
+            "conduct of BOR-approved extension programs/projects"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "SAO Finance",
+            "Budget and Finance Unit",
+            "Extension and Training Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 17630 },
-              { "year": 2026, "target_value": 18030 },
-              { "year": 2027, "target_value": 18230 },
-              { "year": 2028, "target_value": 18430 },
-              { "year": 2029, "target_value": 18630 }
+              {
+                "year": 2025,
+                "target_value": 17630
+              },
+              {
+                "year": 2026,
+                "target_value": 18030
+              },
+              {
+                "year": 2027,
+                "target_value": 18230
+              },
+              {
+                "year": 2028,
+                "target_value": 18430
+              },
+              {
+                "year": 2029,
+                "target_value": 18630
+              }
             ]
           }
         },
@@ -976,16 +1908,37 @@
             "outcomes": "increase in the number of extension information materials (IEC/ICT) produced, disseminated, and utilized"
           },
           "strategies": "ensure the production, dissemination, and utilization of IEC/ICT materials",
-          "programs_activities": ["prepare IEC/ICT materials for each and every PPA", "provide IEC/ICT materials on the PPAs conducted"],
-          "responsible_offices": ["Vice President for Research Development and Extension", "Extension and Training Services"],
+          "programs_activities": [
+            "prepare IEC/ICT materials for each and every PPA",
+            "provide IEC/ICT materials on the PPAs conducted"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Extension and Training Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 30 },
-              { "year": 2026, "target_value": 35 },
-              { "year": 2027, "target_value": 40 },
-              { "year": 2028, "target_value": 45 },
-              { "year": 2029, "target_value": 50 }
+              {
+                "year": 2025,
+                "target_value": 30
+              },
+              {
+                "year": 2026,
+                "target_value": 35
+              },
+              {
+                "year": 2027,
+                "target_value": 40
+              },
+              {
+                "year": 2028,
+                "target_value": 45
+              },
+              {
+                "year": 2029,
+                "target_value": 50
+              }
             ]
           }
         },
@@ -997,11 +1950,17 @@
           },
           "strategies": "boost the implementation of PPAs and ensure that such PPAs are of high quality and are relevant to the target beneficiaries",
           "programs_activities": "conduct of extension PPAs",
-          "responsible_offices": ["Vice President for Research Development and Extension", "Extension and Training Services"],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Extension and Training Services"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         }
@@ -1016,15 +1975,32 @@
           "id": "KRA9-KPI1",
           "key_performance_indicator": {
             "outputs": "approved harmonized manuals of operations by 2029",
-            "outcomes": ["efficient transactions, services, and operations", "standard procedure"]
+            "outcomes": [
+              "efficient transactions, services, and operations",
+              "standard procedure"
+            ]
           },
-          "strategies": ["monitoring", "consultation", "crafting/revision of university policies, standards, and guidelines"],
-          "programs_activities": ["enhance and extended technology infrastructure towards a wireless paperless and efficient computer network", "build capacity of staff on operations"],
-          "responsible_offices": ["Vice President for Administration", "Office of the Campus Directors", "All offices/units"],
+          "strategies": [
+            "monitoring",
+            "consultation",
+            "crafting/revision of university policies, standards, and guidelines"
+          ],
+          "programs_activities": [
+            "enhance and extended technology infrastructure towards a wireless paperless and efficient computer network",
+            "build capacity of staff on operations"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Office of the Campus Directors",
+            "All offices/units"
+          ],
           "targets": {
             "type": "milestone",
             "timeline_data": [
-              { "year": 2029, "target_value": "Approved Harmonized Manual" }
+              {
+                "year": 2029,
+                "target_value": "Approved Harmonized Manual"
+              }
             ]
           }
         }
@@ -1041,13 +2017,31 @@
             "outputs": "100% facilities compliant with green building code by 2029",
             "outcomes": "climate-change conscious environment"
           },
-          "strategies": ["assessment and rehabilitation of facilities", "adaptation of renewable energy like solar enery (solar panels)", "establishment of sustainable waste management system", "construction of MRF"],
-          "programs_activities": ["implementation of LUDIP", "implementation of waste management system"],
-          "responsible_offices": ["Office of the University President", "Office of the Vice Presidents", "Office of the Campus Director", "Project Management Unit", "Planning Office", "General Services Unit"],
+          "strategies": [
+            "assessment and rehabilitation of facilities",
+            "adaptation of renewable energy like solar enery (solar panels)",
+            "establishment of sustainable waste management system",
+            "construction of MRF"
+          ],
+          "programs_activities": [
+            "implementation of LUDIP",
+            "implementation of waste management system"
+          ],
+          "responsible_offices": [
+            "Office of the University President",
+            "Office of the Vice Presidents",
+            "Office of the Campus Director",
+            "Project Management Unit",
+            "Planning Office",
+            "General Services Unit"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         }
@@ -1062,19 +2056,46 @@
           "id": "KRA11-KPI1",
           "key_performance_indicator": {
             "outputs": "aligned and specialized doctorate graduates for faculty and master's degree for non-teaching personnel by 2029",
-            "outcomes": ["faculty and non-teaching personnel are proficient in their subject and work areas", "doctorate/master degree holders/unit-earners"]
+            "outcomes": [
+              "faculty and non-teaching personnel are proficient in their subject and work areas",
+              "doctorate/master degree holders/unit-earners"
+            ]
           },
-          "strategies": ["strengthen intellectual capital", "strengthen professional development program"],
-          "programs_activities": ["scholarship program, both internal and external"],
-          "responsible_offices": ["Vice President for Administration", "HRMO", "Office of the Campus Directors"],
+          "strategies": [
+            "strengthen intellectual capital",
+            "strengthen professional development program"
+          ],
+          "programs_activities": [
+            "scholarship program, both internal and external"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "HRMO",
+            "Office of the Campus Directors"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 5 },
-              { "year": 2026, "target_value": 10 },
-              { "year": 2027, "target_value": 15 },
-              { "year": 2028, "target_value": 20 },
-              { "year": 2029, "target_value": 30 }
+              {
+                "year": 2025,
+                "target_value": 5
+              },
+              {
+                "year": 2026,
+                "target_value": 10
+              },
+              {
+                "year": 2027,
+                "target_value": 15
+              },
+              {
+                "year": 2028,
+                "target_value": 20
+              },
+              {
+                "year": 2029,
+                "target_value": 30
+              }
             ]
           }
         }
@@ -1091,15 +2112,38 @@
             "outputs": "10% students, 15% faculty, 5% staff are involved in intercountry mobility across the curriculum",
             "outcomes": "increase number of students, staff and faculty involved in intercountry mobility across the curriculum"
           },
-          "strategies": ["facilitate the early endorsement of employees’ travels", "offer incentives/recognition to faculty and staff who participate in international programs", "scout and identify international conferences held in the Philippines"],
-          "programs_activities": ["attendance/Participation in international training programs, conferences or symposia", "co-organizing local and international training/seminar workshops and conferences."],
-          "responsible_offices": ["Office of the Vice Presidents", "International Local/Affairs", "All colleges and Offices"],
+          "strategies": [
+            "facilitate the early endorsement of employees’ travels",
+            "offer incentives/recognition to faculty and staff who participate in international programs",
+            "scout and identify international conferences held in the Philippines"
+          ],
+          "programs_activities": [
+            "attendance/Participation in international training programs, conferences or symposia",
+            "co-organizing local and international training/seminar workshops and conferences."
+          ],
+          "responsible_offices": [
+            "Office of the Vice Presidents",
+            "International Local/Affairs",
+            "All colleges and Offices"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 10, "note": "students" },
-              { "year": 2029, "target_value": 15, "note": "faculty" },
-              { "year": 2029, "target_value": 5, "note": "staff" }
+              {
+                "year": 2029,
+                "target_value": 10,
+                "note": "students"
+              },
+              {
+                "year": 2029,
+                "target_value": 15,
+                "note": "faculty"
+              },
+              {
+                "year": 2029,
+                "target_value": 5,
+                "note": "staff"
+              }
             ]
           }
         }
@@ -1116,17 +2160,43 @@
             "outputs": "increase in the percentage of certified faculty, personnel, and trainers (local and international certifications)",
             "outcomes": "graduates/professionals aligned or sustainable to the needs of the industry"
           },
-          "strategies": ["offer local and international scholarships", "faculty and staff development plan"],
-          "programs_activities": ["submission of application and screening", "partnership scholarship with external funding agencies"],
-          "responsible_offices": ["Vice President for Administration", "HRMO", "Office of the Campus Directors","International/Local Affairs"],
+          "strategies": [
+            "offer local and international scholarships",
+            "faculty and staff development plan"
+          ],
+          "programs_activities": [
+            "submission of application and screening",
+            "partnership scholarship with external funding agencies"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "HRMO",
+            "Office of the Campus Directors",
+            "International/Local Affairs"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 5 },
-              { "year": 2026, "target_value": 10 },
-              { "year": 2027, "target_value": 15 },
-              { "year": 2028, "target_value": 20 },
-              { "year": 2029, "target_value": 25 }
+              {
+                "year": 2025,
+                "target_value": 5
+              },
+              {
+                "year": 2026,
+                "target_value": 10
+              },
+              {
+                "year": 2027,
+                "target_value": 15
+              },
+              {
+                "year": 2028,
+                "target_value": 20
+              },
+              {
+                "year": 2029,
+                "target_value": 25
+              }
             ]
           }
         },
@@ -1136,17 +2206,41 @@
             "outputs": "95% of positions filled by 2029",
             "outcomes": "university is operating at maximum capacity a.) for personnel - efficiency of transactions b.) for faculties - proportion of student to faculty members"
           },
-          "strategies": ["revisit compensation packages based on existing laws in industry"],
-          "programs_activities": ["competency-based recruitment", "job satisfaction"],
-          "responsible_offices": ["Vice President for Administration", "HRMO", "Office of the Campus Directors"],
+          "strategies": [
+            "revisit compensation packages based on existing laws in industry"
+          ],
+          "programs_activities": [
+            "competency-based recruitment",
+            "job satisfaction"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "HRMO",
+            "Office of the Campus Directors"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 80 },
-              { "year": 2026, "target_value": 82 },
-              { "year": 2027, "target_value": 85 },
-              { "year": 2028, "target_value": 90 },
-              { "year": 2029, "target_value": 95 }
+              {
+                "year": 2025,
+                "target_value": 80
+              },
+              {
+                "year": 2026,
+                "target_value": 82
+              },
+              {
+                "year": 2027,
+                "target_value": 85
+              },
+              {
+                "year": 2028,
+                "target_value": 90
+              },
+              {
+                "year": 2029,
+                "target_value": 95
+              }
             ]
           }
         },
@@ -1156,13 +2250,25 @@
             "outputs": "100% faculty and staff attended health and wellness program twice a week during school days",
             "outcomes": "improvements in fitness levels, weight management, disease prevention, and overall vitality"
           },
-          "strategies": ["conduct health and wellness program twice a week", "survey on the wellness program to be focus on"],
-          "programs_activities": ["health and wellness program for faculty and staff"],
-          "responsible_offices": ["Vice President for Administration", "HRMO", "Office of the Campus Directors"],
+          "strategies": [
+            "conduct health and wellness program twice a week",
+            "survey on the wellness program to be focus on"
+          ],
+          "programs_activities": [
+            "health and wellness program for faculty and staff"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "HRMO",
+            "Office of the Campus Directors"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         }
@@ -1179,17 +2285,41 @@
             "outputs": "95% satisfaction rating on all services",
             "outcomes": "sustain very satisfactory or higher rating on all services annually"
           },
-          "strategies": ["regular monitoring and ensuring that the client completes the CCSS survey form", "addressing the negative feedback from the client regarding the service of a unit"],
-          "programs_activities": ["client satisfaction"],
-          "responsible_offices": ["Vice President for Administration", "Office of the Campus Directors", "Management Information System"],
+          "strategies": [
+            "regular monitoring and ensuring that the client completes the CCSS survey form",
+            "addressing the negative feedback from the client regarding the service of a unit"
+          ],
+          "programs_activities": [
+            "client satisfaction"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Office of the Campus Directors",
+            "Management Information System"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 95 },
-              { "year": 2026, "target_value": 95 },
-              { "year": 2027, "target_value": 95 },
-              { "year": 2028, "target_value": 95 },
-              { "year": 2029, "target_value": 95 }
+              {
+                "year": 2025,
+                "target_value": 95
+              },
+              {
+                "year": 2026,
+                "target_value": 95
+              },
+              {
+                "year": 2027,
+                "target_value": 95
+              },
+              {
+                "year": 2028,
+                "target_value": 95
+              },
+              {
+                "year": 2029,
+                "target_value": 95
+              }
             ]
           }
         }
@@ -1206,13 +2336,24 @@
             "outputs": "100% of security personnel responsible for security equipment obtained the required licenses and certifications, demonstrating full compliance with regulatory requirements",
             "outcomes": "highly professional security personnel maintaining peace and order in all campuses"
           },
-          "strategies": ["license of security personnel-in-charge to security equipment"],
-          "programs_activities": ["ensure proper and legal use of security equipment"],
-          "responsible_offices": ["Vice President for Administration", "Office of the Campus Directors", "Security Management and Services"],
+          "strategies": [
+            "license of security personnel-in-charge to security equipment"
+          ],
+          "programs_activities": [
+            "ensure proper and legal use of security equipment"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Office of the Campus Directors",
+            "Security Management and Services"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         }
@@ -1227,19 +2368,47 @@
           "id": "KRA16-KPI1",
           "key_performance_indicator": {
             "outputs": "increase in the percentage of subjects have at least 5 updated references, including books, journals, and electronic books available",
-            "outcomes": ["higher user satisfaction", "electronic document downloads frequency"]
+            "outcomes": [
+              "higher user satisfaction",
+              "electronic document downloads frequency"
+            ]
           },
-          "strategies": ["revisit the Collection Development Plan and revise it for 2025-2029", "ensure that the fiduciary library funds only be used for the acquisition of Library Reference Material. Monitor and report", "prioritize the subscription to electronic databases with comprehensive subjects relevant to LSPU curricula"],
-          "programs_activities": ["collection development program", "acquisition and linkages"],
-          "responsible_offices": ["Vice President for Administration", "Library"],
+          "strategies": [
+            "revisit the Collection Development Plan and revise it for 2025-2029",
+            "ensure that the fiduciary library funds only be used for the acquisition of Library Reference Material. Monitor and report",
+            "prioritize the subscription to electronic databases with comprehensive subjects relevant to LSPU curricula"
+          ],
+          "programs_activities": [
+            "collection development program",
+            "acquisition and linkages"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Library"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 70 },
-              { "year": 2026, "target_value": 75 },
-              { "year": 2027, "target_value": 80 },
-              { "year": 2028, "target_value": 85 },
-              { "year": 2029, "target_value": 90 }
+              {
+                "year": 2025,
+                "target_value": 70
+              },
+              {
+                "year": 2026,
+                "target_value": 75
+              },
+              {
+                "year": 2027,
+                "target_value": 80
+              },
+              {
+                "year": 2028,
+                "target_value": 85
+              },
+              {
+                "year": 2029,
+                "target_value": 90
+              }
             ]
           }
         },
@@ -1249,17 +2418,45 @@
             "outputs": "new building for academic space for students",
             "outcomes": "go beyond the minimum standard of providing enough reading space to 10% of the student population"
           },
-          "strategies": ["coordinate closely with design planning to ensure planned study spaces are up to standards set by AACCUP and CHED", "take feedback from students and library users", "create welldocumented project proposals with forecasts on student population", "begin planning the library system towards establishing various college or separate libraries."],
-          "programs_activities": ["library development plan"],
-          "responsible_offices": ["Office of the University President", "Library", "Project Management Office", "Planning Office", "Vice President for Administration"],
+          "strategies": [
+            "coordinate closely with design planning to ensure planned study spaces are up to standards set by AACCUP and CHED",
+            "take feedback from students and library users",
+            "create welldocumented project proposals with forecasts on student population",
+            "begin planning the library system towards establishing various college or separate libraries."
+          ],
+          "programs_activities": [
+            "library development plan"
+          ],
+          "responsible_offices": [
+            "Office of the University President",
+            "Library",
+            "Project Management Office",
+            "Planning Office",
+            "Vice President for Administration"
+          ],
           "targets": {
             "type": "milestone",
             "timeline_data": [
-              { "year": 2025, "target_value": "renovate the library to accommodate 250 students" },
-              { "year": 2026, "target_value": "planning and benchmarking for library building standards and organization of college libraries" },
-              { "year": 2027, "target_value": "long term planning and design of a system of libraries and academic spaces" },
-              { "year": 2028, "target_value": "Phase 1 of implementing immediate plans to increase library space" },
-              { "year": 2029, "target_value": "New buildings to accommodate at least 1,200 students" }
+              {
+                "year": 2025,
+                "target_value": "renovate the library to accommodate 250 students"
+              },
+              {
+                "year": 2026,
+                "target_value": "planning and benchmarking for library building standards and organization of college libraries"
+              },
+              {
+                "year": 2027,
+                "target_value": "long term planning and design of a system of libraries and academic spaces"
+              },
+              {
+                "year": 2028,
+                "target_value": "Phase 1 of implementing immediate plans to increase library space"
+              },
+              {
+                "year": 2029,
+                "target_value": "New buildings to accommodate at least 1,200 students"
+              }
             ]
           }
         }
@@ -1276,13 +2473,25 @@
             "outputs": "100% of offices included in the coverage area of internet",
             "outcomes": "improved network speed and reliability"
           },
-          "strategies": ["network infrastructure improvement/maintenance"],
-          "programs_activities": ["connection of offices to the University’s fiber backbone", "investment in high-quality networking devices that can retain the bandwidth and throughput of a gigabit network."],
-          "responsible_offices": ["Vice President for Administration", "Office of the CampusDirectors", "Information Communication and Technology Services"],
+          "strategies": [
+            "network infrastructure improvement/maintenance"
+          ],
+          "programs_activities": [
+            "connection of offices to the University’s fiber backbone",
+            "investment in high-quality networking devices that can retain the bandwidth and throughput of a gigabit network."
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Office of the CampusDirectors",
+            "Information Communication and Technology Services"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         },
@@ -1292,17 +2501,42 @@
             "outputs": "100% of ICT-related projects/requests are procured/implemented",
             "outcomes": "enhanced performance and capacity of technology"
           },
-          "strategies": ["futures planning", "procurement of ICT-related equipment"],
-          "programs_activities": ["upgrade/maintenance of ICT equipment"],
-          "responsible_offices": ["Vice President for Administration", "Office of the Campus Directors", "Information Communication and Technology Services", "Procurement Bids and Awards"],
+          "strategies": [
+            "futures planning",
+            "procurement of ICT-related equipment"
+          ],
+          "programs_activities": [
+            "upgrade/maintenance of ICT equipment"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Office of the Campus Directors",
+            "Information Communication and Technology Services",
+            "Procurement Bids and Awards"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 80 },
-              { "year": 2026, "target_value": 88 },
-              { "year": 2027, "target_value": 90 },
-              { "year": 2028, "target_value": 93 },
-              { "year": 2029, "target_value": 95 }
+              {
+                "year": 2025,
+                "target_value": 80
+              },
+              {
+                "year": 2026,
+                "target_value": 88
+              },
+              {
+                "year": 2027,
+                "target_value": 90
+              },
+              {
+                "year": 2028,
+                "target_value": 93
+              },
+              {
+                "year": 2029,
+                "target_value": 95
+              }
             ]
           }
         },
@@ -1313,16 +2547,37 @@
             "outcomes": "improved operational efficiency, with a measurable reduction in manual processes"
           },
           "strategies": "digitalization of manual workflows",
-          "programs_activities": ["development, procurement and/or subscription of Information System modules to help in transformation of the manual processes which also aligns to the university’s ISSP"],
-          "responsible_offices": ["Vice President for Administration", "Office of the Campus Directors", "Information Communication and Technology Services"],
+          "programs_activities": [
+            "development, procurement and/or subscription of Information System modules to help in transformation of the manual processes which also aligns to the university’s ISSP"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Office of the Campus Directors",
+            "Information Communication and Technology Services"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 6 },
-              { "year": 2026, "target_value": 6 },
-              { "year": 2027, "target_value": 6 },
-              { "year": 2028, "target_value": 6 },
-              { "year": 2029, "target_value": 6 }
+              {
+                "year": 2025,
+                "target_value": 6
+              },
+              {
+                "year": 2026,
+                "target_value": 6
+              },
+              {
+                "year": 2027,
+                "target_value": 6
+              },
+              {
+                "year": 2028,
+                "target_value": 6
+              },
+              {
+                "year": 2029,
+                "target_value": 6
+              }
             ]
           }
         },
@@ -1332,17 +2587,41 @@
             "outputs": "Conduct of orientations/workshops/training sessions for the end-users of digitalized process",
             "outcomes": "increased staff competency in using new technologies"
           },
-          "strategies": ["develop comprehensive training programs to upskill staff and faculty"],
-          "programs_activities": ["organize ICT-related workshops and training sessions for staff and faculty"],
-          "responsible_offices": ["Vice President for Administration", "Office of the Campus Directors", "HRMO", "Information Communication and Technology"],
+          "strategies": [
+            "develop comprehensive training programs to upskill staff and faculty"
+          ],
+          "programs_activities": [
+            "organize ICT-related workshops and training sessions for staff and faculty"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Office of the Campus Directors",
+            "HRMO",
+            "Information Communication and Technology"
+          ],
           "targets": {
             "type": "count",
             "timeline_data": [
-              { "year": 2025, "target_value": 2 },
-              { "year": 2026, "target_value": 2 },
-              { "year": 2027, "target_value": 2 },
-              { "year": 2028, "target_value": 2 },
-              { "year": 2029, "target_value": 2 }
+              {
+                "year": 2025,
+                "target_value": 2
+              },
+              {
+                "year": 2026,
+                "target_value": 2
+              },
+              {
+                "year": 2027,
+                "target_value": 2
+              },
+              {
+                "year": 2028,
+                "target_value": 2
+              },
+              {
+                "year": 2029,
+                "target_value": 2
+              }
             ]
           }
         }
@@ -1359,13 +2638,28 @@
             "outputs": "conducted risk assessments with zero incidence of non-compliance on financial issues",
             "outcomes": "smooth flow of operations and processes (full compliance)"
           },
-          "strategies": ["ensure 0% incidence of non-compliance", "conduct regular risk assessments, internal audits, and third-party reviews", "Implement automated monitoring tools", "Provide ongoing compliance training and clear reporting channels"],
-          "programs_activities": ["observe the protocol concerning spending and financial reporting", "comply with the required documentation, etc. regarding financial matters"],
-          "responsible_offices": ["Vice President for Administration", "Budget Office", "SAO Finance"],
+          "strategies": [
+            "ensure 0% incidence of non-compliance",
+            "conduct regular risk assessments, internal audits, and third-party reviews",
+            "Implement automated monitoring tools",
+            "Provide ongoing compliance training and clear reporting channels"
+          ],
+          "programs_activities": [
+            "observe the protocol concerning spending and financial reporting",
+            "comply with the required documentation, etc. regarding financial matters"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Budget Office",
+            "SAO Finance"
+          ],
           "targets": {
             "type": "text_condition",
             "timeline_data": [
-              { "year": 2029, "target_value": "Zero incidence of non-compliance" }
+              {
+                "year": 2029,
+                "target_value": "Zero incidence of non-compliance"
+              }
             ]
           }
         }
@@ -1382,17 +2676,45 @@
             "outputs": "increase in income generated from approved IGPs",
             "outcomes": "increased internal funding for special funds"
           },
-          "strategies": ["identify and evaluate new IGP opportunities", "formulation of IGP manual and financial management framework", "regular monitoring,evaluation and audit"],
-          "programs_activities": ["procurement planning; implementation", "monitoring of planned procurement activities", "evaluation", "policy and program making for IGP *proposal making/planning for new IGPs"],
-          "responsible_offices": ["Vice President for Administration", "Budget Office", "SAO Finance"],
+          "strategies": [
+            "identify and evaluate new IGP opportunities",
+            "formulation of IGP manual and financial management framework",
+            "regular monitoring,evaluation and audit"
+          ],
+          "programs_activities": [
+            "procurement planning; implementation",
+            "monitoring of planned procurement activities",
+            "evaluation",
+            "policy and program making for IGP *proposal making/planning for new IGPs"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Budget Office",
+            "SAO Finance"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 5 },
-              { "year": 2026, "target_value": 5 },
-              { "year": 2027, "target_value": 7 },
-              { "year": 2028, "target_value": 9 },
-              { "year": 2029, "target_value": 11 }
+              {
+                "year": 2025,
+                "target_value": 5
+              },
+              {
+                "year": 2026,
+                "target_value": 5
+              },
+              {
+                "year": 2027,
+                "target_value": 7
+              },
+              {
+                "year": 2028,
+                "target_value": 9
+              },
+              {
+                "year": 2029,
+                "target_value": 11
+              }
             ]
           }
         },
@@ -1402,17 +2724,43 @@
             "outputs": "reduction in operational costs",
             "outcomes": "funds can be allocated for other important projects"
           },
-          "strategies": ["develop resource utilization plans", "regular inventory and preventive maintenance"],
-          "programs_activities": ["procurement planning; implementation", "monitoring of planned procurement activities", "evaluation"],
-          "responsible_offices": ["Vice President for Administration", "Budget Office", "SAO Finance"],
+          "strategies": [
+            "develop resource utilization plans",
+            "regular inventory and preventive maintenance"
+          ],
+          "programs_activities": [
+            "procurement planning; implementation",
+            "monitoring of planned procurement activities",
+            "evaluation"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Budget Office",
+            "SAO Finance"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 2 },
-              { "year": 2026, "target_value": 4 },
-              { "year": 2027, "target_value": 6 },
-              { "year": 2028, "target_value": 8 },
-              { "year": 2029, "target_value": 10 }
+              {
+                "year": 2025,
+                "target_value": 2
+              },
+              {
+                "year": 2026,
+                "target_value": 4
+              },
+              {
+                "year": 2027,
+                "target_value": 6
+              },
+              {
+                "year": 2028,
+                "target_value": 8
+              },
+              {
+                "year": 2029,
+                "target_value": 10
+              }
             ]
           }
         }
@@ -1427,20 +2775,52 @@
           "id": "KRA20-KPI1",
           "key_performance_indicator": {
             "outputs": "total revenue generated from partnerships and collaborations",
-            "outcomes": ["acquired expertise and investments", "quality of partnership agreements", "increased in total revenue generated from strategic partnerships and collaborations"]
+            "outcomes": [
+              "acquired expertise and investments",
+              "quality of partnership agreements",
+              "increased in total revenue generated from strategic partnerships and collaborations"
+            ]
           },
-          "strategies": ["resource and expertise sharing", "joint revenue-generating initiatives", "strengthen human resources, organizational, and financial capital of the university", "strengthen intellectual capital from capital royalties from developed technologies"],
-          "programs_activities": ["consultancy and training", "joint ventures using developed technologies"],
-          "responsible_offices": ["Vice President for Administration", "Budget Office", "SAO Finance", "Extension and Training Services"],
+          "strategies": [
+            "resource and expertise sharing",
+            "joint revenue-generating initiatives",
+            "strengthen human resources, organizational, and financial capital of the university",
+            "strengthen intellectual capital from capital royalties from developed technologies"
+          ],
+          "programs_activities": [
+            "consultancy and training",
+            "joint ventures using developed technologies"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Budget Office",
+            "SAO Finance",
+            "Extension and Training Services"
+          ],
           "targets": {
             "type": "financial",
             "currency": "PHP",
             "timeline_data": [
-              { "year": 2025, "target_value": 0 },
-              { "year": 2026, "target_value": 0 },
-              { "year": 2027, "target_value": 300000 },
-              { "year": 2028, "target_value": 330000 },
-              { "year": 2029, "target_value": 363000 }
+              {
+                "year": 2025,
+                "target_value": 0
+              },
+              {
+                "year": 2026,
+                "target_value": 0
+              },
+              {
+                "year": 2027,
+                "target_value": 300000
+              },
+              {
+                "year": 2028,
+                "target_value": 330000
+              },
+              {
+                "year": 2029,
+                "target_value": 363000
+              }
             ]
           }
         },
@@ -1450,17 +2830,49 @@
             "outputs": "increase in net income from non-traditional sources",
             "outcomes": "generate additional income from non-traditional sources"
           },
-          "strategies": ["create entrepreneurial ventures", "strengthen the existing income-generating projects"],
-          "programs_activities": ["events place", "coffee shops", "rental spaces", "commercialization of research products and services", "printing and binding", "gasoline station", "clothing shop", "grocery-style store"],
-          "responsible_offices": ["Vice President for Administration", "Business Affairs Office", "SAO Finance", "Budget Office"],
+          "strategies": [
+            "create entrepreneurial ventures",
+            "strengthen the existing income-generating projects"
+          ],
+          "programs_activities": [
+            "events place",
+            "coffee shops",
+            "rental spaces",
+            "commercialization of research products and services",
+            "printing and binding",
+            "gasoline station",
+            "clothing shop",
+            "grocery-style store"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Business Affairs Office",
+            "SAO Finance",
+            "Budget Office"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2025, "target_value": 5 },
-              { "year": 2026, "target_value": 8 },
-              { "year": 2027, "target_value": 12 },
-              { "year": 2028, "target_value": 20 },
-              { "year": 2029, "target_value": 30 }
+              {
+                "year": 2025,
+                "target_value": 5
+              },
+              {
+                "year": 2026,
+                "target_value": 8
+              },
+              {
+                "year": 2027,
+                "target_value": 12
+              },
+              {
+                "year": 2028,
+                "target_value": 20
+              },
+              {
+                "year": 2029,
+                "target_value": 30
+              }
             ]
           }
         }
@@ -1477,13 +2889,23 @@
             "outputs": "100% budget utilization rate (disbursement)",
             "outcomes": "established functional and operational system for resource generation and management of resources"
           },
-          "strategies": ["ensure prudent use of resources", "improve spending efficiency, absorptive capacity"],
+          "strategies": [
+            "ensure prudent use of resources",
+            "improve spending efficiency, absorptive capacity"
+          ],
           "programs_activities": "monitoring of the planned procurement activities",
-          "responsible_offices": ["Vice President for Administration", "Budget Office", "SAO Finance"],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Budget Office",
+            "SAO Finance"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         },
@@ -1493,13 +2915,27 @@
             "outputs": "100% budget utilization rate (obligation)",
             "outcomes": "established functional and operational system for resource generation and management of resources"
           },
-          "strategies": ["ensure prudent use of resources", "Improve the spending efficiency; absorptive capacity"],
-          "programs_activities": ["implementation of the planned programs, projects, and activities (PPAs)", "monitoring of planned procurement activities", "Conduct a workshop for all the offices involved"],
-          "responsible_offices": ["Vice President for Administration", "Budget Office", "SAO Finance"],
+          "strategies": [
+            "ensure prudent use of resources",
+            "Improve the spending efficiency; absorptive capacity"
+          ],
+          "programs_activities": [
+            "implementation of the planned programs, projects, and activities (PPAs)",
+            "monitoring of planned procurement activities",
+            "Conduct a workshop for all the offices involved"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Budget Office",
+            "SAO Finance"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         }
@@ -1516,18 +2952,43 @@
             "outputs": "internally generated income",
             "outcomes": "established functional and operational system for resource generation and management of resources"
           },
-          "strategies": ["availability of a systematic plan of action to justify every budget proposal", "continual improvement process"],
-          "programs_activities": ["submit justifications to the Department of Budget and Management for the release of the actual billing", "training and seminars for the human resources"],
-          "responsible_offices": ["Vice President for Administration", "Budget Office", "SAO Finance"],
+          "strategies": [
+            "availability of a systematic plan of action to justify every budget proposal",
+            "continual improvement process"
+          ],
+          "programs_activities": [
+            "submit justifications to the Department of Budget and Management for the release of the actual billing",
+            "training and seminars for the human resources"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Budget Office",
+            "SAO Finance"
+          ],
           "targets": {
             "type": "financial",
             "currency": "PHP",
             "timeline_data": [
-              { "year": 2025, "target_value": 263426000 },
-              { "year": 2026, "target_value": 277000000 },
-              { "year": 2027, "target_value": 291000000 },
-              { "year": 2028, "target_value": 320000000 },
-              { "year": 2029, "target_value": 336000000 }
+              {
+                "year": 2025,
+                "target_value": 263426000
+              },
+              {
+                "year": 2026,
+                "target_value": 277000000
+              },
+              {
+                "year": 2027,
+                "target_value": 291000000
+              },
+              {
+                "year": 2028,
+                "target_value": 320000000
+              },
+              {
+                "year": 2029,
+                "target_value": 336000000
+              }
             ]
           }
         },
@@ -1535,15 +2996,31 @@
           "id": "KRA22-KPI2",
           "key_performance_indicator": {
             "outputs": "100% fund utilization on infrastructure projects",
-            "outcomes": ["improved productivity of the human resources", "developed facilities, services, and systems"]
+            "outcomes": [
+              "improved productivity of the human resources",
+              "developed facilities, services, and systems"
+            ]
           },
           "strategies": "strengthen construction or manufacture capital",
-          "programs_activities": ["monitoring of the planned programs", "conduct of Early Procurement Activities (EPA)", "approval of PPMP/APP", "BOR approval"],
-          "responsible_offices": ["Vice President for Administration", "Project Management Unit", "Planning Unit", "SAO Finance"],
+          "programs_activities": [
+            "monitoring of the planned programs",
+            "conduct of Early Procurement Activities (EPA)",
+            "approval of PPMP/APP",
+            "BOR approval"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Project Management Unit",
+            "Planning Unit",
+            "SAO Finance"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         },
@@ -1551,15 +3028,35 @@
           "id": "KRA22-KPI3",
           "key_performance_indicator": {
             "outputs": "100% fund utilization on repairs/rehabilitation of buildings, vehicles, drainage and roads, land, material recovery facilities and electrical facilities",
-            "outcomes": ["less funds for repair and rehabilitation", "less disruption to operation"]
+            "outcomes": [
+              "less funds for repair and rehabilitation",
+              "less disruption to operation"
+            ]
           },
-          "strategies": ["strengthen construction or manufacture capital", "implement regular preventive maintenance"],
-          "programs_activities": ["conduct of Early Procurement Activities (EPA)", "approval of the Head of Agency", "approval of PPMP/APP", "bidding", "contracting by Administration"],
-          "responsible_offices": ["Vice President for Administration", "General Services Office", "SAO Finance", "Budget Office"],
+          "strategies": [
+            "strengthen construction or manufacture capital",
+            "implement regular preventive maintenance"
+          ],
+          "programs_activities": [
+            "conduct of Early Procurement Activities (EPA)",
+            "approval of the Head of Agency",
+            "approval of PPMP/APP",
+            "bidding",
+            "contracting by Administration"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "General Services Office",
+            "SAO Finance",
+            "Budget Office"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         },
@@ -1567,15 +3064,33 @@
           "id": "KRA22-KPI4",
           "key_performance_indicator": {
             "outputs": "100% fund utilization in the acquisition of new equipment",
-            "outcomes": ["responsive to the needs of the end-users", "efficiency in the procurement of equipment needed"]
+            "outcomes": [
+              "responsive to the needs of the end-users",
+              "efficiency in the procurement of equipment needed"
+            ]
           },
-          "strategies": ["assessment of the needs of the end-users", "consider the budget and maintenance cost"],
-          "programs_activities": ["conduct of Early Procurement Activities (EPA)", "approval of the Head of Agency", "approval of PPMP/APP", "bidding"],
-          "responsible_offices": ["Vice President for Administration", "Budget Office", "SAO Finance"],
+          "strategies": [
+            "assessment of the needs of the end-users",
+            "consider the budget and maintenance cost"
+          ],
+          "programs_activities": [
+            "conduct of Early Procurement Activities (EPA)",
+            "approval of the Head of Agency",
+            "approval of PPMP/APP",
+            "bidding"
+          ],
+          "responsible_offices": [
+            "Vice President for Administration",
+            "Budget Office",
+            "SAO Finance"
+          ],
           "targets": {
             "type": "percentage",
             "timeline_data": [
-              { "year": 2029, "target_value": 100 }
+              {
+                "year": 2029,
+                "target_value": 100
+              }
             ]
           }
         }

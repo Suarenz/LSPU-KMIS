@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Menu, X, Search, MessageSquare, BarChart3, LogOut, UserRound, File } from "lucide-react"
+import { Menu, X, Search, MessageSquare, BarChart3, LogOut, UserRound, File, ClipboardCheck } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
@@ -79,7 +79,10 @@ export function Navbar() {
     { name: "Repository", href: "/repository", icon: File },
     { name: "Search", href: "/search", icon: Search },
     ...(user?.role === "ADMIN" || user?.role === "FACULTY"
-      ? [{ name: "Analytics", href: "/analytics", icon: BarChart3 }]
+      ? [
+          { name: "QPRO", href: "/qpro", icon: ClipboardCheck },
+          { name: "Analytics", href: "/analytics", icon: BarChart3 }
+        ]
       : []),
   ]
 

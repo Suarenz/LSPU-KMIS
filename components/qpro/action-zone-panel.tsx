@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Loader2, Upload, FileText, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { InsightFeed } from "./insight-feed"
+import { QPROResultsWithAggregation } from "@/components/qpro-results-with-aggregation"
 import AuthService from "@/lib/services/auth-service"
+import type { QPROWithAggregationResults } from "@/lib/types"
 
 interface ActionZonePanelProps {
   year: number
@@ -20,6 +22,8 @@ export function ActionZonePanel({ year, quarter, unitId, unitName, onAnalysisCom
   const [uploading, setUploading] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisId, setAnalysisId] = useState<string | null>(null)
+  const [results, setResults] = useState<QPROWithAggregationResults | null>(null)
+  const [useAggregation, setUseAggregation] = useState(true)
   const { toast } = useToast()
 
   const onDrop = useCallback(
@@ -67,8 +71,11 @@ export function ActionZonePanel({ year, quarter, unitId, unitName, onAnalysisCom
         formData.append("unitId", unitId)
         formData.append("year", year.toString())
         formData.append("quarter", quarter.toString())
+        formData.append("documentTitle", file.name)
 
-        const response = await fetch("/api/analyze-qpro", {
+        // Use new unified endpoint that includes aggregation
+        const endpoint = useAggregation ? "/api/qpro-with-aggregation" : "/api/analyze-qpro"
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -84,11 +91,19 @@ export function ActionZonePanel({ year, quarter, unitId, unitName, onAnalysisCom
         const result = await response.json()
         
         setAnalysisId(result.analysis.id)
+        
+        // Store aggregation results if using new endpoint
+        if (useAggregation && result.aggregation) {
+          setResults(result)
+        }
+        
         setUploading(false)
 
         toast({
           title: "Analysis Complete!",
-          description: "Your QPRO report has been analyzed successfully.",
+          description: useAggregation 
+            ? "Your QPRO report has been analyzed with metrics and aggregations."
+            : "Your QPRO report has been analyzed successfully.",
         })
 
         onAnalysisComplete()
@@ -179,12 +194,16 @@ export function ActionZonePanel({ year, quarter, unitId, unitName, onAnalysisCom
         </div>
       </div>
 
-      {/* AI Insight Feed */}
-      {analysisId && (
+      {/* AI Insight Feed or Aggregation Results */}
+      {results ? (
+        <div className="pt-6 border-t">
+          <QPROResultsWithAggregation results={results} />
+        </div>
+      ) : analysisId && !useAggregation ? (
         <div className="pt-6 border-t">
           <InsightFeed analysisId={analysisId} year={year} quarter={quarter} />
         </div>
-      )}
+      ) : null}
 
       {!analysisId && !uploading && (
         <div className="pt-6 border-t">

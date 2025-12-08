@@ -71,9 +71,9 @@ jest.mock('@langchain/openai', () => ({
                   target: 10,
                   achievement: 100,
                   status: 'MET',
-                  strategyLink: 'SP-STRAT-1.1',
+                  authorizedStrategy: 'strategy text',
                   aiInsight: 'Insight',
-                  recommendation: 'Recommendation',
+                  prescriptiveAnalysis: 'Analysis',
                   confidence: 1
                 }
               ],
@@ -88,9 +88,9 @@ jest.mock('@langchain/openai', () => ({
               target: 10,
               achievement: 100,
               status: 'MET',
-              strategyLink: 'SP-STRAT-1.1',
+              authorizedStrategy: 'strategy text',
               aiInsight: 'Insight',
-              recommendation: 'Recommendation',
+              prescriptiveAnalysis: 'Analysis',
               confidence: 1
             }
           ],

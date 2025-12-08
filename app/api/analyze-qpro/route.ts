@@ -91,7 +91,37 @@ export async function POST(request: NextRequest) {
       year,
       quarter,
     });
-    
+
+    // Diagnostic logging for extraction completeness
+    if (analysis && analysis.activities) {
+      console.log('[QPRO DIAGNOSTIC] Extracted activities count:', analysis.activities.length);
+      analysis.activities.forEach((activity: any, idx: number) => {
+        console.log(`[QPRO DIAGNOSTIC] Activity #${idx + 1}:`, {
+          name: activity.name,
+          kraId: activity.kraId,
+          reported: activity.reported,
+          target: activity.target,
+          achievement: activity.achievement,
+          status: activity.status,
+          authorizedStrategy: activity.authorizedStrategy,
+          confidence: activity.confidence,
+          unit: activity.unit
+        });
+      });
+    }
+    if (analysis && analysis.kras) {
+      console.log('[QPRO DIAGNOSTIC] KRA grouping count:', analysis.kras.length);
+      analysis.kras.forEach((kra: any, idx: number) => {
+        console.log(`[QPRO DIAGNOSTIC] KRA #${idx + 1}:`, {
+          kraId: kra.kraId,
+          kraTitle: kra.kraTitle,
+          achievementRate: kra.achievementRate,
+          activitiesCount: Array.isArray(kra.activities) ? kra.activities.length : 'N/A',
+          strategicAlignment: kra.strategicAlignment
+        });
+      });
+    }
+
     return Response.json({
       analysis: analysis,
       documentId: document.id,

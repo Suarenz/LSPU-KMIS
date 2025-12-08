@@ -46,3 +46,50 @@ export interface Activity {
   description: string
   timestamp: Date
 }
+
+// QPRO Analysis with Aggregation Types
+export interface QPROAggregationMetrics {
+  totalKRAs: number
+  metKRAs: number
+  missedKRAs: number
+  onTrackKRAs: number
+  overallAchievementPercent: number
+}
+
+export interface KRAMetricDetail {
+  kraId: string
+  kraName: string
+  status: "MET" | "ON_TRACK" | "MISSED"
+  reported: number
+  target: number
+  variance: number
+  achievementPercent: number
+  achievementMessage: string
+}
+
+export interface QPROAnalysisResult {
+  id: string
+  title: string
+  alignment: string
+  opportunities: string
+  gaps: string
+  recommendations: string
+  achievementScore: number
+}
+
+export interface QPROWithAggregationResults {
+  success: boolean
+  analysis: QPROAnalysisResult
+  kras: any[]
+  aggregation: {
+    metrics: QPROAggregationMetrics
+    byKra: KRAMetricDetail[]
+    dashboard: {
+      totalKRAs: number
+      metKRAs: number
+      onTrackKRAs: number
+      missedKRAs: number
+      overallAchievementPercent: number
+    }
+  }
+}

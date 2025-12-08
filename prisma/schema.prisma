@@ -229,9 +229,58 @@ model QPROAnalysis {
   document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade, map: "qpro_analysis_document_fkey")
   user              User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade, map: "qpro_analysis_user_fkey")
   unit              Unit?    @relation(fields: [unitId], references: [id])
+  aggregationActivities AggregationActivity[]
   
   @@index([unitId])
   @@index([year, quarter])
   @@map("qpro_analyses")
+}
+
+model KRAggregation {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()"))
+  year                     Int      // Reporting year
+  quarter                  Int      // Quarter (1-4)
+  kra_id                   String   // KRA identifier
+  kra_title                String?  // KRA title
+  initiative_id            String   // Initiative/KPI identifier
+  total_reported           Int?     // Total reported value
+  target_value             Decimal? // Target value for this KRA
+  achievement_percent      Decimal? // Calculated achievement percentage
+  submission_count         Int      @default(0) // Number of submissions
+  participating_units      Json?    // Array of unit IDs that contributed
+  status                   String?  // Status: MET, MISSED, ON_TRACK, NOT_APPLICABLE
+  last_updated             DateTime @default(now()) @updatedAt
+  updated_by               String?  // User who last updated
+  previous_quarter_achieved Decimal? // Previous quarter achievement for trending
+  previous_quarter_reported Int?    // Previous quarter reported value
+  previous_quarter_target   Decimal? // Previous quarter target
+  aggregationActivities    AggregationActivity[]
+  
+  @@unique([year, quarter, kra_id, initiative_id], name: "unique_aggregation")
+  @@index([year, quarter])
+  @@index([kra_id])
+  @@index([status])
+  @@map("kra_aggregations")
+}
+
+model AggregationActivity {
+  id                String   @id @default(dbgenerated("gen_random_uuid()"))
+  aggregation_id    String   // Reference to KRAggregation
+  qpro_analysis_id  String   // Reference to QPROAnalysis
+  unit_id           String?  // Unit that reported this activity
+  activity_name     String   // Name of the activity
+  reported          Int?     // Reported value for this activity
+  target            Int?     // Target for this activity
+  achievement       Decimal? // Achievement percentage
+  activity_type     String?  // Type of activity
+  initiative_id     String   // Initiative identifier
+  created_at        DateTime @default(now())
+  aggregation       KRAggregation @relation(fields: [aggregation_id], references: [id], onDelete: Cascade)
+  qproAnalysis      QPROAnalysis @relation(fields: [qpro_analysis_id], references: [id], onDelete: Cascade)
+  
+  @@index([aggregation_id])
+  @@index([qpro_analysis_id])
+  @@index([unit_id])
+  @@map("aggregation_activities")
 }
 

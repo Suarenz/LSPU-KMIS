@@ -21,6 +21,10 @@ interface Activity {
   kraId: string
   kraTitle?: string
   achievement: number
+  authorizedStrategy?: string
+  prescriptiveAnalysis?: string
+  aiInsight?: string
+  status?: string
   strategies?: string[]
   responsibleOffices?: string[]
 }
@@ -139,6 +143,36 @@ export function InsightFeed({ analysisId, year, quarter }: InsightFeedProps) {
     }
   }
 
+  // Group activities by KRA or use kras array if available
+  const kraGroups = analysis.kras && analysis.kras.length > 0 
+    ? analysis.kras 
+    : [];
+
+  // If no kras but we have activities, create groups manually
+  if (kraGroups.length === 0 && activities.length > 0) {
+    const groupedByKra: { [key: string]: any } = {};
+    activities.forEach((activity) => {
+      const kraId = activity.kraId || "Unknown";
+      if (!groupedByKra[kraId]) {
+        groupedByKra[kraId] = {
+          kraId: kraId,
+          kraTitle: activity.kraTitle || kraId,
+          activities: [],
+          achievementRate: 0,
+        };
+      }
+      groupedByKra[kraId].activities.push(activity);
+    });
+    
+    // Calculate achievement rates
+    Object.values(groupedByKra).forEach((kra: any) => {
+      const totalAchievement = kra.activities.reduce((sum: number, act: Activity) => sum + act.achievement, 0);
+      kra.achievementRate = kra.activities.length > 0 ? totalAchievement / kra.activities.length : 0;
+    });
+    
+    kraGroups.push(...Object.values(groupedByKra));
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -146,82 +180,171 @@ export function InsightFeed({ analysisId, year, quarter }: InsightFeedProps) {
           <TrendingUp className="w-5 h-5 text-primary" />
           AI Insights
         </h3>
-        <Badge variant="outline">{activities.length} Activities Analyzed</Badge>
+        <Badge variant="outline">{kraGroups.length} KRAs Analyzed</Badge>
       </div>
 
-      {/* Insight Cards */}
+      {/* KRA-Grouped Insight Cards */}
       <div className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
-        {activities.map((activity, idx) => {
-          const verdict = getVerdictStyle(activity.achievement)
-          const gap = activity.target - activity.reported
+        {kraGroups.map((kra: any, kraIdx: number) => {
+          const kraActivities = Array.isArray(kra.activities) ? kra.activities : [];
+          const kraAchievement = kra.achievementRate || 0;
+          const verdict = getVerdictStyle(kraAchievement);
+          
+          // Sum reported across all activities in this KRA
+          const totalReported = kraActivities.reduce((sum: number, act: any) => {
+            return sum + (typeof act.reported === 'number' ? act.reported : (act.reported || 0));
+          }, 0);
+          
+          // Get the SINGLE target from Strategic Plan (all activities in same KRA share same target - DO NOT multiply)
+          // The target is a fixed number from the Strategic Plan, independent of activity count
+          let totalTarget = 0;
+          if (kraActivities.length > 0) {
+            // Look up target from Strategic Plan based on KRA and initiative ID
+            const kraData = strategicPlan.kras?.find((k: any) => k.kra_id === kra.kraId);
+            if (kraData && kraActivities[0].initiativeId) {
+              const initiative = kraData.initiatives?.find((init: any) => init.id === kraActivities[0].initiativeId);
+              if (initiative && initiative.targets?.timeline_data) {
+                // Extract the single target value for the reporting year
+                const timelineData = initiative.targets.timeline_data.find((t: any) => t.year === year || t.year === 2025);
+                if (timelineData) {
+                  // CRITICAL: This is the single target for the KRA, NOT per activity
+                  // Do NOT multiply by activity count - each reported value adds to total reported
+                  totalTarget = typeof timelineData.target_value === 'number' ? timelineData.target_value : 1;
+                }
+              }
+            }
+            // Fallback: use first activity's target if Strategic Plan lookup fails
+            if (totalTarget === 0 && kraActivities[0].target) {
+              totalTarget = kraActivities[0].target;
+            }
+          }
+          
+          const gap = totalTarget - totalReported;
 
           return (
-            <Card key={idx} className={`p-4 border-l-4 ${verdict.border}`}>
-              <div className="space-y-3">
-                {/* Header */}
+            <Card key={kraIdx} className={`p-4 border-l-4 ${verdict.border}`}>
+              <div className="space-y-4">
+                {/* KRA Header */}
                 <div className="flex items-start justify-between gap-2">
-                  <h4 className="font-semibold text-sm flex-1">{activity.name}</h4>
+                  <div className="flex-1">
+                    <Badge className={`${KRA_COLORS[kra.kraId] || "bg-gray-500"} text-white text-xs mb-2`}>
+                      {kra.kraId}
+                    </Badge>
+                    <h4 className="font-bold text-base">{kra.kraTitle || kra.kraId}</h4>
+                  </div>
                   {verdict.icon}
                 </div>
 
-                {/* Match Badge */}
-                <div>
-                  <Badge className={`${KRA_COLORS[activity.kraId] || "bg-gray-500"} text-white text-xs`}>
-                    Linked to {activity.kraId}
-                  </Badge>
-                </div>
-
-                {/* Comparison Section */}
-                <div className={`p-3 rounded-md ${verdict.bg}`}>
+                {/* KRA-Level Aggregated Stats */}
+                <div className={`p-4 rounded-md ${verdict.bg}`}>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium">
-                      Reported: <span className="text-lg font-bold">{activity.reported}</span>
+                    <span className="text-sm font-medium">
+                      Total Reported: <span className="text-xl font-bold">{totalReported}</span>
                     </span>
-                    <span className="text-xs font-medium">
-                      Target: <span className="text-lg font-bold">{activity.target}</span>
+                    <span className="text-sm font-medium">
+                      Total Target: <span className="text-xl font-bold">{totalTarget}</span>
                     </span>
                   </div>
-                  <Progress value={activity.achievement} className="h-2" />
-                  <p className={`text-xs mt-1 ${verdict.textColor} font-medium`}>
-                    {activity.achievement.toFixed(0)}% Achievement
-                  </p>
+                  <Progress value={kraAchievement} className="h-3" />
+                  <div className="flex items-center justify-between mt-2">
+                    <p className={`text-sm ${verdict.textColor} font-semibold`}>
+                      {kraAchievement.toFixed(1)}% Achievement
+                    </p>
+                    <span className="text-xs text-muted-foreground">
+                      {kraActivities.length} {kraActivities.length === 1 ? 'activity' : 'activities'}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Verdict */}
-                <div className={`flex items-center gap-2 ${verdict.textColor} font-semibold text-sm`}>
+                {/* Overall KRA Verdict */}
+                <div className={`flex items-center gap-2 ${verdict.textColor} font-semibold`}>
                   {verdict.icon}
                   <span>{verdict.text}</span>
                 </div>
 
-                {/* Prescriptive Analytics */}
-                {gap > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                {/* Individual Activities Breakdown - Clean list without redundant metrics */}
+                {kraActivities.length > 1 && (
+                  <div className="space-y-2">
+                    <h5 className="text-sm font-semibold text-muted-foreground">Activities Included:</h5>
+                    <div className="pl-4 space-y-1">
+                      {kraActivities.map((activity: any, actIdx: number) => (
+                        <div key={actIdx} className="flex items-start gap-2">
+                          <span className="text-xs text-muted-foreground mt-0.5">•</span>
+                          <p className="text-sm text-muted-foreground">{activity.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Prescriptive Analysis - Action-oriented recommendations */}
+                {gap > 0 && kraActivities.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-300 rounded-md p-4">
                     <div className="flex items-start gap-2">
-                      <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-blue-900 mb-1">
-                          AI Recommendation
-                        </p>
-                        <p className="text-xs text-blue-800">
-                          You are behind by <span className="font-bold">{gap}</span>. 
-                          {activity.strategies && activity.strategies.length > 0 && (
-                            <span> The Strategic Plan suggests: "{activity.strategies[0]}"</span>
-                          )}
-                          {activity.responsibleOffices && activity.responsibleOffices.length > 0 && (
-                            <span> Consider coordinating with <span className="font-semibold">{activity.responsibleOffices[0]}</span>.</span>
-                          )}
-                        </p>
+                      <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <p className="text-xs font-semibold text-amber-900 mb-1">
+                            Gap Identified: {gap} unit{gap !== 1 ? 's' : ''} behind target
+                          </p>
+                          <p className="text-xs text-amber-800">
+                            {kraActivities[0].prescriptiveAnalysis || (
+                              kraActivities[0].authorizedStrategy ? (
+                                <>To close this gap, implement Strategic Plan Strategy: <span className="font-semibold">"{kraActivities[0].authorizedStrategy}"</span> immediately in Q{quarter} {year}.</>
+                              ) : (
+                                <>Review and accelerate implementation of activities under {kra.kraId} to meet the target of {totalTarget}.</>
+                              )
+                            )}
+                          </p>
+                        </div>
+                        {kraActivities[0].authorizedStrategy && kraActivities[0].prescriptiveAnalysis && (
+                          <div className="pt-2 border-t border-amber-200">
+                            <p className="text-xs font-medium text-amber-900">Authorized Strategy:</p>
+                            <p className="text-xs text-amber-700 italic">"{kraActivities[0].authorizedStrategy}"</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sustainability message for met/exceeded targets */}
+                {gap <= 0 && kraActivities.length > 0 && (
+                  <div className="bg-green-50 border border-green-300 rounded-md p-4">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <p className="text-xs font-semibold text-green-900 mb-1">
+                            Target {gap === 0 ? 'Met' : 'Exceeded'} ✓
+                          </p>
+                          <p className="text-xs text-green-800">
+                            {kraActivities[0].prescriptiveAnalysis || (
+                              kraActivities[0].authorizedStrategy ? (
+                                <>Sustain this achievement by continuing: <span className="font-semibold">"{kraActivities[0].authorizedStrategy}"</span>. Consider expanding scope or increasing targets for next quarter.</>
+                              ) : (
+                                <>Excellent performance on {kra.kraId}. Maintain current practices and document best practices for replication.</>
+                              )
+                            )}
+                          </p>
+                        </div>
+                        {kraActivities[0].authorizedStrategy && kraActivities[0].prescriptiveAnalysis && (
+                          <div className="pt-2 border-t border-green-200">
+                            <p className="text-xs font-medium text-green-900">Authorized Strategy:</p>
+                            <p className="text-xs text-green-700 italic">"{kraActivities[0].authorizedStrategy}"</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 )}
               </div>
             </Card>
-          )
+          );
         })}
       </div>
 
-      {activities.length === 0 && (
+      {kraGroups.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
           <Lightbulb className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p className="text-sm">No activities extracted from the QPRO report.</p>
@@ -231,27 +354,23 @@ export function InsightFeed({ analysisId, year, quarter }: InsightFeedProps) {
         </div>
       )}
 
-      {/* Summary Sections */}
-      {(analysis.alignment || analysis.gaps || analysis.recommendations) && (
-        <div className="pt-4 border-t space-y-3">
+      {/* Overall Summary - High-level strategic overview only */}
+      {(analysis.alignment || analysis.gaps) && (
+        <div className="pt-6 mt-6 border-t space-y-3">
+          <h3 className="text-lg font-bold text-muted-foreground">Overall Summary</h3>
+          
           {analysis.alignment && (
-            <Card className="p-4 bg-green-50 border-green-200">
-              <h4 className="font-semibold text-sm text-green-900 mb-2">✅ Alignment</h4>
-              <p className="text-xs text-green-800 whitespace-pre-wrap">{analysis.alignment}</p>
+            <Card className="p-4 bg-slate-50 border-slate-200">
+              <h4 className="font-semibold text-sm text-slate-900 mb-2">📊 Strategic Alignment</h4>
+              <p className="text-xs text-slate-700 whitespace-pre-wrap">{analysis.alignment}</p>
             </Card>
           )}
 
           {analysis.gaps && (
-            <Card className="p-4 bg-red-50 border-red-200">
-              <h4 className="font-semibold text-sm text-red-900 mb-2">⚠️ Gaps</h4>
-              <p className="text-xs text-red-800 whitespace-pre-wrap">{analysis.gaps}</p>
-            </Card>
-          )}
-
-          {analysis.recommendations && (
-            <Card className="p-4 bg-blue-50 border-blue-200">
-              <h4 className="font-semibold text-sm text-blue-900 mb-2">💡 Recommendations</h4>
-              <p className="text-xs text-blue-800 whitespace-pre-wrap">{analysis.recommendations}</p>
+            <Card className="p-4 bg-orange-50 border-orange-200">
+              <h4 className="font-semibold text-sm text-orange-900 mb-2">🎯 Priority Gaps</h4>
+              <p className="text-xs text-orange-800 whitespace-pre-wrap">{analysis.gaps}</p>
+              <p className="text-xs text-orange-600 mt-2 italic">Note: Specific recommendations for each KRA are provided in the cards above.</p>
             </Card>
           )}
         </div>

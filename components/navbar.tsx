@@ -87,7 +87,7 @@ export function Navbar() {
   ]
 
   const getInitials = (name: string) => {
-    let initials = name
+    const initials = name
       .split(" ")
       .map((n) => n[0])
       .join("")

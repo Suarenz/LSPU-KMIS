@@ -76,6 +76,7 @@ function formatLabel(str: string): string {
 
 // Comprehensive helper to safely render any prescriptive analysis field
 // Handles: strings, JSON strings, objects, arrays, nested structures
+// Renders arrays as proper bullet lists for professional formatting
 function safeRenderItem(item: any): React.ReactNode {
   if (!item) return null;
   if (typeof item === 'string') {
@@ -84,13 +85,47 @@ function safeRenderItem(item: any): React.ReactNode {
       const parsed = JSON.parse(item);
       return safeRenderItem(parsed);
     } catch {
-      return item;
+      // Clean up markdown and return formatted text
+      const cleaned = item
+        .replace(/^#{1,3}\s+/gm, '') // Remove markdown headers
+        .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold
+        .replace(/\*([^*]+)\*/g, '$1') // Remove italic
+        .replace(/^\["|"\]$/g, '') // Remove JSON array brackets
+        .trim();
+      return cleaned;
     }
+  }
+  // Handle arrays - render as bullet list
+  if (Array.isArray(item)) {
+    if (item.length === 0) return null;
+    return (
+      <ul className="list-disc list-inside space-y-1 mt-1">
+        {item.map((subItem, idx) => {
+          let content = '';
+          if (typeof subItem === 'string') {
+            content = subItem.replace(/^#{1,3}\s+/gm, '').replace(/\*\*([^*]+)\*\*/g, '$1').trim();
+          } else if (subItem?.action) {
+            content = `${subItem.action}${subItem.timeline ? ` (${subItem.timeline})` : ''}`;
+          } else if (subItem?.recommendation) {
+            content = subItem.recommendation;
+          } else if (typeof subItem === 'object') {
+            content = JSON.stringify(subItem);
+          } else {
+            content = String(subItem);
+          }
+          return <li key={idx} className="text-sm">{content}</li>;
+        })}
+      </ul>
+    );
   }
   if (typeof item === 'object' && item !== null) {
     // Handle action/timeline objects
     if (item.action) {
       return `${item.action}${item.timeline ? ` (${item.timeline})` : ''}`;
+    }
+    // Handle recommendation field
+    if (item.recommendation) {
+      return item.recommendation;
     }
     // Handle gap objects like {"target": 73, "actual": 16.3}
     if (item.target !== undefined && item.actual !== undefined) {
@@ -104,6 +139,17 @@ function safeRenderItem(item: any): React.ReactNode {
 }
 
 // Render an array of recommendation items as a formatted list
+// Helper to strip markdown characters for clean display
+function stripMarkdown(text: string): string {
+  if (!text) return '';
+  // Remove markdown headers (###, ##, #)
+  let cleaned = text.replace(/^#{1,3}\s+/gm, '');
+  // Remove bold/italic markers (**text** or *text*)
+  cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, '$1');
+  cleaned = cleaned.replace(/\*([^*]+)\*/g, '$1');
+  return cleaned.trim();
+}
+
 function renderRecommendationsList(value: any): React.ReactNode {
   if (!value) return <p className="text-sm text-muted-foreground italic">No recommendations available</p>;
   
@@ -116,21 +162,21 @@ function renderRecommendationsList(value: any): React.ReactNode {
       if (Array.isArray(parsed)) {
         items = parsed;
       } else {
-        // Plain text - split by bullets or newlines
+        // Plain text - split by bullets, newlines, or numbered lists
         const lines = value.split(/•|\n|(?<=\))\s*(?=[A-Z])/).filter((l: string) => l.trim());
         if (lines.length > 1) {
-          items = lines.map((l: string) => ({ action: l.trim() }));
+          items = lines.map((l: string) => ({ action: stripMarkdown(l.trim()) }));
         } else {
-          return <p className="text-sm">{value}</p>;
+          return <p className="text-sm">{stripMarkdown(value)}</p>;
         }
       }
     } catch {
       // Plain text - split by bullets or newlines
       const lines = value.split(/•|\n/).filter((l: string) => l.trim());
       if (lines.length > 1) {
-        items = lines.map((l: string) => ({ action: l.trim() }));
+        items = lines.map((l: string) => ({ action: stripMarkdown(l.trim()) }));
       } else {
-        return <p className="text-sm">{value}</p>;
+        return <p className="text-sm">{stripMarkdown(value)}</p>;
       }
     }
   } else if (Array.isArray(value)) {
@@ -143,10 +189,70 @@ function renderRecommendationsList(value: any): React.ReactNode {
     return <p className="text-sm text-muted-foreground italic">No recommendations available</p>;
   }
   
+  // Group items by headers (items starting with numbers like "1." or "2.")
+  const sections: { header: string | null; items: string[] }[] = [];
+  let currentSection: { header: string | null; items: string[] } = { header: null, items: [] };
+  
+  items.forEach((item: any) => {
+    const action = typeof item === 'string' ? stripMarkdown(item) : stripMarkdown(item.action || item.recommendation || '');
+    
+    // Check if this is a header (starts with a number and period, or is a markdown header)
+    const headerMatch = action.match(/^(\d+)\.\s+(.+)/);
+    if (headerMatch) {
+      // Save current section if it has items
+      if (currentSection.items.length > 0 || currentSection.header) {
+        sections.push(currentSection);
+      }
+      currentSection = { header: headerMatch[2], items: [] };
+    } else if (action.startsWith('-') || action.startsWith('•')) {
+      // This is a sub-item
+      currentSection.items.push(action.replace(/^[-•]\s*/, ''));
+    } else if (action.trim()) {
+      // Regular item
+      if (currentSection.header) {
+        currentSection.items.push(action);
+      } else {
+        // No header yet, just add as item
+        currentSection.items.push(action);
+      }
+    }
+  });
+  
+  // Push the last section
+  if (currentSection.items.length > 0 || currentSection.header) {
+    sections.push(currentSection);
+  }
+  
+  // If we have sections with headers, render them grouped
+  if (sections.some(s => s.header)) {
+    return (
+      <div className="space-y-4">
+        {sections.map((section, idx) => (
+          <div key={idx}>
+            {section.header && (
+              <p className="font-semibold text-sm mb-2">{section.header}</p>
+            )}
+            {section.items.length > 0 && (
+              <ul className="space-y-1 ml-4">
+                {section.items.map((item, itemIdx) => (
+                  <li key={itemIdx} className="flex items-start gap-2 text-sm">
+                    <span className="text-primary mt-0.5">•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  
+  // Fallback: simple list
   return (
     <ul className="space-y-2">
       {items.map((item: any, idx: number) => {
-        const action = typeof item === 'string' ? item : item.action || item.recommendation || '';
+        const action = typeof item === 'string' ? stripMarkdown(item) : stripMarkdown(item.action || item.recommendation || '');
         const timeline = typeof item === 'object' ? item.timeline || item.deadline : null;
         
         return (
@@ -348,6 +454,7 @@ export function QPROReviewModal({
   const [rejectionReason, setRejectionReason] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('overview');
   const [editedKRAs, setEditedKRAs] = React.useState<{ [key: number]: string }>({});
+  const [editedKPIs, setEditedKPIs] = React.useState<{ [key: number]: string }>({});
   const [changedActivityIds, setChangedActivityIds] = React.useState<Set<number>>(new Set());
   const [isRegenerating, setIsRegenerating] = React.useState(false);
 
@@ -480,24 +587,56 @@ export function QPROReviewModal({
     const newChangedIds = new Set(changedActivityIds);
     newChangedIds.add(activityIndex);
     setChangedActivityIds(newChangedIds);
-
-    // Auto-regenerate insights when KRA is changed
-    if (data?.id) {
-      regenerateInsights(activityIndex, newKraId);
-    }
   };
 
-  const regenerateInsights = async (activityIndex: number, newKraId: string) => {
-    if (!data?.id) return;
+  const handleKPIChange = (activityIndex: number, newKpiId: string) => {
+    const newEditedKPIs = { ...editedKPIs };
+    newEditedKPIs[activityIndex] = newKpiId;
+    setEditedKPIs(newEditedKPIs);
+
+    // Auto-update target and achievement if selected KPI has different target value
+    const strategicPlan = require('@/src/data/strategic_plan.json');
+    const activity = data?.activities[activityIndex];
+    const selectedKra = strategicPlan.kras?.find((k: any) => k.kra_id === (editedKRAs[activityIndex] || activity?.kraId));
+    const selectedKPI = selectedKra?.initiatives?.find((kpi: any) => kpi.id === newKpiId);
+    
+    if (selectedKPI && data && activity) {
+      const currentYear = new Date().getFullYear();
+      const targetData = selectedKPI.targets?.timeline_data?.find((t: any) => t.year === currentYear);
+      const newTarget = targetData?.target_value ? parseInt(targetData.target_value) : activity.target;
+      
+      // Update activity with new target if different from current
+      if (newTarget !== activity.target) {
+        const updatedActivities = [...data.activities];
+        updatedActivities[activityIndex] = {
+          ...activity,
+          target: newTarget,
+          achievement: activity.reported ? (activity.reported / newTarget) * 100 : 0
+        };
+        setData({ ...data, activities: updatedActivities });
+      }
+    }
+
+    // Track that this activity has been changed
+    const newChangedIds = new Set(changedActivityIds);
+    newChangedIds.add(activityIndex);
+    setChangedActivityIds(newChangedIds);
+  };
+
+  const regenerateInsights = async () => {
+    if (!data?.id || changedActivityIds.size === 0) return;
     
     setIsRegenerating(true);
+    setError(null);
     try {
       const token = await AuthService.getAccessToken();
       
-      // Build activities array with the updated KRA
+      // Build activities array with all updated KRAs and KPIs
       const activitiesForRegen = data.activities.map((act, idx) => ({
         ...act,
-        kraId: idx === activityIndex ? newKraId : (editedKRAs[idx] || act.kraId),
+        kraId: editedKRAs[idx] || act.kraId,
+        initiativeId: editedKPIs[idx] || act.initiativeId, // Include selected KPI
+        userSelectedKPI: !!editedKPIs[idx], // Flag indicating user explicitly selected KPI
       }));
 
       const response = await fetch('/api/qpro/regenerate-insights', {
@@ -514,21 +653,72 @@ export function QPROReviewModal({
 
       if (!response.ok) {
         const result = await response.json();
-        console.error('Failed to regenerate insights:', result.error);
-        return;
+        throw new Error(result.error || 'Failed to regenerate insights');
       }
 
       const result = await response.json();
       
-      // Update the data with regenerated insights
+      // Update the data with regenerated insights - keep modal open for review
       if (result.activities && data) {
+        // Recalculate KRAs based on updated activities
+        const kraMap: { [key: string]: { activities: any[]; achievementRate: number; status: string } } = {};
+        
+        result.activities.forEach((activity: any) => {
+          const kraId = activity.kraId;
+          if (!kraMap[kraId]) {
+            kraMap[kraId] = { activities: [], achievementRate: 0, status: 'MISSED' };
+          }
+          kraMap[kraId].activities.push(activity);
+        });
+        
+        // Calculate achievement rates for each KRA
+        const updatedKRAs = data.kras.map((kra) => {
+          const kraData = kraMap[kra.kraId];
+          if (kraData) {
+            const achievements = kraData.activities.map((a) => a.achievement || 0);
+            const avgAchievement = achievements.length > 0
+              ? achievements.reduce((a, b) => a + b, 0) / achievements.length
+              : 0;
+            
+            // Determine status based on average achievement
+            let status = 'MISSED';
+            if (avgAchievement >= 100) {
+              status = 'EXCEEDED';
+            } else if (avgAchievement >= 80) {
+              status = 'MET';
+            } else if (avgAchievement >= 50) {
+              status = 'ON_TRACK';
+            }
+            
+            return {
+              ...kra,
+              achievementRate: avgAchievement,
+              status,
+            };
+          }
+          return kra;
+        });
+        
         setData({
           ...data,
           activities: result.activities,
+          kras: updatedKRAs,
+          achievementScore: result.overallAchievementScore || data.achievementScore,
+          gaps: result.gaps ? JSON.stringify(result.gaps) : data.gaps,
+          alignment: result.alignment || data.alignment,
+          opportunities: result.opportunities || data.opportunities,
+          recommendations: result.recommendations || data.recommendations,
         });
+        
+        // Reset the edited KRAs since they've been applied
+        setEditedKRAs({});
+        setChangedActivityIds(new Set());
+        
+        // Switch to insights tab so user can review the regenerated insights
+        setActiveTab('insights');
       }
     } catch (err) {
-      console.error('Error regenerating insights:', err);
+      setError(err instanceof Error ? err.message : 'Failed to regenerate insights');
     } finally {
       setIsRegenerating(false);
     }
@@ -537,6 +727,7 @@ export function QPROReviewModal({
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ReactNode }> = {
       MET: { variant: 'default', icon: <CheckCircle2 className="w-3 h-3" /> },
+      EXCEEDED: { variant: 'default', icon: <CheckCircle2 className="w-3 h-3" /> },
       ON_TRACK: { variant: 'secondary', icon: <TrendingUp className="w-3 h-3" /> },
       DELAYED: { variant: 'outline', icon: <AlertTriangle className="w-3 h-3" /> },
       AT_RISK: { variant: 'destructive', icon: <XCircle className="w-3 h-3" /> },
@@ -564,7 +755,7 @@ export function QPROReviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="w-[95vw] h-[95vh] max-w-[1400px] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
@@ -589,7 +780,7 @@ export function QPROReviewModal({
             </Button>
           </div>
         ) : data ? (
-          <ScrollArea className="h-[60vh] pr-4">
+          <ScrollArea className="flex-1 pr-4">
             {/* Header Summary */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <Card>
@@ -680,9 +871,27 @@ export function QPROReviewModal({
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <h4 className="font-medium">{activity.name}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            Initiative: {activity.initiativeId}
-                          </p>
+                          <div className="space-y-1 mt-1 text-xs">
+                            <p className="text-muted-foreground">
+                              <strong>KRA:</strong> {activity.kraId}
+                            </p>
+                            <p className="text-muted-foreground">
+                              <strong>KPI:</strong> {editedKPIs[index] || activity.initiativeId}
+                              {(() => {
+                                const strategicPlan = require('@/src/data/strategic_plan.json');
+                                const selectedKra = strategicPlan.kras?.find((k: any) => k.kra_id === activity.kraId);
+                                const selectedKPI = selectedKra?.initiatives?.find((kpi: any) => kpi.id === (editedKPIs[index] || activity.initiativeId));
+                                if (selectedKPI?.key_performance_indicator?.outputs) {
+                                  return (
+                                    <span className="text-muted-foreground italic block mt-0.5">
+                                      {`${selectedKPI.key_performance_indicator.outputs.substring(0, 60)}${selectedKPI.key_performance_indicator.outputs.length > 60 ? '...' : ''}`}
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </p>
+                          </div>
                         </div>
                         {activity.status && getStatusBadge(activity.status)}
                       </div>
@@ -714,6 +923,69 @@ export function QPROReviewModal({
                         )}
                       </div>
 
+                      {/* KPI/Initiative Selector (always shown) */}
+                      <div className={cn(
+                        "mb-3 p-3 rounded-lg border",
+                        editedKRAs[index] && editedKRAs[index] !== activity.kraId
+                          ? "bg-indigo-50 border-indigo-200"
+                          : "bg-slate-50 border-slate-200"
+                      )}>
+                        <Label className={cn(
+                          "text-sm font-semibold mb-2 block",
+                          editedKRAs[index] && editedKRAs[index] !== activity.kraId
+                            ? "text-indigo-800"
+                            : "text-slate-700"
+                        )}>
+                          KPI Selection
+                          {editedKRAs[index] && editedKRAs[index] !== activity.kraId && <span className="text-red-500"> *</span>}
+                        </Label>
+                        <Select
+                          value={editedKPIs[index] || activity.initiativeId || ''}
+                          onValueChange={(v) => handleKPIChange(index, v)}
+                        >
+                          <SelectTrigger className="h-10 text-sm bg-white">
+                            <SelectValue placeholder="Choose the appropriate KPI..." />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-80 w-[600px]">
+                            {/* Get available KPIs for the selected KRA from strategic plan */}
+                            {(() => {
+                              const strategicPlan = require('@/src/data/strategic_plan.json');
+                              const selectedKra = strategicPlan.kras?.find((k: any) => k.kra_id === (editedKRAs[index] || activity.kraId));
+                              const currentYear = new Date().getFullYear();
+                              return selectedKra?.initiatives?.map((kpi: any) => {
+                                const outputs = kpi.key_performance_indicator?.outputs || kpi.description || '';
+                                const targetData = kpi.targets?.timeline_data?.find((t: any) => t.year === currentYear);
+                                const targetValue = targetData?.target_value || 'N/A';
+                                const targetType = kpi.targets?.type || 'count';
+                                
+                                return (
+                                  <SelectItem key={kpi.id} value={kpi.id} className="py-3 cursor-pointer">
+                                    <div className="flex flex-col gap-1 max-w-[550px]">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-indigo-700">{kpi.id}</span>
+                                        <Badge variant="outline" className="text-xs px-1.5 py-0">
+                                          Target: {typeof targetValue === 'number' ? targetValue : targetValue} ({targetType})
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              }) || [];
+                            })()}
+                          </SelectContent>
+                        </Select>
+                        {!editedKRAs[index] && (
+                          <p className="text-xs text-slate-500 mt-2">
+                            💡 Current KPI: {activity.initiativeId}
+                          </p>
+                        )}
+                        {editedKRAs[index] && editedKRAs[index] !== activity.kraId && (
+                          <p className="text-xs text-indigo-600 mt-2">
+                            💡 Review the Output and Target for each KPI to find the best match for this activity.
+                          </p>
+                        )}
+                      </div>
+
                       <div className="grid grid-cols-3 gap-4 my-3 text-sm">
                         <div>
                           <span className="text-muted-foreground">Reported:</span>
@@ -725,10 +997,13 @@ export function QPROReviewModal({
                         </div>
                         <div>
                           <span className="text-muted-foreground">Achievement:</span>
-                          <span className="ml-1 font-medium">
-                            {(activity.achievement || 0) > 200 
-                              ? 'Exceeded' 
-                              : `${activity.achievement?.toFixed(1) || 0}%`}
+                          <span className={cn(
+                            "ml-1 font-medium",
+                            (activity.achievement || 0) >= 100 ? "text-green-600" : "text-red-600"
+                          )}>
+                            {activity.status === 'EXCEEDED' || (activity.achievement || 0) > 100
+                              ? `${(activity.achievement || 0).toFixed(1)}% (Exceeded)`
+                              : `${(activity.achievement || 0).toFixed(1)}%`}
                           </span>
                         </div>
                       </div>
@@ -760,27 +1035,36 @@ export function QPROReviewModal({
                 
                 {/* Regenerate Insights Button */}
                 {changedActivityIds.size > 0 && (
-                  <div className="flex gap-2 pt-4 border-t">
+                  <div className="flex gap-3 pt-4 border-t">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={regenerateInsights}
+                      disabled={isRegenerating}
+                    >
+                      {isRegenerating ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                          Regenerating...
+                        </>
+                      ) : (
+                        'Regenerate Insights'
+                      )}
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
                         setEditedKRAs({});
+                        setEditedKPIs({});
                         setChangedActivityIds(new Set());
                       }}
                       disabled={isRegenerating}
                     >
-                      Clear Changes
+                      Cancel
                     </Button>
-                    <div className="text-xs text-muted-foreground flex items-center">
-                      {isRegenerating ? (
-                        <>
-                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                          Regenerating insights...
-                        </>
-                      ) : (
-                        `${changedActivityIds.size} KRA change${changedActivityIds.size > 1 ? 's' : ''} pending. Insights auto-regenerated.`
-                      )}
+                    <div className="text-xs text-muted-foreground flex items-center ml-auto">
+                      {changedActivityIds.size} change{changedActivityIds.size > 1 ? 's' : ''} pending
                     </div>
                   </div>
                 )}
@@ -803,64 +1087,70 @@ export function QPROReviewModal({
                   </Card>
                 )}
 
-                {/* AI-Generated Insights per Activity */}
-                {data.activities.some(a => a.aiInsight || a.prescriptiveAnalysis) && (
+                {/* Document-Level AI Insights Summary */}
+                {(data.activities.some(a => a.aiInsight || a.prescriptiveAnalysis) || 
+                  data.activities.some(a => a.prescriptiveNote)) && (
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center gap-2">
                         <Lightbulb className="w-4 h-4 text-amber-500" />
-                        AI Document Insights
+                        Document-Level AI Analysis Summary
                       </CardTitle>
                       <p className="text-xs text-muted-foreground">
-                        Intelligent analysis of document performance against strategic targets
+                        Aggregated intelligent analysis across all activities in this document
                       </p>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      {data.activities
-                        .filter(a => a.aiInsight || a.prescriptiveAnalysis || a.rootCause)
-                        .map((activity, idx) => {
-                          const isMissed = activity.status === 'MISSED' || (activity.achievement && activity.achievement < 100);
-                          return (
-                            <div key={idx} className={cn(
-                              "p-3 rounded-lg border",
-                              isMissed ? "border-red-200 bg-red-50/50" : "border-green-200 bg-green-50/50"
-                            )}>
-                              <div className="flex items-start justify-between mb-2">
-                                <h5 className="font-medium text-sm">{activity.name}</h5>
-                                <Badge 
-                                  variant={isMissed ? "destructive" : "default"} 
-                                  className="text-xs"
-                                >
-                                  {(activity.achievement || 0) > 200 
-                                    ? 'Exceeded Target' 
-                                    : `${Math.min(activity.achievement || 0, 200).toFixed(0)}% achieved`}
-                                </Badge>
-                              </div>
-                              
-                              {activity.aiInsight && (
-                                <div className="mb-2">
-                                  <p className="text-sm text-muted-foreground italic">
+                    <CardContent className="space-y-6">
+                      {/* Prescriptive Analysis from LLM */}
+                      {data.activities.some(a => a.prescriptiveAnalysis || a.prescriptiveNote) && (
+                        <div>
+                          <h5 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                            Prescriptive Analysis
+                          </h5>
+                          <div className="space-y-2 ml-4">
+                            {data.activities
+                              .filter(a => a.prescriptiveAnalysis || a.prescriptiveNote)
+                              .map((activity, idx) => {
+                                const analysis = activity.prescriptiveAnalysis || activity.prescriptiveNote;
+                                return (
+                                  <div key={idx} className="pb-3 border-b border-slate-200 last:border-b-0">
+                                    <p className="text-xs font-medium text-slate-600 mb-1">
+                                      {activity.name}
+                                    </p>
+                                    <p className="text-sm text-slate-700">
+                                      {safeRenderItem(analysis)}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Document Insights from LLM */}
+                      {data.activities.some(a => a.aiInsight) && (
+                        <div>
+                          <h5 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                            Document Insights
+                          </h5>
+                          <div className="space-y-2 ml-4">
+                            {data.activities
+                              .filter(a => a.aiInsight)
+                              .map((activity, idx) => (
+                                <div key={idx} className="pb-3 border-b border-slate-200 last:border-b-0">
+                                  <p className="text-xs font-medium text-slate-600 mb-1">
+                                    {activity.name}
+                                  </p>
+                                  <p className="text-sm italic text-slate-600">
                                     &ldquo;{safeRenderItem(activity.aiInsight)}&rdquo;
                                   </p>
                                 </div>
-                              )}
-                              
-                              {activity.prescriptiveAnalysis && (
-                                <div className="mb-2">
-                                  <span className="text-xs font-medium text-muted-foreground">Analysis: </span>
-                                  <span className="text-sm">{safeRenderItem(activity.prescriptiveAnalysis)}</span>
-                                </div>
-                              )}
-                              
-                              {activity.rootCause && isMissed && (
-                                <div className="mt-2 pt-2 border-t border-red-200">
-                                  <span className="text-xs font-medium text-red-700">Root Cause: </span>
-                                  <span className="text-sm text-red-600">{safeRenderItem(activity.rootCause)}</span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                              ))}
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -962,21 +1252,6 @@ export function QPROReviewModal({
                     </CardHeader>
                     <CardContent>
                       {renderRecommendationsList(data.recommendations)}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Identified Gaps */}
-                {data.gaps && (
-                  <Card className="border-red-200">
-                    <CardHeader className="pb-2 bg-red-50">
-                      <CardTitle className="text-base text-destructive flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4" />
-                        Performance Gaps
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-4">
-                      {renderGapsList(data.gaps)}
                     </CardContent>
                   </Card>
                 )}

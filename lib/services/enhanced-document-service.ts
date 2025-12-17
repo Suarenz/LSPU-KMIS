@@ -7,7 +7,7 @@ const colivaraService = new ColivaraService();
 class EnhancedDocumentService {
   /**
    * Get all documents with optional filtering and pagination
-   * Enhanced with unit filtering capabilities
+   * Enhanced with unit, year, quarter filtering capabilities
    */
   async getDocuments(
     page: number = 1,
@@ -17,7 +17,9 @@ class EnhancedDocumentService {
     userId?: string,
     sort?: string,
     order: 'asc' | 'desc' = 'desc',
-    unitId?: string // NEW: Filter by unit
+    unitId?: string, // NEW: Filter by unit
+    year?: number, // NEW: Filter by reporting year
+    quarter?: number // NEW: Filter by reporting quarter
   ): Promise<{ documents: Document[]; total: number }> {
     const skip = (page - 1) * limit;
     
@@ -34,6 +36,16 @@ class EnhancedDocumentService {
     // Add unit filter if provided
     if (unitId) {
       whereClause.unitId = unitId; // Using the new field name that was renamed from departmentId
+    }
+
+    // Add year filter if provided
+    if (year) {
+      whereClause.year = year;
+    }
+
+    // Add quarter filter if provided
+    if (quarter) {
+      whereClause.quarter = quarter;
     }
 
     // Add search filter if provided
@@ -59,7 +71,7 @@ class EnhancedDocumentService {
     // If user is not admin, only show documents they have access to
     if (userId) {
       // First, try to find the user by the provided userId (which might be the database ID)
-      let user = await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
       });
 
@@ -108,6 +120,9 @@ class EnhancedDocumentService {
           ...doc,
           tags: Array.isArray(doc.tags) ? doc.tags as string[] : [],
           unitId: doc.unitId ?? undefined,
+          year: doc.year ?? undefined,
+          quarter: doc.quarter ?? undefined,
+          isQproDocument: doc.isQproDocument ?? false,
           versionNotes: doc.versionNotes ?? undefined, // Convert null to undefined
           uploadedBy: doc.uploadedByUser?.name || doc.uploadedBy,
           status: doc.status as 'ACTIVE' | 'ARCHIVED' | 'PENDING_REVIEW', // Ensure proper type
@@ -157,7 +172,7 @@ class EnhancedDocumentService {
       // Check if user has access to the document
       if (userId) {
         // First, try to find the user by the provided userId (which might be the database ID)
-        let user = await prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
           where: { id: userId },
         });
 
@@ -203,6 +218,9 @@ class EnhancedDocumentService {
         createdAt: new Date(document.createdAt),
         updatedAt: new Date(document.updatedAt),
         unitId: document.unitId || undefined, // Convert null to undefined
+        year: document.year ?? undefined,
+        quarter: document.quarter ?? undefined,
+        isQproDocument: document.isQproDocument ?? false,
         unit: document.documentUnit ? {
           id: document.documentUnit.id,
           name: document.documentUnit.name,
@@ -225,7 +243,7 @@ class EnhancedDocumentService {
 
   /**
    * Create a new document
-   * Enhanced with unit assignment
+   * Enhanced with unit assignment and QPRO support (year, quarter)
    */
   async createDocument(
     title: string,
@@ -239,7 +257,12 @@ class EnhancedDocumentService {
     fileSize: number,
     userId: string,
     unitId?: string, // NEW: Unit assignment
-    base64Content?: string // NEW: Base64 content for Colivara processing
+    base64Content?: string, // NEW: Base64 content for Colivara processing
+    options?: {
+      year?: number; // Reporting year for QPRO documents (2025-2029)
+      quarter?: number; // Reporting quarter for QPRO documents (1-4)
+      isQproDocument?: boolean; // Flag for QPRO documents
+    }
   ): Promise<Document> {
     try {
       console.log('Creating document in database...', {
@@ -264,7 +287,7 @@ class EnhancedDocumentService {
       console.log('Attempting to find user with ID:', userId);
       
       // First, try to find user by the provided userId (which might be the database ID)
-      let user = await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
       });
 
@@ -295,6 +318,9 @@ class EnhancedDocumentService {
           fileType,
           fileSize,
           unitId: unitId || null, // NEW: Assign unitId if provided
+          year: options?.year || null, // NEW: Reporting year for QPRO documents
+          quarter: options?.quarter || null, // NEW: Reporting quarter for QPRO documents
+          isQproDocument: options?.isQproDocument || false, // NEW: Flag for QPRO documents
           status: 'ACTIVE',
           colivaraProcessingStatus: 'PENDING', // Set initial processing status to PENDING
         },
@@ -355,6 +381,9 @@ class EnhancedDocumentService {
         createdAt: new Date(finalDocument.createdAt),
         updatedAt: new Date(finalDocument.updatedAt),
         unitId: finalDocument.unitId ?? undefined,
+        year: finalDocument.year ?? undefined,
+        quarter: finalDocument.quarter ?? undefined,
+        isQproDocument: finalDocument.isQproDocument ?? false,
         unit: finalDocument.documentUnit ? {
           id: finalDocument.documentUnit.id,
           name: finalDocument.documentUnit.name,
@@ -536,7 +565,7 @@ class EnhancedDocumentService {
     // If user is not admin, only show documents they have access to
     if (userId) {
       // First, try to find the user by the provided userId (which might be the database ID)
-      let user = await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
       });
 

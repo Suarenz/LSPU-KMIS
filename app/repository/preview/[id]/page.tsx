@@ -7,12 +7,12 @@ import { Navbar } from '@/components/navbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, FileText, RotateCcw, X } from 'lucide-react';
+import { Download, Eye, FileText, RotateCcw, X, TrendingUp, Lightbulb, Target, AlertTriangle, CheckCircle2, Zap } from 'lucide-react';
 import { ClientOnly } from '@/components/client-only-wrapper';
 import { useToast } from '@/components/ui/use-toast';
 import { Document } from '@/lib/api/types';
 import AuthService from '@/lib/services/auth-service';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Loader2 } from 'lucide-react';
 
 export default function DocumentPreviewPage() {
   const { id } = useParams();
@@ -24,6 +24,8 @@ export default function DocumentPreviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [qproAnalysis, setQproAnalysis] = useState<any>(null);
+  const [loadingQpro, setLoadingQpro] = useState(false);
 
  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -80,6 +82,9 @@ export default function DocumentPreviewPage() {
         const data = await response.json();
         setDocument(data);
         setPdfUrl(data.previewUrl);
+        
+        // Fetch QPRO analysis if it exists
+        fetchQproAnalysis(data.id);
       } catch (err) {
         console.error('Error fetching document preview:', err);
         const errorMessage = err instanceof Error ? err.message : 'Failed to load document preview. Please try again later.';
@@ -96,6 +101,33 @@ export default function DocumentPreviewPage() {
 
     fetchDocumentPreview();
   }, [id, isAuthenticated, isLoading, user]);
+
+  const fetchQproAnalysis = async (documentId: string) => {
+    try {
+      setLoadingQpro(true);
+      const token = await AuthService.getAccessToken();
+      if (!token) return;
+
+      const response = await fetch(`/api/qpro/by-document/${documentId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.analysis) {
+          setQproAnalysis(data.analysis);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching QPRO analysis:', err);
+      // Silently fail - it's okay if no QPRO analysis exists
+    } finally {
+      setLoadingQpro(false);
+    }
+  };
 
   const handleDownload = async () => {
     if (!document) return;
@@ -268,7 +300,31 @@ export default function DocumentPreviewPage() {
         </div>
       );
     } else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].some(type => fileType.includes(type))) {
-      // For Office documents, use Google Docs Viewer
+      // For Office documents, use preview URL directly if it's from Supabase
+      // Otherwise fall back to Google Docs Viewer
+      if (pdfUrl && (pdfUrl.includes('supabase') || pdfUrl.includes('http'))) {
+        return (
+          <div className="flex-1 bg-background flex flex-col items-center justify-center">
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full min-h-[70vh]"
+              style={{ height: 'calc(100vh - 200px)' }}
+              title={`Preview of ${document.title}`}
+              allow="autoplay; encrypted-media"
+            />
+            <div className="mt-4 text-center w-full">
+              <p className="text-sm text-muted-foreground">
+                {`If you see a 'BlobNotFound' or blank error above, the file may have been deleted or the link has expired.`}
+              </p>
+              <p className="text-sm text-destructive">
+                If the document does not load, please re-upload the file or contact your administrator.
+              </p>
+            </div>
+          </div>
+        );
+      }
+      
+      // Fallback to Google Docs Viewer if URL not suitable for direct embed
       const encodedUrl = encodeURIComponent(pdfUrl);
       const externalViewerUrl = `https://docs.google.com/gview?url=${encodedUrl}&embedded=true`;
       
@@ -356,6 +412,16 @@ export default function DocumentPreviewPage() {
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download
+                </Button>
+              )}
+              {qproAnalysis && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/qpro/analysis/${qproAnalysis.id}`)}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Analysis
                 </Button>
               )}
             </div>

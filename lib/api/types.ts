@@ -22,6 +22,9 @@ export interface Document {
   updatedAt: Date;
   unitId?: string;  // NEW: Unit association
   unit?: Unit; // NEW: Unit information
+  year?: number; // Reporting year (2025-2029) for QPRO documents
+  quarter?: number; // Reporting quarter (1-4) for QPRO documents
+  isQproDocument?: boolean; // Flag for QPRO documents
   // Colivara-specific fields
   colivaraDocumentId?: string;
   colivaraProcessingStatus?: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';

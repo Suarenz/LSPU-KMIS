@@ -61,6 +61,17 @@ class QwenGenerationService {
       },
     };
 
+    // Enforce a safe cap for gpt-4o-mini / 4o models to avoid excessive outputs
+    try {
+      const GPT4O_MINI_MAX_OUTPUT = 4096;
+      if (this.config.model && this.config.model.includes('4o')) {
+        this.config.generationConfig = this.config.generationConfig || {};
+        this.config.generationConfig.maxOutputTokens = Math.min(this.config.generationConfig.maxOutputTokens || GPT4O_MINI_MAX_OUTPUT, GPT4O_MINI_MAX_OUTPUT);
+      }
+    } catch (e) {
+      // ignore errors here - defensive programming
+    }
+
     this.openai = new OpenAI({
       apiKey: this.config.apiKey,
       baseURL: this.config.baseURL,

@@ -8,8 +8,10 @@ import { Navbar } from "@/components/navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Document, Unit } from "@/lib/api/types";
-import { Download, Eye, FileText, Building2, ChevronLeft, ChevronRight, Upload, Trash2 } from "lucide-react";
+import { Download, Eye, FileText, Building2, ChevronLeft, ChevronRight, Upload, Trash2, Calendar, FolderOpen } from "lucide-react";
 import Image from "next/image";
 import { ClientOnly } from "@/components/client-only-wrapper";
 import { useToast } from "@/components/ui/use-toast";
@@ -38,6 +40,12 @@ export default function UnitPage() {
  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [deletionSuccessMessage, setDeletionSuccessMessage] = useState<string | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null); // Track which document is being deleted
+
+  // Year and Quarter filter state for QPRO document organization
+  const [selectedYear, setSelectedYear] = useState<number | null>(null); // null means show all
+  const [selectedQuarter, setSelectedQuarter] = useState<number | null>(null); // null means show all
+  const years = [2025, 2026, 2027, 2028, 2029];
+  const quarters = [1, 2, 3, 4];
 
  // Determine if user can upload (roles are uppercase as per database enum)
  const canUpload = user?.role === "ADMIN" || user?.role === "FACULTY";
@@ -134,8 +142,13 @@ export default function UnitPage() {
         const unitData = await unitResponse.json();
         setUnit(unitData.unit);
 
-        // Fetch all documents for this unit (not just admin documents)
-        const docsResponse = await fetch(`/api/documents?unit=${unitId}`, {
+        // Build query params for documents including year/quarter filters
+        const queryParams = new URLSearchParams({ unit: unitId });
+        if (selectedYear) queryParams.append('year', selectedYear.toString());
+        if (selectedQuarter) queryParams.append('quarter', selectedQuarter.toString());
+
+        // Fetch all documents for this unit (with optional year/quarter filters)
+        const docsResponse = await fetch(`/api/documents?${queryParams.toString()}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -159,9 +172,8 @@ export default function UnitPage() {
         setLoading(false);
       }
     };
-
     fetchUnitData();
-  }, [unitId, isAuthenticated, isLoading, user]);
+  }, [unitId, isAuthenticated, isLoading, user, selectedYear, selectedQuarter]);
 
   // Effect to handle page visibility changes
   useEffect(() => {
@@ -344,6 +356,8 @@ export default function UnitPage() {
                       </h1>
                       <p className="text-muted-foreground">
                         All documents for {unit?.name || 'this unit'}
+                        {selectedYear && ` • ${selectedYear}`}
+                        {selectedQuarter && ` Q${selectedQuarter}`}
                       </p>
                     </div>
                   </div>
@@ -368,6 +382,71 @@ export default function UnitPage() {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Year and Quarter Filter Bar for QPRO Documents */}
+              <div className="mb-6 animate-fade-in">
+                <Card className="p-4">
+                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Filter by Period:</span>
+                    </div>
+                    
+                    {/* Year Selector */}
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-muted-foreground whitespace-nowrap">Year:</label>
+                      <Select 
+                        value={selectedYear?.toString() || "all"} 
+                        onValueChange={(val) => setSelectedYear(val === "all" ? null : parseInt(val))}
+                      >
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue placeholder="All Years" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Years</SelectItem>
+                          {years.map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Quarter Tabs */}
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-muted-foreground whitespace-nowrap">Quarter:</label>
+                      <Tabs 
+                        value={selectedQuarter?.toString() || "all"} 
+                        onValueChange={(val) => setSelectedQuarter(val === "all" ? null : parseInt(val))}
+                      >
+                        <TabsList>
+                          <TabsTrigger value="all" className="px-3">All</TabsTrigger>
+                          {quarters.map((q) => (
+                            <TabsTrigger key={q} value={q.toString()} className="px-3">
+                              Q{q}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                      </Tabs>
+                    </div>
+
+                    {/* Clear filters button */}
+                    {(selectedYear || selectedQuarter) && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedYear(null);
+                          setSelectedQuarter(null);
+                        }}
+                      >
+                        Clear Filters
+                      </Button>
+                    )}
+                  </div>
+                </Card>
               </div>
 
               {/* Deletion Success Message */}
@@ -419,9 +498,16 @@ export default function UnitPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-foreground line-clamp-2 mb-1">{doc.title}</h3>
-                              <Badge variant="secondary" className="text-xs px-2 py-1">
-                                {doc.category}
-                              </Badge>
+                              <div className="flex flex-wrap gap-1">
+                                <Badge variant="secondary" className="text-xs px-2 py-1">
+                                  {doc.category}
+                                </Badge>
+                                {doc.isQproDocument && doc.year && doc.quarter && (
+                                  <Badge variant="outline" className="text-xs px-2 py-1 bg-blue-50 text-blue-700 border-blue-200">
+                                    Q{doc.quarter} {doc.year}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>

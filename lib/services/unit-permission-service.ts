@@ -14,7 +14,7 @@ class UnitPermissionService {
   ): Promise<boolean> {
     try {
       // First, try to find the user by the provided userId (which should be the database ID)
-      let user = await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
       });
 
@@ -73,7 +73,7 @@ class UnitPermissionService {
       }
 
       // For target user, only check database ID
-      let targetUser = await prisma.user.findUnique({
+      const targetUser = await prisma.user.findUnique({
         where: { id: targetUserId },
       });
 
@@ -112,7 +112,7 @@ class UnitPermissionService {
       }
 
       // For target user, only check database ID
-      let targetUser = await prisma.user.findUnique({
+      const targetUser = await prisma.user.findUnique({
         where: { id: targetUserId },
       });
 
@@ -141,7 +141,7 @@ class UnitPermissionService {
   ): Promise<PermissionLevel | null> {
     try {
       // First, try to find the user by the provided userId (which might be the database ID)
-      let user = await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
       });
 
@@ -183,7 +183,7 @@ class UnitPermissionService {
   ): Promise<{ unitId: string; permission: PermissionLevel }[]> {
     try {
       // First, try to find the user by the provided userId (which might be the database ID)
-      let user = await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
       });
 

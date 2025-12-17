@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { Loader2, Target, TrendingUp, CheckCircle2, AlertCircle, Clock } from "lucide-react"
+import { Loader2, Target, CheckCircle2, AlertCircle, Clock } from "lucide-react"
 import strategicPlan from "@/strategic_plan.json"
 import AuthService from "@/lib/services/auth-service"
 
@@ -73,9 +74,9 @@ const KRA_COLORS: { [key: string]: string } = {
 }
 
 export function TargetBoardPanel({ year, quarter, unitId, unitName, refreshTrigger }: TargetBoardPanelProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null)
-  const [showAllKRAs, setShowAllKRAs] = useState(false)
 
   useEffect(() => {
     const fetchAnalysis = async () => {
@@ -184,42 +185,10 @@ export function TargetBoardPanel({ year, quarter, unitId, unitName, refreshTrigg
   }
 
   const kras = strategicPlan.kras as KRA[];
-  const normalizedUnitName = normalizeUnitName(unitName);
-  console.log("[TargetBoard] Filtering KRAs for unit:", unitName, "(normalized:", normalizedUnitName, ")");
-  const relevantKRAs = showAllKRAs
-    ? kras
-    : (unitName
-      ? kras.filter(kra => {
-          return kra.initiatives.some(initiative => {
-            if (!initiative.responsible_offices) return false;
-            const match = initiative.responsible_offices.some(office => {
-              const normalizedOffice = normalizeUnitName(office);
-              const isMatch = normalizedOffice === normalizedUnitName;
-              if (isMatch) {
-                console.log(`[TargetBoard] Matched office: '${office}' (normalized: '${normalizedOffice}') to unit: '${unitName}' (normalized: '${normalizedUnitName}') in KRA: '${kra.kra_id}'`);
-              }
-              return isMatch;
-            });
-            return match;
-          });
-        })
-      : kras);
+  const relevantKRAs = kras;
 
   return (
     <div className="space-y-4">
-      {/* Show All KRAs Toggle */}
-      <div className="flex items-center mb-2">
-        <input
-          type="checkbox"
-          id="showAllKRAs"
-          checked={showAllKRAs}
-          onChange={e => setShowAllKRAs(e.target.checked)}
-          className="mr-2 accent-primary"
-        />
-        <label htmlFor="showAllKRAs" className="text-sm font-medium cursor-pointer">
-          Show all KRAs
-        </label>
-      </div>
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold flex items-center gap-2">
           <Target className="w-6 h-6 text-primary" />
@@ -235,69 +204,38 @@ export function TargetBoardPanel({ year, quarter, unitId, unitName, refreshTrigg
       {/* Objective Cards */}
       <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
         {relevantKRAs.map((kra, index) => {
-          const firstInitiative = kra.initiatives[0]
-          const targetData = firstInitiative?.targets?.timeline_data?.find(
-            (t) => t.year === year
-          )
           const status = getStatusForKRA(kra.kra_id)
 
           return (
-            <Card
-              key={`${kra.kra_id}-${index}`}
-              className={`p-4 border-l-4 ${getStatusBorderColor(status)} hover:shadow-md transition-shadow`}
-            >
-              <div className="space-y-3">
-                {/* Header with KRA Badge */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-1">
-                    <Badge className={`${KRA_COLORS[kra.kra_id]} text-white`}>
-                      {kra.kra_id}
-                    </Badge>
-                    <h3 className="font-semibold text-sm line-clamp-2">{kra.kra_title}</h3>
-                  </div>
-                  {getStatusIcon(status)}
-                </div>
-
-                {/* Target */}
-                <div className="bg-muted/50 p-3 rounded-md">
-                  <div className="flex items-start gap-2">
-                    <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">
-                        Target for {year}:
-                      </p>
-                      <p className="text-sm font-semibold">
-                        {targetData?.target_value || "See strategic plan"}
-                      </p>
-                      {firstInitiative?.key_performance_indicator?.outputs && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {firstInitiative.key_performance_indicator.outputs}
-                        </p>
-                      )}
+            <div key={`${kra.kra_id}-${index}`}>
+              <Card
+                className={`p-4 border-l-4 ${getStatusBorderColor(status)} hover:shadow-md transition-shadow cursor-pointer`}
+                onClick={() => router.push(`/qpro/kra/${kra.kra_id}`)}
+              >
+                <div className="space-y-3">
+                  {/* Header with KRA Badge and Expand Button */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <Badge className={`${KRA_COLORS[kra.kra_id]} text-white`}>
+                        {kra.kra_id}
+                      </Badge>
+                      <h3 className="font-semibold text-sm line-clamp-2">{kra.kra_title}</h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(status)}
                     </div>
                   </div>
+
+                  {/* Guiding Principle */}
+                  {kra.guiding_principle && (
+                    <div className="text-xs text-muted-foreground border-l-2 border-primary pl-3">
+                      <span className="font-medium">Guiding Principle: </span>
+                      {kra.guiding_principle}
+                    </div>
+                  )}
                 </div>
-
-                {/* Strategy Hint */}
-                {firstInitiative?.strategies && firstInitiative.strategies.length > 0 && (
-                  <div className="text-xs text-muted-foreground border-l-2 border-primary pl-3">
-                    <span className="font-medium">Strategy: </span>
-                    {firstInitiative.strategies[0]}
-                  </div>
-                )}
-
-                {/* Responsible Office */}
-                {firstInitiative?.responsible_offices && firstInitiative.responsible_offices.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {firstInitiative.responsible_offices.slice(0, 2).map((office, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs">
-                        {office}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
+              </Card>
+            </div>
           )
         })}
       </div>

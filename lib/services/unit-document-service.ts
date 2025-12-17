@@ -56,7 +56,7 @@ class UnitDocumentService {
     // If user is not admin, only show documents they have access to
     if (userId) {
       // First, try to find the user by the provided userId (which might be the database ID)
-      let user = await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
       });
 
@@ -132,7 +132,7 @@ class UnitDocumentService {
       // Check if user has access to the document
       if (userId) {
         // First, try to find the user by the provided userId (which might be the database ID)
-        let user = await prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
           where: { id: userId },
         });
 
@@ -162,6 +162,8 @@ class UnitDocumentService {
       return {
         ...document,
         tags: Array.isArray(document.tags) ? document.tags as string[] : [],
+        year: document.year ?? undefined,
+        quarter: document.quarter ?? undefined,
         unitId: (document as any).unitId ?? undefined, // Using the new unitId field
         versionNotes: document.versionNotes ?? undefined, // Convert null to undefined
         uploadedAt: new Date(document.uploadedAt),
@@ -271,6 +273,8 @@ class UnitDocumentService {
       return {
         ...updatedDoc,
         tags: Array.isArray(updatedDoc.tags) ? updatedDoc.tags as string[] : [],
+        year: updatedDoc.year ?? undefined,
+        quarter: updatedDoc.quarter ?? undefined,
         unitId: (updatedDoc as any).unitId ?? undefined,
         versionNotes: updatedDoc.versionNotes ?? undefined, // Convert null to undefined
         uploadedAt: new Date(updatedDoc.uploadedAt),
@@ -375,6 +379,8 @@ class UnitDocumentService {
       return {
         ...finalDocument,
         tags: Array.isArray(finalDocument.tags) ? finalDocument.tags as string[] : [],
+        year: finalDocument.year ?? undefined,
+        quarter: finalDocument.quarter ?? undefined,
         unitId: (finalDocument as any).unitId ?? undefined,
         versionNotes: finalDocument.versionNotes ?? undefined, // Convert null to undefined
         uploadedAt: new Date(finalDocument.uploadedAt),

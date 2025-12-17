@@ -511,7 +511,7 @@ class DatabaseAuthService {
 
   async updatePassword(newPassword: string) {
     try {
-      let token = await this.getAccessToken();
+      const token = await this.getAccessToken();
       if (!token) {
         return { error: 'User not authenticated' };
       }
@@ -659,7 +659,7 @@ class DatabaseAuthService {
         return cachedSession;
       }
 
-      let token = await this.getAccessToken();
+      const token = await this.getAccessToken();
       
       if (!token) {
         // If no token is available, check if user is authenticated before throwing error

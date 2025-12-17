@@ -6,6 +6,7 @@ import { strategicPlanService } from '@/lib/services/strategic-plan-service';
 import { BlobServiceClient } from '@azure/storage-blob';
 import { PrismaClient } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import { computeAggregatedAchievement, getInitiativeTargetMeta } from '@/lib/utils/qpro-aggregation';
 
 const prisma = new PrismaClient();
 
@@ -92,12 +93,13 @@ export async function POST(request: NextRequest) {
     console.log('[QPRO-WITH-AGGREGATION] File uploaded successfully to:', blobName);
 
     // Step 2: Create Document record in database (required for foreign key)
+    // The document is also added to the repository section for proper document organization
     const documentId = uuidv4();
     const document = await prisma.document.create({
       data: {
         id: documentId,
         title: documentTitle,
-        description: `QPRO document uploaded by ${user.name || user.email}`,
+        description: `QPRO document uploaded by ${user.name || user.email} for Q${quarter} ${year}`,
         category: 'QPRO',
         tags: [],
         uploadedBy: user.name || user.email,
@@ -107,9 +109,12 @@ export async function POST(request: NextRequest) {
         fileType: file.type,
         fileSize: file.size,
         unitId: unitId || user.unitId || null,
+        year: year, // Reporting year (2025-2029)
+        quarter: quarter, // Reporting quarter (1-4)
+        isQproDocument: true, // Flag for QPRO documents
       }
     });
-    console.log('[QPRO-WITH-AGGREGATION] Document record created:', documentId);
+    console.log('[QPRO-WITH-AGGREGATION] Document record created:', documentId, `for Q${quarter} ${year} in unit:`, unitId || user.unitId);
 
     // Step 3: Create QPRO analysis with aggregation calculation
     const qproAnalysis = await qproAnalysisService.createQPROAnalysis({
@@ -121,6 +126,13 @@ export async function POST(request: NextRequest) {
       unitId: unitId || undefined,
       year,
       quarter,
+    });
+
+    console.log('[QPRO-WITH-AGGREGATION] QPROAnalysis created:', {
+      id: qproAnalysis.id,
+      documentId: qproAnalysis.documentId,
+      documentTitle: qproAnalysis.documentTitle,
+      hasKras: !!qproAnalysis.kras,
     });
 
     // Step 4: Get calculated aggregation metrics for dashboard display
@@ -159,13 +171,31 @@ export async function POST(request: NextRequest) {
         'QPRO analysis completed with aggregation metrics calculated and dashboard ready for display',
     };
 
+    console.log('[QPRO-WITH-AGGREGATION] Response about to be sent:', {
+      success: response.success,
+      analysisId: response.analysis.id,
+      hasAggregation: !!response.aggregation,
+    });
+
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error('Error in QPRO with aggregation:', error);
+    console.error('========== ERROR IN QPRO WITH AGGREGATION ==========');
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Full error:', error);
+    if (error instanceof Error && error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
+    console.error('====================================================');
+    
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorDetails = error instanceof Error ? error.message : 'Unknown error occurred';
+    
     return NextResponse.json(
       {
         error: 'Failed to process QPRO analysis',
-        details: (error as Error).message,
+        details: errorDetails,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
       },
       { status: 500 }
     );
@@ -181,6 +211,8 @@ async function getAggregationMetricsForDisplay(
   quarter: number
 ) {
   try {
+    const plan = await strategicPlanService.getStrategicPlan();
+
     const byKra: any[] = [];
     let totalKRAs = 0;
     let metKRAs = 0;
@@ -188,8 +220,8 @@ async function getAggregationMetricsForDisplay(
     let onTrackKRAs = 0;
     let totalAchievement = 0;
 
-    // Process each KRA to calculate aggregation
-    // The KRAs already have achievement data from the analysis service
+    // Process each KRA to calculate aggregation.
+    // IMPORTANT: derive a SINGLE target per KPI from the strategic plan (do not sum per-activity targets).
     for (const kra of kras || []) {
       const kraId = kra.kraId || kra.kra_id;
       const kraTitle = kra.kraTitle || kra.kra_title || 'Unknown';
@@ -197,30 +229,46 @@ async function getAggregationMetricsForDisplay(
       if (!kraId) continue;
 
       try {
-        // Get achievement rate from the KRA summary
-        // This is already calculated by the analysis engine
-        const achievementRate = kra.achievementRate || 0;
-        
-        // Get activities for this KRA to sum reported values
-        const activities = kra.activities || [];
-        const totalReported = activities.reduce((sum: number, act: any) => {
-          const reported = typeof act.reported === 'number' ? act.reported : 0;
-          return sum + reported;
-        }, 0);
+        const activities = Array.isArray(kra.activities) ? kra.activities : [];
 
-        // Get target from first activity or from strategic plan
-        let targetValue = 1;
-        if (activities.length > 0) {
-          // Sum all targets from activities
-          targetValue = activities.reduce((sum: number, act: any) => {
-            const target = typeof act.target === 'number' ? act.target : 0;
-            return sum + target;
-          }, 0);
-          // If no activities have targets, use 1 as default
-          if (targetValue === 0) {
-            targetValue = 1;
-          }
+        // Group by initiativeId so target is applied once per KPI
+        const byInitiative = new Map<string, any[]>();
+        for (const act of activities) {
+          const initiativeId = String(act.initiativeId || act.initiative_id || '').trim() || `${kraId}-KPI1`;
+          if (!byInitiative.has(initiativeId)) byInitiative.set(initiativeId, []);
+          byInitiative.get(initiativeId)!.push(act);
         }
+
+        const initiativeMetrics = Array.from(byInitiative.entries()).map(([initiativeId, acts]) => {
+          const meta = getInitiativeTargetMeta(plan as any, String(kraId), initiativeId, year);
+          const fallbackTarget = typeof acts[0]?.initiativeTarget === 'number'
+            ? acts[0].initiativeTarget
+            : (typeof acts[0]?.target === 'number' ? acts[0].target : Number(acts[0]?.target || 0));
+          const targetValue = meta.targetValue ?? (Number.isFinite(fallbackTarget) && fallbackTarget > 0 ? fallbackTarget : 0);
+
+          const aggregated = computeAggregatedAchievement({
+            targetType: meta.targetType,
+            targetValue,
+           targetScope: meta.targetScope,
+            activities: acts,
+          });
+
+          return {
+            initiativeId,
+            targetType: meta.targetType,
+            totalReported: aggregated.totalReported,
+            totalTarget: aggregated.totalTarget,
+            achievementPercent: aggregated.achievementPercent,
+          };
+        });
+
+        const achievementRate = initiativeMetrics.length > 0
+          ? initiativeMetrics.reduce((sum, m) => sum + (m.achievementPercent || 0), 0) / initiativeMetrics.length
+          : 0;
+
+        // For display, total targets/reporteds sum across KPIs (not across activities)
+        const totalReported = initiativeMetrics.reduce((sum, m) => sum + (typeof m.totalReported === 'number' ? m.totalReported : 0), 0);
+        const targetValue = initiativeMetrics.reduce((sum, m) => sum + (typeof m.totalTarget === 'number' ? m.totalTarget : 0), 0);
 
         // Determine status based on achievement rate
         let status: 'MET' | 'MISSED' | 'ON_TRACK' = 'MISSED';

@@ -84,6 +84,17 @@ class GeminiGenerationService {
       ],
     };
 
+    // Enforce a safe cap for gpt-4o-mini / 4o style models
+    try {
+      const GPT4O_MINI_MAX_OUTPUT = 4096;
+      if (this.config.model && this.config.model.includes('4o')) {
+        this.config.generationConfig = this.config.generationConfig || {};
+        this.config.generationConfig.maxOutputTokens = Math.min(this.config.generationConfig.maxOutputTokens || GPT4O_MINI_MAX_OUTPUT, GPT4O_MINI_MAX_OUTPUT);
+      }
+    } catch (e) {
+      // Defensive: ignore if anything goes wrong here
+    }
+
     this.genAI = new GoogleGenerativeAI(this.config.apiKey);
     
     // DISABLE ALL SAFETY FILTERS - Required for processing student data/grades

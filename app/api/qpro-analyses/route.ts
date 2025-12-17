@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     } else if (unitId || year || quarter) {
       // Get analyses filtered by unit, year, and/or quarter
       const analyses = await qproAnalysisService.getQPROAnalyses({
-        unitId,
+        unitId: unitId || undefined,
         year,
         quarter,
         limit,

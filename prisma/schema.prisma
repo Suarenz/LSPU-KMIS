@@ -53,6 +53,9 @@ model Document {
   updatedAt                DateTime             @updatedAt
   uploadedById             String
   unitId                   String?              @map("unitId")
+  year                     Int?                 // Reporting year (2025-2029)
+  quarter                  Int?                 // Reporting quarter (1-4)
+  isQproDocument           Boolean              @default(false) // Flag for QPRO documents
   status                   DocumentStatus       @default(ACTIVE)
   colivaraDocumentId       String?
   colivaraEmbeddings       Json?
@@ -66,11 +69,13 @@ model Document {
   permissions              DocumentPermission[]
   views                    DocumentView[]
   qproAnalyses             QPROAnalysis[]       // QPRO analyses associated with this document
+  kpiContributions         KPIContribution[]    // KPI contributions from this document
   parentDocument           Document?            @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
   documents                Document[]           @relation("DocumentVersions")
   documentUnit             Unit?                @relation(fields: [unitId], references: [id])
   uploadedByUser           User                 @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
+  @@index([unitId, year, quarter]) // Index for efficient QPRO repository queries
   @@map("documents")
 }
 
@@ -207,29 +212,34 @@ enum PermissionLevel {
 }
 
 model QPROAnalysis {
-  id                String   @id @default(cuid())
-  documentId        String   // Reference to the document that was analyzed
-  documentTitle     String   // Title of the analyzed document
-  documentPath      String   // Path to the stored document file
-  documentType      String   // File type (PDF/DOCX)
-  analysisResult    String   // The full analysis result from the LLM
-  alignment         String?  // Section about alignment with strategic plan
-  opportunities     String? // Section about potential strategic opportunities
-  gaps              String?  // Section about gaps or conflicts
-  recommendations   String?  // Section with actionable recommendations
-  kras              Json?    // JSON array of related KRAs with activity matching
-  unitId            String?  // Unit this QPRO belongs to
-  year              Int      @default(2025) // Reporting year
-  quarter           Int      @default(1) // Quarter (1-4)
-  activities        Json?    // Extracted activities from QPRO document
-  achievementScore  Float?   // Overall achievement percentage (0-100)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  uploadedById      String   // User who uploaded the document
-  document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade, map: "qpro_analysis_document_fkey")
-  user              User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade, map: "qpro_analysis_user_fkey")
-  unit              Unit?    @relation(fields: [unitId], references: [id])
+  id                   String   @id @default(cuid())
+  documentId           String   // Reference to the document that was analyzed
+  documentTitle        String   // Title of the analyzed document
+  documentPath         String   // Path to the stored document file
+  documentType         String   // File type (PDF/DOCX)
+  analysisResult       String   // The full analysis result from the LLM
+  alignment            String?  // Section about alignment with strategic plan
+  opportunities        String?  // Section about potential strategic opportunities
+  gaps                 String?  // Section about gaps or conflicts
+  recommendations      String?  // Section with actionable recommendations
+  kras                 Json?    // JSON array of related KRAs with activity matching
+  unitId               String?  // Unit this QPRO belongs to
+  year                 Int      @default(2025) // Reporting year
+  quarter              Int      @default(1) // Quarter (1-4)
+  activities           Json?    // Extracted activities from QPRO document
+  achievementScore     Float?   // Overall achievement percentage (0-100)
+  prescriptiveAnalysis Json?    // AI-generated prescriptive recommendations per KRA
+  status               String   @default("DRAFT") // DRAFT | APPROVED | REJECTED
+  approvedAt           DateTime? // When the analysis was approved
+  approvedById         String?  // User who approved the analysis
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  uploadedById         String   // User who uploaded the document
+  document             Document @relation(fields: [documentId], references: [id], onDelete: Cascade, map: "qpro_analysis_document_fkey")
+  user                 User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade, map: "qpro_analysis_user_fkey")
+  unit                 Unit?    @relation(fields: [unitId], references: [id])
   aggregationActivities AggregationActivity[]
+  kpiContributions      KPIContribution[]  // Track per-document KPI contributions
   
   @@index([unitId])
   @@index([year, quarter])
@@ -265,7 +275,7 @@ model KRAggregation {
 
 model AggregationActivity {
   id                String   @id @default(dbgenerated("gen_random_uuid()"))
-  aggregation_id    String   // Reference to KRAggregation
+  aggregation_id    String?  // Reference to KRAggregation (null for DRAFT status)
   qpro_analysis_id  String   // Reference to QPROAnalysis
   unit_id           String?  // Unit that reported this activity
   activity_name     String   // Name of the activity
@@ -274,13 +284,47 @@ model AggregationActivity {
   achievement       Decimal? // Achievement percentage
   activity_type     String?  // Type of activity
   initiative_id     String   // Initiative identifier
+  evidenceSnippet   String?  // Text from DOCX proving this number
+  confidenceScore   Float?   // AI confidence (0.0 - 1.0)
+  suggestedStatus   String?  // MET, ON_TRACK, DELAYED, AT_RISK
+  dataType          String?  // percentage, currency, low_count, high_count, milestone
+  prescriptiveNote  String?  // AI prescriptive analysis for this activity
+  isApproved        Boolean  @default(false) // Whether this activity has been approved
   created_at        DateTime @default(now())
-  aggregation       KRAggregation @relation(fields: [aggregation_id], references: [id], onDelete: Cascade)
+  aggregation       KRAggregation? @relation(fields: [aggregation_id], references: [id], onDelete: Cascade)
   qproAnalysis      QPROAnalysis @relation(fields: [qpro_analysis_id], references: [id], onDelete: Cascade)
   
   @@index([aggregation_id])
   @@index([qpro_analysis_id])
   @@index([unit_id])
+  @@index([isApproved])
   @@map("aggregation_activities")
 }
 
+// KPIContribution: Tracks individual contributions to KPI progress from each approved document.
+// This enables accurate deduction when a document is deleted (solving the "memory loss" problem)
+// and provides a full audit trail of which document contributed what value.
+model KPIContribution {
+  id            String   @id @default(dbgenerated("gen_random_uuid()"))
+  kra_id        String   // Normalized KRA identifier (e.g., "KRA 1")
+  initiative_id String   // Initiative/KPI identifier (e.g., "KRA1-KPI1")
+  document_id   String   // Reference to the source document
+  analysis_id   String   // Reference to the QPROAnalysis
+  unit_id       String?  // Unit that contributed this value
+  value         Int      // The contributed value (count or percentage points)
+  year          Int      // Reporting year
+  quarter       Int      // Reporting quarter (1-4)
+  target_type   String   @default("count") // Type of target: count, percentage, currency
+  created_at    DateTime @default(now())
+  created_by    String?  // User who approved this contribution
+  
+  document      Document     @relation(fields: [document_id], references: [id], onDelete: Cascade)
+  qproAnalysis  QPROAnalysis @relation(fields: [analysis_id], references: [id], onDelete: Cascade)
+  
+  @@unique([analysis_id, initiative_id], name: "unique_contribution_per_analysis_kpi")
+  @@index([kra_id])
+  @@index([initiative_id])
+  @@index([document_id])
+  @@index([year, quarter])
+  @@map("kpi_contributions")
+}

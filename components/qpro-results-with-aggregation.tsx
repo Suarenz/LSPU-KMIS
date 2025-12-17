@@ -1,9 +1,125 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { CheckCircle, AlertCircle, TrendingUp, Clock, Target, AlertTriangle } from 'lucide-react';
+
+// Helper function to safely render analysis fields
+// These fields may contain JSON strings, formatted text, or already-parsed objects/arrays
+function renderAnalysisField(value: any): React.ReactNode {
+  if (!value) return 'No data available';
+  
+  // Handle arrays directly (already parsed from API response)
+  if (Array.isArray(value)) {
+    if (value.length === 0) return 'No data available';
+    return (
+      <ul className="space-y-2">
+        {value.map((item: any, idx: number) => (
+          <li key={idx} className="flex gap-2">
+            <span>•</span>
+            <span>
+              {typeof item === 'string' 
+                ? item 
+                : item.action 
+                  ? `${item.action}${item.timeline ? ` (${item.timeline})` : ''}`
+                  : JSON.stringify(item)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  
+  // Handle objects directly (single recommendation object)
+  if (typeof value === 'object' && value !== null) {
+    if (value.action) {
+      return `${value.action}${value.timeline ? ` (${value.timeline})` : ''}`;
+    }
+    return JSON.stringify(value, null, 2);
+  }
+  
+  // Handle strings - may be JSON or plain text
+  if (typeof value === 'string') {
+    // Try to parse as JSON (recommendations might be JSON stringified)
+    try {
+      const parsed = JSON.parse(value);
+      // Recursively call to handle the parsed value
+      return renderAnalysisField(parsed);
+    } catch {
+      // Not JSON, treat as plain text with preserved formatting
+    }
+    return value;
+  }
+  
+  // Fallback for other types
+  return String(value);
+}
+
+// Parse JSON string or array into structured action items
+function parseRecommendations(value: any): Array<{action: string; timeline?: string; priority?: string}> {
+  if (!value) return [];
+  
+  if (Array.isArray(value)) {
+    return value.map((item: any) => {
+      if (typeof item === 'string') return { action: item };
+      if (typeof item === 'object' && item !== null) {
+        return {
+          action: item.action || item.recommendation || JSON.stringify(item),
+          timeline: item.timeline || item.deadline,
+          priority: item.priority
+        };
+      }
+      return { action: String(item) };
+    });
+  }
+  
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parseRecommendations(parsed);
+    } catch {
+      const lines = value.split(/\n|•|\.(?=\s*[A-Z])/).filter((l: string) => l.trim());
+      return lines.map((line: string) => ({ action: line.trim() }));
+    }
+  }
+  
+  if (typeof value === 'object' && value !== null) {
+    return [{
+      action: value.action || value.recommendation || JSON.stringify(value),
+      timeline: value.timeline,
+      priority: value.priority
+    }];
+  }
+  
+  return [{ action: String(value) }];
+}
+
+// Get severity level based on achievement
+function getSeverityLevel(achievement: number): { 
+  level: 'critical' | 'warning' | 'success'; 
+  label: string; 
+  bgColor: string; 
+  textColor: string;
+  borderColor: string;
+} {
+  if (achievement < 50) {
+    return { level: 'critical', label: 'CRITICAL ALERT', bgColor: 'bg-red-100', textColor: 'text-red-900', borderColor: 'border-red-500' };
+  }
+  if (achievement < 80) {
+    return { level: 'warning', label: 'NEEDS ATTENTION', bgColor: 'bg-amber-100', textColor: 'text-amber-900', borderColor: 'border-amber-500' };
+  }
+  return { level: 'success', label: 'ON TRACK', bgColor: 'bg-green-100', textColor: 'text-green-900', borderColor: 'border-green-500' };
+}
+
+function getPriorityColor(priority?: string): string {
+  switch (priority?.toLowerCase()) {
+    case 'high': case 'critical': return 'bg-red-500 text-white';
+    case 'medium': return 'bg-amber-500 text-white';
+    case 'low': return 'bg-blue-500 text-white';
+    default: return 'bg-gray-500 text-white';
+  }
+}
 
 interface AggregationMetric {
   kraId: string;
@@ -54,8 +170,6 @@ export function QPROResultsWithAggregation({
 }: {
   results: QPROWithAggregationResults;
 }) {
-  const [activeTab, setActiveTab] = useState<'summary' | 'details' | 'metrics'>('summary');
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'MET':
@@ -82,302 +196,213 @@ export function QPROResultsWithAggregation({
     }
   };
 
+  const achievement = results.aggregation.metrics.overallAchievementPercent;
+  const severity = getSeverityLevel(achievement);
+
   return (
     <div className="space-y-6">
-      {/* Aggregation Summary Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {/* ===== SECTION 1: Header Cards (Retained) ===== */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className={`border-l-4 ${severity.borderColor}`}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Overall Score
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-4xl font-bold ${severity.textColor}`}>
+              {results.aggregation.metrics.overallAchievementPercent.toFixed(1)}%
+            </div>
+            <Badge className={severity.level === 'critical' ? 'bg-red-600 text-white mt-2' : severity.level === 'warning' ? 'bg-amber-500 text-white mt-2' : 'bg-green-600 text-white mt-2'}>
+              {severity.level === 'critical' ? '⚠️' : severity.level === 'warning' ? '⚡' : '✓'} {severity.label}
+            </Badge>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Total KRAs
+              Data Completeness
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
+            <div className="text-4xl font-bold text-slate-900">
+              {results.aggregation.metrics.totalKRAs > 0 
+                ? Math.round((results.aggregation.byKra.filter(k => k.reported > 0).length / results.aggregation.metrics.totalKRAs) * 100)
+                : 0}%
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {results.aggregation.byKra.filter(k => k.reported > 0).length} of {results.aggregation.metrics.totalKRAs} KRAs have data
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              KRAs Covered
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-bold text-slate-900">
               {results.aggregation.metrics.totalKRAs}
             </div>
-            <p className="text-xs text-gray-500 mt-1">KRAs Covered</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-700">
-              Met KRAs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">
-              {results.aggregation.metrics.metKRAs}
+            <div className="flex gap-2 mt-2 text-xs">
+              <span className="text-green-600">✓ {results.aggregation.metrics.metKRAs} Met</span>
+              <span className="text-red-600">✗ {results.aggregation.metrics.missedKRAs} Missed</span>
             </div>
-            <p className="text-xs text-green-600 mt-1">
-              {results.aggregation.metrics.totalKRAs > 0
-                ? `${Math.round((results.aggregation.metrics.metKRAs / results.aggregation.metrics.totalKRAs) * 100)}%`
-                : '0%'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700">
-              On Track
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600">
-              {results.aggregation.metrics.onTrackKRAs}
-            </div>
-            <p className="text-xs text-blue-600 mt-1">80-99% Achievement</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-red-700">
-              Missed KRAs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-600">
-              {results.aggregation.metrics.missedKRAs}
-            </div>
-            <p className="text-xs text-red-600 mt-1">&lt;80% Achievement</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-purple-200 bg-purple-50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700">
-              Overall Achievement
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-600">
-              {results.aggregation.metrics.overallAchievementPercent.toFixed(1)}%
-            </div>
-            <p className="text-xs text-purple-600 mt-1">Across All KRAs</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex gap-2 border-b">
-        <button
-          onClick={() => setActiveTab('summary')}
-          className={`px-4 py-2 font-medium ${
-            activeTab === 'summary'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Strategic Analysis
-        </button>
-        <button
-          onClick={() => setActiveTab('metrics')}
-          className={`px-4 py-2 font-medium ${
-            activeTab === 'metrics'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Calculated Metrics
-        </button>
-        <button
-          onClick={() => setActiveTab('details')}
-          className={`px-4 py-2 font-medium ${
-            activeTab === 'details'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          KRA Details
-        </button>
-      </div>
-
-      {/* Tab Content: Strategic Analysis & Recommendations */}
-      {activeTab === 'summary' && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Strategic Alignment
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-gray-700 whitespace-pre-wrap">
-              {results.analysis.alignment}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                Opportunities
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-gray-700 whitespace-pre-wrap">
-              {results.analysis.opportunities}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-red-600" />
-                Identified Gaps
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-gray-700 whitespace-pre-wrap">
-              {results.analysis.gaps}
-            </CardContent>
-          </Card>
-
-          <Card className="border-blue-300 bg-blue-50">
-            <CardHeader>
-              <CardTitle className="text-blue-900">
-                Prescriptive Recommendations
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-blue-800 whitespace-pre-wrap">
-              {results.analysis.recommendations}
-            </CardContent>
-          </Card>
+      {/* ===== SECTION 2: Prescriptive Analysis (Moved to Top-Center, Below Header) ===== */}
+      <Card className="overflow-hidden border-2 border-indigo-300 shadow-lg">
+        <div className="bg-linear-to-r from-indigo-600 to-purple-600 px-5 py-4">
+          <h3 className="font-bold text-xl text-white flex items-center gap-2">
+            <Target className="w-6 h-6" /> AI Strategic Analysis
+          </h3>
+          <p className="text-indigo-100 text-sm mt-1">
+            Mapped to System Strategic Plan • Q{results.aggregation.metrics.quarter} {results.aggregation.metrics.year}
+          </p>
         </div>
-      )}
+        
+        <CardContent className="p-0">
+          {/* Status Alert */}
+          <div className={`p-4 border-b ${severity.bgColor}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-lg font-bold ${severity.textColor}`}>
+                  {achievement.toFixed(1)}% Overall Achievement
+                </p>
+                <p className="text-sm text-slate-600">
+                  {results.aggregation.metrics.metKRAs} of {results.aggregation.metrics.totalKRAs} Key Result Areas Met
+                </p>
+              </div>
+              {severity.level === 'critical' && (
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              )}
+            </div>
+          </div>
 
-      {/* Tab Content: Calculated Metrics */}
-      {activeTab === 'metrics' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Achievement Metrics by KRA</CardTitle>
-            <p className="text-sm text-gray-600 mt-2">
-              Year: {results.aggregation.metrics.year} | Quarter: Q{results.aggregation.metrics.quarter}
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {results.aggregation.byKra.map((kra) => (
-                <div
-                  key={`${kra.kraId}-${kra.kraTitle}`}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{kra.kraId}</h4>
-                      <p className="text-sm text-gray-600">{kra.kraTitle}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(kra.status)}
-                      <Badge className={getStatusColor(kra.status)}>
-                        {kra.status}
+          {/* Gap Identification */}
+          {results.analysis.gaps && (
+            <div className="p-4 border-b bg-red-50">
+              <h4 className="font-semibold text-red-900 flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4" />
+                {achievement < 50 ? 'Critical Gaps Identified' : 'Gap Identification'}
+              </h4>
+              <div className="text-sm text-red-800">
+                {renderAnalysisField(results.analysis.gaps)}
+              </div>
+            </div>
+          )}
+
+          {/* Strategic Mapping */}
+          {results.analysis.alignment && (
+            <div className="p-4 border-b bg-blue-50">
+              <h4 className="font-semibold text-blue-900 flex items-center gap-2 mb-2">
+                <TrendingUp className="w-4 h-4" />
+                Strategic Plan Mapping
+              </h4>
+              <div className="text-sm text-blue-800">
+                {renderAnalysisField(results.analysis.alignment)}
+              </div>
+            </div>
+          )}
+
+          {/* Prescriptive Roadmap */}
+          <div className="p-4">
+            <h4 className="font-semibold text-slate-900 flex items-center gap-2 mb-3">
+              <Clock className="w-4 h-4" />
+              Prescriptive Action Items
+            </h4>
+            <div className="space-y-2">
+              {(() => {
+                const items = parseRecommendations(results.analysis.recommendations);
+                if (items.length === 0) {
+                  return <p className="text-sm text-slate-500 italic">No recommendations available</p>;
+                }
+                return items.map((item, idx) => {
+                  let priority = item.priority || 'medium';
+                  if (item.timeline?.toLowerCase().includes('immediate') || 
+                      item.timeline?.toLowerCase().includes('1 month') ||
+                      item.timeline?.toLowerCase().includes('3 month')) {
+                    priority = 'high';
+                  } else if (item.timeline?.toLowerCase().includes('12 month') ||
+                             item.timeline?.toLowerCase().includes('year')) {
+                    priority = 'low';
+                  }
+                  return (
+                    <div key={idx} className="flex items-start gap-3 p-3 bg-white border rounded-lg hover:shadow-sm transition-shadow">
+                      <Badge className={`shrink-0 ${getPriorityColor(priority)}`}>
+                        {priority === 'high' ? '🔴 Critical' : priority === 'low' ? '🟢 Low' : '🟡 Medium'}
                       </Badge>
-                    </div>
-                  </div>
-
-                  {/* Achievement Bar */}
-                  <div className="mb-3">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-700">Achievement</span>
-                      <span className="font-semibold text-gray-900">
-                        {kra.achievementPercent.toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all ${
-                          kra.achievementPercent >= 100
-                            ? 'bg-green-500'
-                            : kra.achievementPercent >= 80
-                            ? 'bg-blue-500'
-                            : 'bg-red-500'
-                        }`}
-                        style={{
-                          width: `${Math.min(kra.achievementPercent, 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Metrics Row */}
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-600">Reported</p>
-                      <p className="font-semibold text-gray-900">{kra.reported}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Target</p>
-                      <p className="font-semibold text-gray-900">{kra.target}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Variance</p>
-                      <p
-                        className={`font-semibold ${
-                          kra.reported >= kra.target
-                            ? 'text-green-600'
-                            : 'text-red-600'
-                        }`}
-                      >
-                        {kra.reported - kra.target > 0 ? '+' : ''}
-                        {kra.reported - kra.target}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Message */}
-                  <p className="text-xs text-gray-600 mt-3 italic">
-                    {kra.message}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Tab Content: KRA Details */}
-      {activeTab === 'details' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Detailed KRA Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {results.kras.map((kra) => (
-                <div key={kra.kraId} className="border-l-4 border-blue-500 pl-4 py-2">
-                  <h4 className="font-bold text-gray-900">
-                    {kra.kraId}: {kra.kraTitle}
-                  </h4>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Achievement Rate: {kra.achievementRate?.toFixed(2)}%
-                  </p>
-                  <div className="mt-2 space-y-2">
-                    {Array.isArray(kra.activities) &&
-                      kra.activities.map((activity: any, idx: number) => (
-                        <div key={idx} className="text-sm bg-gray-50 p-2 rounded">
-                          <p className="font-medium text-gray-800">
-                            {activity.name || activity}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900">{item.action}</p>
+                        {item.timeline && (
+                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {item.timeline}
                           </p>
-                          {typeof activity === 'object' && (
-                            <>
-                              <p className="text-gray-600">
-                                Reported: {activity.reported} | Target: {activity.target}
-                              </p>
-                              <p className="text-gray-600">
-                                Achievement: {activity.achievement?.toFixed(2)}%
-                              </p>
-                            </>
-                          )}
-                        </div>
-                      ))}
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ===== SECTION 3: KRA Classification Review (Retained) ===== */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
+            KRA Classification Review
+          </CardTitle>
+          <p className="text-sm text-gray-600 mt-1">
+            Activities mapped to Key Result Areas from the Strategic Plan
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {results.aggregation.byKra.map((kra) => (
+              <div
+                key={`${kra.kraId}-${kra.kraTitle}`}
+                className={`flex items-center justify-between p-3 rounded-lg border ${
+                  kra.status === 'MET' ? 'bg-green-50 border-green-200' :
+                  kra.status === 'ON_TRACK' ? 'bg-blue-50 border-blue-200' :
+                  'bg-red-50 border-red-200'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {getStatusIcon(kra.status)}
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{kra.kraId}</h4>
+                    <p className="text-xs text-gray-600">{kra.kraTitle}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                <div className="text-right">
+                  <p className="font-bold text-lg">{kra.achievementPercent.toFixed(1)}%</p>
+                  <Badge className={getStatusColor(kra.status)}>
+                    {kra.status}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ===== REMOVED SECTIONS (De-Cluttered) =====
+        ❌ Target vs Reported by KPI Graph (Bar Chart)
+        ❌ Status Distribution Graph (Pie Chart)  
+        ❌ Completion Percentage by KPI Graph (Line Chart)
+        ❌ Quarter-over-Quarter Comparison (Timeline/Table)
+        ❌ Tabs Navigation (metrics, details tabs)
+      ===== */}
     </div>
   );
 }

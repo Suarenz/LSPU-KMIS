@@ -201,6 +201,8 @@ class DocumentService {
           (document.tags as any[]).map(tag => String(tag)) :
           (typeof document.tags === 'object' && document.tags !== null ?
             Object.values(document.tags).map(tag => String(tag)) : []),
+        year: document.year ?? undefined,
+        quarter: document.quarter ?? undefined,
         unitId: document.unitId || undefined, // Convert null to undefined
         versionNotes: document.versionNotes || undefined, // Convert null to undefined
         downloadsCount: document.downloadsCount || 0, // Convert null to 0
@@ -507,6 +509,69 @@ class DocumentService {
         throw new Error('User does not have permission to delete this document');
       }
   
+      // QPRO CLEANUP: Before deleting, capture KPIContribution records for accurate deduction
+      // This solves the "memory loss" problem - we know exactly what this document contributed
+      const kpiContributions = await prisma.kPIContribution.findMany({
+        where: { document_id: id },
+        select: {
+          id: true,
+          kra_id: true,
+          initiative_id: true,
+          value: true,
+          year: true,
+          quarter: true,
+          target_type: true,
+        }
+      });
+
+      // Also get aggregation activities for legacy cleanup (in case contributions don't exist)
+      const qproAnalysis = await prisma.qPROAnalysis.findFirst({
+        where: { documentId: id },
+        select: {
+          id: true,
+          year: true,
+          quarter: true,
+          unitId: true,
+          aggregationActivities: {
+            where: { isApproved: true },
+            select: {
+              initiative_id: true,
+              reported: true,
+              aggregation_id: true,
+            }
+          }
+        }
+      });
+
+      // Track which KRAggregations need recalculation (from KPIContributions - preferred)
+      const contributionsByKpi = new Map<string, { kraId: string; initiativeId: string; value: number; year: number; quarter: number }>();
+      for (const contrib of kpiContributions) {
+        const key = `${contrib.kra_id}|${contrib.initiative_id}|${contrib.year}|${contrib.quarter}`;
+        contributionsByKpi.set(key, {
+          kraId: contrib.kra_id,
+          initiativeId: contrib.initiative_id,
+          value: contrib.value,
+          year: contrib.year,
+          quarter: contrib.quarter,
+        });
+      }
+
+      // Fallback: Track from aggregation activities if no contributions exist
+      const affectedAggregations: { aggregationId: string; initiativeId: string; reportedValue: number }[] = [];
+      if (kpiContributions.length === 0 && qproAnalysis?.aggregationActivities) {
+        for (const activity of qproAnalysis.aggregationActivities) {
+          if (activity.aggregation_id && activity.reported !== null) {
+            affectedAggregations.push({
+              aggregationId: activity.aggregation_id,
+              initiativeId: activity.initiative_id,
+              reportedValue: activity.reported,
+            });
+          }
+        }
+      }
+
+      console.log(`[Document Delete] Found ${kpiContributions.length} KPIContributions to deduct, ${affectedAggregations.length} legacy aggregation activities`);
+
       // Delete related records first (due to foreign key constraints)
       await prisma.documentComment.deleteMany({
         where: { documentId: id },
@@ -557,10 +622,118 @@ class DocumentService {
         // Continue with deletion even if Colivara deletion fails
       }
       
-      // Delete the document from the database
+      // Delete the document from the database (cascades to QPROAnalysis, AggregationActivity, and KPIContribution)
       await prisma.document.delete({
         where: { id },
       });
+
+      // QPRO CLEANUP: Deduct contributions from KRAggregation records after deletion
+      // Use KPIContributions (preferred - accurate per-document stamped values)
+      if (contributionsByKpi.size > 0) {
+        console.log(`[Document Delete] Deducting ${contributionsByKpi.size} KPI contributions from aggregations`);
+        
+        for (const [, contrib] of contributionsByKpi) {
+          try {
+            // Find the KRAggregation for this KPI
+            const aggregation = await prisma.kRAggregation.findFirst({
+              where: {
+                year: contrib.year,
+                quarter: contrib.quarter,
+                kra_id: contrib.kraId,
+                initiative_id: contrib.initiativeId,
+              },
+            });
+
+            if (!aggregation) {
+              console.log(`[Document Delete] No KRAggregation found for ${contrib.kraId}/${contrib.initiativeId}`);
+              continue;
+            }
+
+            // Deduct the exact contribution value
+            const newTotal = Math.max(0, (aggregation.total_reported ?? 0) - contrib.value);
+            const newCount = Math.max(0, aggregation.submission_count - 1);
+            
+            if (newCount === 0) {
+              // No more contributions - delete the KRAggregation record
+              await prisma.kRAggregation.delete({
+                where: { id: aggregation.id },
+              });
+              console.log(`[Document Delete] Deleted empty KRAggregation: ${aggregation.id}`);
+            } else {
+              // Recalculate achievement with the deducted total
+              const targetValue = aggregation.target_value?.toNumber() ?? 1;
+              const newAchievement = targetValue > 0 ? (newTotal / targetValue) * 100 : 0;
+              
+              await prisma.kRAggregation.update({
+                where: { id: aggregation.id },
+                data: {
+                  total_reported: newTotal,
+                  submission_count: newCount,
+                  achievement_percent: Math.min(newAchievement, 100),
+                  last_updated: new Date(),
+                }
+              });
+              console.log(`[Document Delete] Deducted ${contrib.value} from KRAggregation ${aggregation.id}: new total=${newTotal}`);
+            }
+          } catch (deductError) {
+            console.error(`[Document Delete] Error deducting contribution for ${contrib.initiativeId}:`, deductError);
+          }
+        }
+      } 
+      // Fallback: Legacy recalculation for documents without KPIContributions
+      else if (affectedAggregations.length > 0) {
+        console.log(`[Document Delete] Legacy recalculating ${affectedAggregations.length} affected KRAggregation records`);
+        
+        for (const affected of affectedAggregations) {
+          try {
+            // Get remaining approved activities for this aggregation
+            const remainingActivities = await prisma.aggregationActivity.findMany({
+              where: {
+                aggregation_id: affected.aggregationId,
+                isApproved: true,
+              },
+              select: {
+                reported: true,
+              }
+            });
+
+            if (remainingActivities.length === 0) {
+              // No more activities - delete the KRAggregation record
+              await prisma.kRAggregation.delete({
+                where: { id: affected.aggregationId },
+              });
+              console.log(`[Document Delete] Deleted orphaned KRAggregation: ${affected.aggregationId}`);
+            } else {
+              // Recalculate totals from remaining activities
+              const newTotal = remainingActivities.reduce((sum, a) => sum + (a.reported ?? 0), 0);
+              const newCount = remainingActivities.length;
+              
+              // Get target for achievement calculation
+              const aggregation = await prisma.kRAggregation.findUnique({
+                where: { id: affected.aggregationId },
+                select: { target_value: true }
+              });
+              
+              const targetValue = aggregation?.target_value?.toNumber() ?? 1;
+              const newAchievement = targetValue > 0 ? (newTotal / targetValue) * 100 : 0;
+              
+              await prisma.kRAggregation.update({
+                where: { id: affected.aggregationId },
+                data: {
+                  total_reported: newTotal,
+                  submission_count: newCount,
+                  achievement_percent: Math.min(newAchievement, 100),
+                  last_updated: new Date(),
+                }
+              });
+              console.log(`[Document Delete] Updated KRAggregation ${affected.aggregationId}: total=${newTotal}, count=${newCount}`);
+            }
+          } catch (recalcError) {
+            console.error(`[Document Delete] Error recalculating KRAggregation ${affected.aggregationId}:`, recalcError);
+            // Continue with other aggregations even if one fails
+          }
+        }
+      }
   
       return true;
     } catch (error) {

@@ -504,7 +504,7 @@ export async function GET(request: NextRequest) {
         // ----------------
         
         // Filter out zombie documents (deleted from Prisma but still in Colivara) first
-        let filteredResults = await filterZombieDocuments(colivaraResults.results);
+        const filteredResults = await filterZombieDocuments(colivaraResults.results);
         
         // Map Colivara results to standard document format using database data
         let mappedResults = await mapColivaraResultsToDocuments(filteredResults);
@@ -1147,7 +1147,7 @@ export async function POST(request: NextRequest) {
         processingTime = colivaraResults.processingTime;
         
         // Filter out zombie documents (deleted from Prisma but still in Colivara) first
-        let filteredResults = await filterZombieDocuments(colivaraResults.results);
+        const filteredResults = await filterZombieDocuments(colivaraResults.results);
         
         // Map Colivara results to standard document format using database data
         let mappedResults = await mapColivaraResultsToDocuments(filteredResults);

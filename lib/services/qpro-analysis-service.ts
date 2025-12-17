@@ -3,8 +3,41 @@ import { analysisEngineService, QPROAnalysisOutput } from './analysis-engine-ser
 import { BlobServiceClient } from '@azure/storage-blob';
 import { targetAggregationService } from './target-aggregation-service';
 import { strategicPlanService } from './strategic-plan-service';
+import { computeAggregatedAchievement, getInitiativeTargetMeta, normalizeKraId } from '@/lib/utils/qpro-aggregation';
 
 const prisma = new PrismaClient();
+
+// ========== PRISMA HELPERS ==========
+/**
+ * Convert undefined to null for Prisma compatibility.
+ * Prisma/SQL doesn't accept JavaScript `undefined` - must be `null`.
+ */
+const toPrisma = <T>(val: T | undefined): T | null => val === undefined ? null : val;
+
+/**
+ * Ensure a value is an array (for JSON array fields).
+ */
+const toArray = <T>(val: T[] | undefined | null): T[] => Array.isArray(val) ? val : [];
+
+/**
+ * Convert array or object to string for String fields in Prisma.
+ * Handles arrays of strings, arrays of objects, or plain strings.
+ */
+const toString = (val: any): string | null => {
+  if (!val) return null;
+  if (typeof val === 'string') return val;
+  if (Array.isArray(val)) {
+    if (val.length === 0) return null; // Empty array -> null
+    // If array of objects with 'action' field (recommendations), format them
+    if (val.length > 0 && typeof val[0] === 'object' && val[0].action) {
+      return val.map((item: any) => `• ${item.action}${item.timeline ? ` (${item.timeline})` : ''}`).join('\n');
+    }
+    // Otherwise, join array items with bullet points
+    return val.map((item: any) => `• ${typeof item === 'string' ? item : JSON.stringify(item)}`).join('\n');
+  }
+  // For plain objects, convert to JSON string
+  return JSON.stringify(val);
+};
 
 // Initialize Azure Blob Storage client
 const blobServiceClient = BlobServiceClient.fromConnectionString(
@@ -32,6 +65,84 @@ interface QPROAnalysesFilter {
 
 export class QPROAnalysisService {
   /**
+   * Calculate type detection score based on keyword presence and importance
+   * Gives higher weight to primary keywords and phrases
+   */
+  private calculateTypeScore(text: string, keywords: string[], primaryKeywords: string[]): number {
+    let score = 0;
+    const textLower = text.toLowerCase();
+    
+    // Primary keywords get 2 points each
+    for (const pkw of primaryKeywords) {
+      if (textLower.includes(pkw.toLowerCase())) {
+        score += 2;
+      }
+    }
+    
+    // Secondary keywords get 1 point each
+    for (const kw of keywords) {
+      if (!primaryKeywords.includes(kw) && textLower.includes(kw.toLowerCase())) {
+        score += 1;
+      }
+    }
+    
+    return score;
+  }
+  
+  /**
+   * Calculate semantic similarity score between activity and KRA content
+   * Considers word overlap, phrase matching, and contextual relevance
+   */
+  private calculateSemanticScore(activityText: string, kraText: string): number {
+    const activityLower = activityText.toLowerCase();
+    const kraLower = kraText.toLowerCase();
+    
+    const activityWords = new Set(activityLower.split(/\s+/).filter(w => w.length > 3));
+    const kraWords = new Set(kraLower.split(/\s+/).filter(w => w.length > 3));
+    
+    // Calculate Jaccard similarity
+    let commonWords = 0;
+    activityWords.forEach(word => {
+      if (kraWords.has(word)) {
+        commonWords++;
+      }
+    });
+    
+    const totalUnique = activityWords.size + kraWords.size - commonWords;
+    const jaccardScore = totalUnique > 0 ? (commonWords / totalUnique) * 10 : 0;
+    
+    // Bonus for phrase matches (2+ word sequences)
+    let phraseBonus = 0;
+    const activityPhrases = this.extractPhrases(activityLower);
+    const kraPhrases = this.extractPhrases(kraLower);
+    
+    for (const phrase of activityPhrases) {
+      if (kraLower.includes(phrase)) {
+        phraseBonus += 3; // Phrases are worth more
+      }
+    }
+    
+    return jaccardScore + phraseBonus;
+  }
+  
+  /**
+   * Extract meaningful phrases from text (2-3 word sequences)
+   */
+  private extractPhrases(text: string): string[] {
+    const words = text.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const phrases: string[] = [];
+    
+    for (let i = 0; i < words.length - 1; i++) {
+      phrases.push(words.slice(i, i + 2).join(' '));
+      if (i < words.length - 2) {
+        phrases.push(words.slice(i, i + 3).join(' '));
+      }
+    }
+    
+    return phrases;
+  }
+
+  /**
    * Validate and fix KRA assignments based on activity type matching rules
    * Post-processes LLM output to enforce strict type-to-KRA mapping
    */
@@ -40,23 +151,60 @@ export class QPROAnalysisService {
       const activityName = activity.name.toLowerCase();
       const currentKraId = activity.kraId;
       
-      // Activity type detection based on keywords
-      const isTraining = /train|seminar|workshop|course|capacity|upskill|certification|program/i.test(activityName);
-      const isCurriculum = /curriculum|course content|syllabus|learning material|instructional/i.test(activityName);
-      const isDigitalImplementation = /system|platform|portal|infrastructure|implement|deploy|application|software/i.test(activityName) && !/training|workshop|seminar/i.test(activityName);
-      const isResearch = /research|study|publication|paper|journal/i.test(activityName);
+      // Enrich all activities with KRA and KPI titles from strategic plan
+      const enrichActivity = (act: any, kraIdToEnrich: string, initiativeId?: string): any => {
+        const strategicPlanKras = (strategicPlan && strategicPlan.kras) || [];
+        // Use normalized KRA ID for consistent lookup
+        const normalizedKraIdToEnrich = normalizeKraId(kraIdToEnrich);
+        const kra = strategicPlanKras.find((k: any) => normalizeKraId(k.kra_id) === normalizedKraIdToEnrich);
+        
+        const enrichedData: any = { ...act };
+        
+        if (kra) {
+          enrichedData.kraTitle = kra.kra_title || kraIdToEnrich;
+          
+          // If we have an initiativeId, find the matching initiative
+          if (initiativeId && kra.initiatives) {
+            const initiative = kra.initiatives.find((init: any) => init.id === initiativeId);
+            if (initiative) {
+              enrichedData.kpiTitle = initiative.key_performance_indicator?.outputs || initiativeId;
+            }
+          }
+        }
+        
+        return enrichedData;
+      };
+      
+      // Enhanced Activity type detection with semantic understanding
+      const detectionScores = {
+        training: this.calculateTypeScore(activityName, ['train', 'seminar', 'workshop', 'course', 'capacity', 'upskill', 'certification', 'program'], ['training', 'seminar', 'workshop']),
+        curriculum: this.calculateTypeScore(activityName, ['curriculum', 'course content', 'syllabus', 'learning material', 'instructional'], ['curriculum', 'syllabus']),
+        digital: this.calculateTypeScore(activityName, ['digital', 'system', 'platform', 'portal', 'infrastructure', 'technology', 'e-', 'cyber', 'electronic'], ['digital', 'portal', 'platform']),
+        research: this.calculateTypeScore(activityName, ['research', 'study', 'publication', 'paper', 'journal', 'investigation', 'scholarly'], ['research', 'publication', 'journal']),
+        extension: this.calculateTypeScore(activityName, ['extension', 'outreach', 'community service', 'outreach', 'engagement', 'partnership'], ['extension', 'outreach']),
+      };
       
       let expectedKraTypes: string[] = [];
+      let primaryType = '';
       
-      // Determine expected KRA type based on activity type
-      if (isTraining) {
-        expectedKraTypes = ['KRA 13', 'KRA 11']; // HR Development
-      } else if (isCurriculum) {
-        expectedKraTypes = ['KRA 1']; // Curriculum Development
-      } else if (isDigitalImplementation) {
-        expectedKraTypes = ['KRA 17']; // Digital Transformation
-      } else if (isResearch) {
-        expectedKraTypes = ['KRA 3', 'KRA 4', 'KRA 5']; // Research KRAs
+      // Determine expected KRA type based on highest scoring type
+      const sortedTypes = Object.entries(detectionScores).sort(([,a], [,b]) => b - a);
+      const [topType, topScore] = sortedTypes[0];
+      
+      if (topScore > 0) {
+        primaryType = topType;
+        
+        if (topType === 'training') {
+          expectedKraTypes = ['KRA 13', 'KRA 11']; // HR Development/Capacity Building
+        } else if (topType === 'curriculum') {
+          expectedKraTypes = ['KRA 1', 'KRA 13']; // Curriculum/Program Development
+        } else if (topType === 'digital') {
+          expectedKraTypes = ['KRA 17', 'KRA 4', 'KRA 5']; // Digital Transformation/Innovation
+        } else if (topType === 'research') {
+          expectedKraTypes = ['KRA 3', 'KRA 4', 'KRA 5']; // Research & Development KRAs
+        } else if (topType === 'extension') {
+          expectedKraTypes = ['KRA 6', 'KRA 7']; // Extension & Community Service
+        }
       }
       
       // Check if current KRA matches expected type
@@ -64,14 +212,14 @@ export class QPROAnalysisService {
       
       if (!isCorrectType && expectedKraTypes.length > 0) {
         console.log(`[QPRO VALIDATION] Activity "${activity.name}" was matched to ${currentKraId} but expected type is ${expectedKraTypes.join(' or ')}`);
-        console.log(`  Activity type detected: training=${isTraining}, curriculum=${isCurriculum}, digital=${isDigitalImplementation}, research=${isResearch}`);
+        console.log(`  Activity type detected: ${primaryType} (score=${topScore.toFixed(2)}) | Full scores: training=${detectionScores.training.toFixed(2)}, curriculum=${detectionScores.curriculum.toFixed(2)}, digital=${detectionScores.digital.toFixed(2)}, research=${detectionScores.research.toFixed(2)}`);
         
-        // Reassign to correct KRA using keyword matching
+        // Reassign to correct KRA using semantic matching
         const strategicPlanKras = (strategicPlan && strategicPlan.kras) || [];
         const targetKra = strategicPlanKras.find((kra: any) => expectedKraTypes.includes(kra.kra_id));
         
         if (targetKra && targetKra.initiatives && targetKra.initiatives.length > 0) {
-          // Find best-fit initiative/KPI within the target KRA
+          // Find best-fit initiative/KPI within the target KRA using semantic similarity
           let bestInitiative = targetKra.initiatives[0];
           let bestScore = 0;
           
@@ -83,9 +231,8 @@ export class QPROAnalysisService {
               Array.isArray(initiative.programs_activities) ? initiative.programs_activities.join(' ') : ''
             ].join(' ').toLowerCase();
             
-            // Calculate keyword match score
-            const keywords = activityName.split(/\s+/);
-            const score = keywords.filter(kw => kw.length > 3 && kraText.includes(kw)).length;
+            // Semantic similarity: score based on content overlap and context
+            const score = this.calculateSemanticScore(activityName, kraText);
             
             if (score > bestScore) {
               bestScore = score;
@@ -102,21 +249,36 @@ export class QPROAnalysisService {
             }
           }
           
-          // Recalculate confidence based on keyword matching
-          const newConfidence = Math.min(0.95, Math.max(0.5, bestScore / 5));
+          // Calculate confidence: combine type detection score + semantic match score
+          const typeConfidence = Math.min(1.0, topScore / 2); // Type detection contributes up to 0.5
+          const semanticConfidence = Math.min(0.5, bestScore / 10); // Semantic match contributes up to 0.5
+          const newConfidence = Math.min(0.95, Math.max(0.55, typeConfidence + semanticConfidence));
           
-          console.log(`  ✓ Reassigned to ${targetKra.kra_id} (${bestInitiative.id}) with target=${targetValue}, confidence=${newConfidence.toFixed(2)}`);
+          // Extract KPI title from the initiative
+          const kpiTitle = bestInitiative.key_performance_indicator?.outputs || bestInitiative.id || '';
+          
+          console.log(`  ✓ Reassigned to ${targetKra.kra_id} (${bestInitiative.id}) with target=${targetValue}, confidence=${newConfidence.toFixed(2)} (type=${typeConfidence.toFixed(2)} + semantic=${semanticConfidence.toFixed(2)})`);
+          
+          const reportedValue = activity.reported || 0;
+          const achievementPercent = targetValue > 0 ? (reportedValue / targetValue) * 100 : 0;
           
           return {
             ...activity,
             kraId: targetKra.kra_id,
+            kraTitle: targetKra.kra_title || targetKra.kra_id,
             initiativeId: bestInitiative.id,
+            kpiTitle: kpiTitle,
             target: targetValue,
             confidence: newConfidence,
-            achievement: (activity.reported / targetValue) * 100,
-            status: ((activity.reported / targetValue) * 100) >= 100 ? 'MET' : 'MISSED'
+            achievement: achievementPercent,
+            status: achievementPercent >= 100 ? 'MET' : achievementPercent > 0 ? 'PARTIAL' : 'NOT_STARTED'
           };
         }
+      }
+      
+      // If activity is already classified, enrich with KRA/KPI titles
+      if (currentKraId && currentKraId !== 'UNCLASSIFIED') {
+        return enrichActivity(activity, currentKraId, activity.initiativeId);
       }
       
       return activity;
@@ -127,15 +289,37 @@ export class QPROAnalysisService {
 
   async createQPROAnalysis(input: QPROAnalysisInput): Promise<any> {
     try {
-      // Process the document with the analysis engine
-      const fileBuffer = await this.getFileBuffer(input.documentPath);
-      const analysisOutput: QPROAnalysisOutput = await analysisEngineService.processQPRO(
-        fileBuffer, 
-        input.documentType,
-        input.unitId || undefined
-      );
+      console.log('[QPROAnalysisService] Creating analysis for document:', input.documentId);
+      
+      // Step 1: Get file buffer from blob storage
+      console.log('[QPROAnalysisService] Downloading file from blob storage:', input.documentPath);
+      let fileBuffer: Buffer;
+      try {
+        fileBuffer = await this.getFileBuffer(input.documentPath);
+        console.log('[QPROAnalysisService] File downloaded successfully, size:', fileBuffer.length, 'bytes');
+      } catch (blobError) {
+        console.error('[QPROAnalysisService] Failed to download file:', blobError);
+        throw new Error(`Failed to download file from blob storage: ${blobError instanceof Error ? blobError.message : String(blobError)}`);
+      }
+      
+      // Step 2: Process with analysis engine
+      console.log('[QPROAnalysisService] Starting PDF/DOCX analysis...');
+      let analysisOutput: QPROAnalysisOutput;
+      try {
+        analysisOutput = await analysisEngineService.processQPRO(
+          fileBuffer, 
+          input.documentType,
+          input.unitId || undefined,
+          input.year || 2025
+        );
+        console.log('[QPROAnalysisService] Analysis complete, extracted activities:', analysisOutput.activities?.length || 0);
+      } catch (analysisError) {
+        console.error('[QPROAnalysisService] Analysis engine failed:', analysisError);
+        throw new Error(`Text extraction and analysis failed: ${analysisError instanceof Error ? analysisError.message : String(analysisError)}`);
+      }
       
       // Load strategic plan for validation
+      console.log('[QPROAnalysisService] Loading strategic plan for validation...');
       const strategicPlan = await this.loadStrategicPlan();
       
       // Post-LLM validation: fix any KRA assignments that violate type rules
@@ -156,8 +340,220 @@ export class QPROAnalysisService {
         opportunities,
         gaps,
         recommendations,
-        overallAchievement
+        overallAchievement,
+        documentInsight,
+        prescriptiveItems
       } = analysisOutput;
+
+      const buildDocumentLevelAnalysis = (activities: any[], plan: any, year: number) => {
+        const allKRAs = plan?.kras || [];
+
+        // normalizeKraId is imported from qpro-aggregation.ts
+
+        const getInitiative = (kraId: string, initiativeId: string) => {
+          const normalizedKraIdVal = normalizeKraId(kraId);
+          const kra = allKRAs.find((k: any) => normalizeKraId(k.kra_id) === normalizedKraIdVal);
+          if (!kra?.initiatives) return null;
+          const normalizedId = String(initiativeId).replace(/\s+/g, '');
+          let initiative = kra.initiatives.find((i: any) => String(i.id).replace(/\s+/g, '') === normalizedId);
+          if (!initiative) {
+            const kpiMatch = String(initiativeId).match(/KPI(\d+)/i);
+            if (kpiMatch) {
+              initiative = kra.initiatives.find((i: any) => String(i.id).includes(`KPI${kpiMatch[1]}`));
+            }
+          }
+          return initiative || null;
+        };
+
+        const formatNumber = (n: number, digits: number = 2) => {
+          if (!Number.isFinite(n)) return '0';
+          return n.toFixed(digits);
+        };
+
+        // Group by KRA + initiative (KPI)
+        const groups = new Map<string, {
+          kraId: string;
+          initiativeId: string;
+          title: string;
+          type: string | null;
+          targetScope: 'INSTITUTIONAL' | 'PER_UNIT';
+          targetValue: number | null;
+          reported: number[];
+          missed: number;
+          met: number;
+        }>();
+        for (const act of activities) {
+          const kraId = String(act.kraId || act.kra_id || '').trim();
+          const initiativeId = String(act.initiativeId || act.initiative_id || '').trim();
+          if (!kraId || !initiativeId) continue;
+
+          const key = `${kraId}::${initiativeId}`;
+          if (!groups.has(key)) {
+            const initiative = getInitiative(kraId, initiativeId);
+            const type = initiative?.targets?.type ? String(initiative.targets.type) : null;
+            const title = initiative?.key_performance_indicator?.outputs
+              ? String(initiative.key_performance_indicator.outputs)
+              : initiativeId;
+
+            const meta = getInitiativeTargetMeta(plan, kraId, initiativeId, year);
+
+            // Fallback: if plan lookup fails, fall back to the first activity target (NOT sum)
+            const fallbackTarget = (typeof act.target === 'number' ? act.target : Number(act.target));
+            const targetValue = meta.targetValue ?? (Number.isFinite(fallbackTarget) && fallbackTarget > 0 ? fallbackTarget : null);
+
+            groups.set(key, {
+              kraId,
+              initiativeId,
+              title,
+              type: (meta.targetType ? String(meta.targetType) : type),
+              targetScope: meta.targetScope,
+              targetValue,
+              reported: [],
+              missed: 0,
+              met: 0,
+            });
+          }
+
+          const g = groups.get(key)!;
+          const reportedNum = typeof act.reported === 'number' ? act.reported : Number(act.reported);
+          if (Number.isFinite(reportedNum)) g.reported.push(reportedNum);
+
+          // IMPORTANT: For count-based institutional targets, each extracted item is not a "miss".
+          // The pass/fail is computed at KPI (initiative) level; here we only track extraction volume.
+          // Keep legacy counters but base them on per-activity completion, not target achievement.
+          if (Number.isFinite(reportedNum) && reportedNum > 0) g.met += 1;
+          else g.missed += 1;
+        }
+
+        const groupSummaries: Array<{
+          kraId: string;
+          initiativeId: string;
+          title: string;
+          type: string | null;
+          target: number | null;
+          actual: number | null;
+          achievementPercent: number | null;
+          met: number;
+          missed: number;
+        }> = [];
+
+        groups.forEach((g) => {
+          if (g.targetValue === null || !Number.isFinite(g.targetValue) || g.targetValue <= 0) {
+            groupSummaries.push({
+              kraId: g.kraId,
+              initiativeId: g.initiativeId,
+              title: g.title,
+              type: g.type,
+              target: null,
+              actual: null,
+              achievementPercent: null,
+              met: g.met,
+              missed: g.missed,
+            });
+            return;
+          }
+
+          const aggregated = computeAggregatedAchievement({
+            targetType: g.type,
+            targetValue: g.targetValue,
+            targetScope: g.targetScope,
+            activities: g.reported.map((r) => ({ reported: r })),
+          });
+
+          const target = aggregated.totalTarget;
+          const actual = aggregated.totalReported;
+          const achievementPercent = aggregated.achievementPercent;
+
+          groupSummaries.push({
+            kraId: g.kraId,
+            initiativeId: g.initiativeId,
+            title: g.title,
+            type: g.type,
+            target,
+            actual,
+            achievementPercent,
+            met: g.met,
+            missed: g.missed,
+          });
+        });
+
+        // Root-cause notes (if any)
+        const rootCauseNotes = Array.from(
+          new Set(
+            activities
+              .map((a: any) => (typeof a.rootCause === 'string' ? a.rootCause.trim() : ''))
+              .filter((s: string) => s.length > 0)
+          )
+        );
+
+        const kraIds = Array.from(new Set(activities.map((a: any) => a.kraId).filter(Boolean)));
+        const initiativeIds = Array.from(new Set(activities.map((a: any) => a.initiativeId).filter(Boolean)));
+
+        // Document Insight: factual interpretation only (no recommendations)
+        const topUnderperforming = groupSummaries
+          .filter((g) => typeof g.achievementPercent === 'number')
+          .sort((a, b) => (a.achievementPercent ?? 0) - (b.achievementPercent ?? 0))
+          .slice(0, 5);
+
+        const computedOverall = (() => {
+          const vals = groupSummaries
+            .map((g) => (typeof g.achievementPercent === 'number' ? g.achievementPercent : null))
+            .filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+          if (vals.length === 0) return 0;
+          return vals.reduce((s, n) => s + n, 0) / vals.length;
+        })();
+
+        const insightLines: string[] = [];
+        insightLines.push('### Summary');
+        insightLines.push(`- Reporting period: ${year}`);
+        insightLines.push(`- Activities extracted: ${activities.length}`);
+        insightLines.push(`- KRAs covered: ${kraIds.length}`);
+        insightLines.push(`- KPIs covered: ${initiativeIds.length}`);
+        insightLines.push(`- Overall achievement score: ${formatNumber(computedOverall, 2)}%`);
+
+        if (topUnderperforming.length > 0) {
+          insightLines.push('');
+          insightLines.push('### Key performance signals');
+          topUnderperforming.forEach((g) => {
+            const isRate = g.type === 'percentage';
+            const suffix = isRate ? '%' : '';
+            const targetStr = g.target === null ? 'N/A' : `${formatNumber(g.target, 2)}${suffix}`;
+            const actualStr = g.actual === null ? 'N/A' : `${formatNumber(g.actual, 2)}${suffix}`;
+            const achStr = g.achievementPercent === null ? 'N/A' : `${formatNumber(g.achievementPercent, 1)}% of target`;
+            insightLines.push(`- ${g.kraId} / ${g.initiativeId}: Reported ${actualStr} vs Target ${targetStr} (${achStr})`);
+          });
+        }
+
+        if (rootCauseNotes.length > 0) {
+          insightLines.push('');
+          insightLines.push('### Observed contributing factors (from extracted notes)');
+          rootCauseNotes.slice(0, 5).forEach((note) => insightLines.push(`- ${note}`));
+        }
+
+        const documentInsight = insightLines.join('\n');
+
+        // Prescriptive Analysis: actionable steps (imperative verbs + timeframes)
+        const prescriptiveLines: string[] = [];
+        prescriptiveLines.push('### Prescriptive analysis');
+        prescriptiveLines.push('- Conduct a focused review of the lowest-performing KPI areas within 2–4 weeks.');
+        prescriptiveLines.push('- Define measurable corrective actions per KPI and assign owners within 1 month.');
+        prescriptiveLines.push('- Establish a monthly monitoring cadence to track movement versus target.');
+        prescriptiveLines.push('- Validate that reported values match the KPI target type (percentage vs count) before final submission each quarter.');
+
+        const prescriptiveAnalysis = prescriptiveLines.join('\n');
+
+        return {
+          documentInsight,
+          prescriptiveAnalysis,
+          summary: {
+            year,
+            activities: activities.length,
+            kras: kraIds.length,
+            kpis: initiativeIds.length,
+            overallAchievement: computedOverall,
+          },
+        };
+      };
       
       // Create full analysis result text for reference
       const analysisResult = this.formatAnalysisForStorage({
@@ -165,8 +561,60 @@ export class QPROAnalysisService {
         activities: validatedActivities,
         kras: correctedKras
       });
+
+      const reportYear = input.year || 2025;
+      const docLevelFallback = buildDocumentLevelAnalysis(validatedActivities, strategicPlan, reportYear);
+
+      const formatPrescriptiveItemsAsText = (
+        items: Array<{ title: string; issue: string; action: string; nextStep?: string }>
+      ) => {
+        return items
+          .filter((x) => x && typeof x.title === 'string' && typeof x.issue === 'string' && typeof x.action === 'string')
+          .slice(0, 5)
+          .map((x, idx) => {
+            const lines = [
+              `${idx + 1}. ${x.title.trim()}`,
+              `- Issue: ${x.issue.trim()}`,
+              `- Action: ${x.action.trim()}`,
+            ];
+            if (x.nextStep && x.nextStep.trim()) {
+              lines.push(`- Next Step: ${x.nextStep.trim()}`);
+            }
+            return lines.join('\n');
+          })
+          .join('\n\n');
+      };
+
+      const llmDocumentInsight = typeof documentInsight === 'string' ? documentInsight.trim() : '';
+      const llmPrescriptiveItems = Array.isArray(prescriptiveItems)
+        ? (prescriptiveItems as any[])
+            .filter((x) => x && typeof x === 'object')
+            .slice(0, 5)
+            .map((x) => ({
+              title: String(x.title || '').trim(),
+              issue: String(x.issue || '').trim(),
+              action: String(x.action || '').trim(),
+              nextStep: x.nextStep ? String(x.nextStep).trim() : undefined,
+            }))
+            .filter((x) => x.title && x.issue && x.action)
+        : [];
+      const llmPrescriptiveText = llmPrescriptiveItems.length > 0
+        ? formatPrescriptiveItemsAsText(llmPrescriptiveItems)
+        : '';
+
+      const docLevel = {
+        documentInsight: llmDocumentInsight || docLevelFallback.documentInsight,
+        prescriptiveAnalysis: llmPrescriptiveText || docLevelFallback.prescriptiveAnalysis,
+        prescriptiveItems: llmPrescriptiveItems.length > 0 ? llmPrescriptiveItems : undefined,
+        summary: {
+          ...docLevelFallback.summary,
+          year: reportYear,
+          overallAchievement: Number.isFinite(overallAchievement) ? overallAchievement : docLevelFallback.summary.overallAchievement,
+        },
+      };
       
-      // Create the QPRO analysis record in the database
+      // Create the QPRO analysis record in the database with DRAFT status
+      // Activities are staged and not committed to live dashboard until approved
       const qproAnalysis = await prisma.qPROAnalysis.create({
         data: {
           documentId: input.documentId,
@@ -174,16 +622,26 @@ export class QPROAnalysisService {
           documentPath: input.documentPath,
           documentType: input.documentType,
           analysisResult,
-          alignment,
-          opportunities,
-          gaps,
-          recommendations,
+          // Keep these fields for backward compatibility, but ensure they remain factual (no recommendations bleeding into insight).
+          alignment: docLevel.documentInsight || toString(alignment) || 'Analysis completed',
+          opportunities: '',
+          gaps: '',
+          recommendations: docLevel.prescriptiveAnalysis || toString(recommendations),
           kras: correctedKras as any,
           activities: validatedActivities as any,
-          achievementScore: overallAchievement,
+          achievementScore: docLevel.summary.overallAchievement,
+          prescriptiveAnalysis: {
+            documentInsight: docLevel.documentInsight,
+            prescriptiveAnalysis: docLevel.prescriptiveAnalysis,
+            prescriptiveItems: docLevel.prescriptiveItems,
+            summary: docLevel.summary,
+            generatedAt: new Date().toISOString(),
+            source: 'analysis-engine',
+          } as any,
+          status: 'DRAFT', // Staging workflow: start as DRAFT
           uploadedById: input.uploadedById,
           unitId: input.unitId,
-          year: input.year || 2025,
+          year: reportYear,
           quarter: input.quarter || 1,
         },
         include: {
@@ -193,115 +651,51 @@ export class QPROAnalysisService {
         }
       });
 
-      // Calculate and store aggregation metrics for each KRA/initiative
+      // Create staged AggregationActivity records (not linked to live aggregation yet)
+      // These will be committed to the live dashboard only after approval
       try {
-        for (const kra of correctedKras) {
-          if (kra.kraId && kra.initiativeId) {
-            const kraActivities = validatedActivities.filter((act: any) => act.kraId === kra.kraId);
-            
-            // Get target value from strategic plan
-            const target = await strategicPlanService.getInitiative(kra.kraId, kra.initiativeId);
-            const targetType = target?.targets?.type || 'count';
-            
-            // Calculate total reported value
-            const totalReported = kraActivities.reduce((sum: number, act: any) => {
-              const reported = typeof act.reported === 'number' ? act.reported : 0;
-              return sum + reported;
-            }, 0);
-            
-            const targetValue = target?.targets?.timeline_data?.find((t: any) => t.year === (input.year || 2025))?.target_value || 1;
-            
-            // Calculate aggregation metrics
-            const metrics = await targetAggregationService.calculateAggregation(
-              kra.kraId,
-              kra.initiativeId,
-              input.year || 2025,
-              totalReported,
-              targetType
-            );
-            
-            // Store aggregation record
-            if (metrics && metrics.achieved !== undefined) {
-              const participatingUnits = input.unitId ? [input.unitId] : [];
-              
-              await prisma.kRAggregation.upsert({
-                where: {
-                  unique_aggregation: {
-                    year: input.year || 2025,
-                    quarter: input.quarter || 1,
-                    kra_id: kra.kraId,
-                    initiative_id: kra.initiativeId
-                  }
-                },
-                create: {
-                  year: input.year || 2025,
-                  quarter: input.quarter || 1,
-                  kra_id: kra.kraId,
-                  kra_title: kra.kraTitle || 'Unknown',
-                  initiative_id: kra.initiativeId,
-                  total_reported: totalReported,
-                  target_value: targetValue,
-                  achievement_percent: metrics.achievementPercent,
-                  submission_count: 1,
-                  participating_units: participatingUnits,
-                  status: metrics.status as any,
-                  updated_by: input.uploadedById
-                },
-                update: {
-                  total_reported: {
-                    increment: totalReported
-                  },
-                  submission_count: {
-                    increment: 1
-                  },
-                  achievement_percent: metrics.achievementPercent,
-                  status: metrics.status as any,
-                  last_updated: new Date(),
-                  updated_by: input.uploadedById,
-                  participating_units: participatingUnits
-                }
-              });
-              
-              // Create aggregation activity record linking QPRO to aggregation
-              const aggregation = await prisma.kRAggregation.findUnique({
-                where: {
-                  unique_aggregation: {
-                    year: input.year || 2025,
-                    quarter: input.quarter || 1,
-                    kra_id: kra.kraId,
-                    initiative_id: kra.initiativeId
-                  }
-                }
-              });
-              
-              if (aggregation) {
-                for (const activity of kraActivities) {
-                  await prisma.aggregationActivity.create({
-                    data: {
-                      aggregation_id: aggregation.id,
-                      qpro_analysis_id: qproAnalysis.id,
-                      unit_id: input.unitId,
-                      activity_name: activity.name || 'Unknown Activity',
-                      reported: activity.reported || 0,
-                      target: activity.target || 0,
-                      achievement: activity.achievement || 0,
-                      activity_type: activity.type || 'UNKNOWN',
-                      initiative_id: kra.initiativeId
-                    }
-                  });
-                }
+        for (const activity of validatedActivities) {
+          if (activity.kraId && activity.initiativeId) {
+            await prisma.aggregationActivity.create({
+              data: {
+                // aggregation_id is NULL for DRAFT - will be linked on approval
+                aggregation_id: null,
+                qpro_analysis_id: qproAnalysis.id,
+                unit_id: toPrisma(input.unitId),
+                activity_name: activity.name || 'Unknown Activity',
+                reported: activity.reported ?? 0,
+                target: activity.target ?? 0,
+                achievement: activity.achievement ?? 0,
+                activity_type: activity.dataType || 'count',
+                initiative_id: activity.initiativeId,
+                evidenceSnippet: toPrisma(activity.evidenceSnippet),
+                confidenceScore: toPrisma(activity.confidence),
+                suggestedStatus: toPrisma(activity.suggestedStatus || activity.status),
+                dataType: toPrisma(activity.dataType),
+                prescriptiveNote: toPrisma(activity.prescriptiveAnalysis),
+                isApproved: false // Staged, not approved yet
               }
-            }
+            });
           }
         }
-      } catch (aggregationError) {
-        console.error('Error calculating aggregation metrics:', aggregationError);
-        // Log but don't throw - aggregation errors shouldn't prevent QPRO analysis from being saved
+        console.log('[QPROAnalysisService] Created', validatedActivities.length, 'staged activities for review');
+      } catch (stagingError) {
+        console.error('Error creating staged activities:', stagingError);
+        // Log but don't throw - staging errors shouldn't prevent QPRO analysis from being saved
       }
+
+      // NOTE: We no longer directly upsert to KRAggregation table here
+      // That happens in the approval endpoint after user review
 
       return qproAnalysis;
     } catch (error) {
-      console.error('Error creating QPRO analysis:', error);
+      console.error('========== ERROR IN QPRO ANALYSIS ==========');
+      console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      if (error instanceof Error && error.stack) {
+        console.error('Stack trace:', error.stack);
+      }
+      console.error('==========================================');
       throw error;
     }
   }
@@ -475,35 +869,35 @@ export class QPROAnalysisService {
     const sections = [
       '# QPRO Analysis Report',
       '',
-      `## Overall Achievement Score: ${analysis.overallAchievement.toFixed(2)}%`,
+      `## Overall Achievement Score: ${(analysis.overallAchievement || 0).toFixed(2)}%`,
       '',
       '## Strategic Alignment',
-      analysis.alignment,
+      analysis.alignment || 'N/A',
       '',
       '## Opportunities',
-      analysis.opportunities,
+      analysis.opportunities || 'N/A',
       '',
       '## Gaps Identified',
-      analysis.gaps,
+      analysis.gaps || 'N/A',
       '',
       '## Recommendations',
-      analysis.recommendations,
+      analysis.recommendations || 'N/A',
       '',
       '## KRA Summary',
-      ...analysis.kras.map(kra => `
+      ...(analysis.kras || []).map((kra: any) => `
 ### ${kra.kraId}: ${kra.kraTitle}
-**Achievement Rate:** ${kra.achievementRate.toFixed(2)}%
-**Activities:** ${kra.activities.length}
-**Alignment:** ${kra.strategicAlignment}
+**Achievement Rate:** ${(kra.achievementRate || 0).toFixed(2)}%
+**Activities:** ${(kra.activities || []).length}
+**Alignment:** ${kra.strategicAlignment || 'N/A'}
 `),
       '',
       '## Detailed Activities',
-      ...analysis.activities.map(activity => `
+      ...(analysis.activities || []).map((activity: any) => `
 - **${activity.name}**
-  - KRA: ${activity.kraId}
-  - Target: ${activity.target}, Reported: ${activity.reported}
-  - Achievement: ${activity.achievement.toFixed(2)}%
-  - Confidence: ${(activity.confidence * 100).toFixed(0)}%
+  - KRA: ${activity.kraId || 'N/A'}
+  - Target: ${activity.target || 0}, Reported: ${activity.reported || 0}
+  - Achievement: ${(activity.achievement || 0).toFixed(2)}%
+  - Confidence: ${((activity.confidence || 0) * 100).toFixed(0)}%
   - Unit: ${activity.unit || 'N/A'}
 `)
     ];

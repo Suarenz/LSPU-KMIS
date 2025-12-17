@@ -7,6 +7,21 @@ import { Progress } from "@/components/ui/progress"
 import { Loader2, Lightbulb, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react"
 import strategicPlan from "@/strategic_plan.json"
 import AuthService from "@/lib/services/auth-service"
+import { computeAggregatedAchievement, getInitiativeTargetMeta } from "@/lib/utils/qpro-aggregation"
+
+// Helper function to safely render fields that may be objects
+function safeRenderText(value: any): string {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value !== null) {
+    if (value.action) {
+      return `${value.action}${value.timeline ? ` (${value.timeline})` : ''}`;
+    }
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value);
+}
+
 
 interface InsightFeedProps {
   analysisId: string
@@ -164,11 +179,7 @@ export function InsightFeed({ analysisId, year, quarter }: InsightFeedProps) {
       groupedByKra[kraId].activities.push(activity);
     });
     
-    // Calculate achievement rates
-    Object.values(groupedByKra).forEach((kra: any) => {
-      const totalAchievement = kra.activities.reduce((sum: number, act: Activity) => sum + act.achievement, 0);
-      kra.achievementRate = kra.activities.length > 0 ? totalAchievement / kra.activities.length : 0;
-    });
+    // Achievement is calculated per KRA during render using strategic plan targets.
     
     kraGroups.push(...Object.values(groupedByKra));
   }
@@ -187,37 +198,33 @@ export function InsightFeed({ analysisId, year, quarter }: InsightFeedProps) {
       <div className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
         {kraGroups.map((kra: any, kraIdx: number) => {
           const kraActivities = Array.isArray(kra.activities) ? kra.activities : [];
-          const kraAchievement = kra.achievementRate || 0;
+          const primaryInitiativeId = kraActivities[0]?.initiativeId;
+          const meta = getInitiativeTargetMeta(
+            strategicPlan as any,
+            String(kra.kraId || kra.kra_id || ''),
+            primaryInitiativeId,
+            year
+          );
+
+          const fallbackTarget = kraActivities.length > 0
+            ? (typeof kraActivities[0].target === 'number' ? kraActivities[0].target : Number(kraActivities[0].target || 0))
+            : 0;
+
+          const targetValue = meta.targetValue ?? (Number.isFinite(fallbackTarget) ? fallbackTarget : 0);
+
+          // Aggregate reported values (SUM for counts/financial, AVG for percentages)
+          const aggregated = computeAggregatedAchievement({
+            targetType: meta.targetType,
+            targetValue: targetValue || 0,
+            targetScope: meta.targetScope,
+            activities: kraActivities,
+          });
+
+          const totalReported = aggregated.totalReported;
+          const totalTarget = aggregated.totalTarget;
+          const kraAchievement = aggregated.achievementPercent;
+
           const verdict = getVerdictStyle(kraAchievement);
-          
-          // Sum reported across all activities in this KRA
-          const totalReported = kraActivities.reduce((sum: number, act: any) => {
-            return sum + (typeof act.reported === 'number' ? act.reported : (act.reported || 0));
-          }, 0);
-          
-          // Get the SINGLE target from Strategic Plan (all activities in same KRA share same target - DO NOT multiply)
-          // The target is a fixed number from the Strategic Plan, independent of activity count
-          let totalTarget = 0;
-          if (kraActivities.length > 0) {
-            // Look up target from Strategic Plan based on KRA and initiative ID
-            const kraData = strategicPlan.kras?.find((k: any) => k.kra_id === kra.kraId);
-            if (kraData && kraActivities[0].initiativeId) {
-              const initiative = kraData.initiatives?.find((init: any) => init.id === kraActivities[0].initiativeId);
-              if (initiative && initiative.targets?.timeline_data) {
-                // Extract the single target value for the reporting year
-                const timelineData = initiative.targets.timeline_data.find((t: any) => t.year === year || t.year === 2025);
-                if (timelineData) {
-                  // CRITICAL: This is the single target for the KRA, NOT per activity
-                  // Do NOT multiply by activity count - each reported value adds to total reported
-                  totalTarget = typeof timelineData.target_value === 'number' ? timelineData.target_value : 1;
-                }
-              }
-            }
-            // Fallback: use first activity's target if Strategic Plan lookup fails
-            if (totalTarget === 0 && kraActivities[0].target) {
-              totalTarget = kraActivities[0].target;
-            }
-          }
           
           const gap = totalTarget - totalReported;
 
@@ -245,7 +252,7 @@ export function InsightFeed({ analysisId, year, quarter }: InsightFeedProps) {
                       Total Target: <span className="text-xl font-bold">{totalTarget}</span>
                     </span>
                   </div>
-                  <Progress value={kraAchievement} className="h-3" />
+                  <Progress value={Math.min(100, Math.max(0, kraAchievement))} className="h-3" />
                   <div className="flex items-center justify-between mt-2">
                     <p className={`text-sm ${verdict.textColor} font-semibold`}>
                       {kraAchievement.toFixed(1)}% Achievement
@@ -362,14 +369,14 @@ export function InsightFeed({ analysisId, year, quarter }: InsightFeedProps) {
           {analysis.alignment && (
             <Card className="p-4 bg-slate-50 border-slate-200">
               <h4 className="font-semibold text-sm text-slate-900 mb-2">📊 Strategic Alignment</h4>
-              <p className="text-xs text-slate-700 whitespace-pre-wrap">{analysis.alignment}</p>
+              <p className="text-xs text-slate-700 whitespace-pre-wrap">{safeRenderText(analysis.alignment)}</p>
             </Card>
           )}
 
           {analysis.gaps && (
             <Card className="p-4 bg-orange-50 border-orange-200">
               <h4 className="font-semibold text-sm text-orange-900 mb-2">🎯 Priority Gaps</h4>
-              <p className="text-xs text-orange-800 whitespace-pre-wrap">{analysis.gaps}</p>
+              <p className="text-xs text-orange-800 whitespace-pre-wrap">{safeRenderText(analysis.gaps)}</p>
               <p className="text-xs text-orange-600 mt-2 italic">Note: Specific recommendations for each KRA are provided in the cards above.</p>
             </Card>
           )}

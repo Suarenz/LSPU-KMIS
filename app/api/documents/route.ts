@@ -25,6 +25,10 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') || undefined;
     const orderParam = searchParams.get('order') || 'desc';
     const order = orderParam === 'asc' ? 'asc' : 'desc'; // Ensure order is either 'asc' or 'desc'
+    const yearParam = searchParams.get('year');
+    const quarterParam = searchParams.get('quarter');
+    const year = yearParam ? parseInt(yearParam) : undefined; // NEW: Year filter (2025-2029)
+    const quarter = quarterParam ? parseInt(quarterParam) : undefined; // NEW: Quarter filter (1-4)
 
     const userId = user.id;
 
@@ -34,7 +38,7 @@ export async function GET(request: NextRequest) {
       result = await enhancedDocumentService.getAdminDocumentsByUnit(unitId, page, limit, userId);
     } else {
       // Get documents using the enhanced document service
-      // Note: The document service expects parameters in this order: page, limit, category, search, userId, sort, order, unitId
+      // Note: The document service expects parameters in this order: page, limit, category, search, userId, sort, order, unitId, year, quarter
       result = await enhancedDocumentService.getDocuments(
         page,
         limit,
@@ -43,7 +47,9 @@ export async function GET(request: NextRequest) {
         userId,
         sort,
         order,
-        unitId // NEW: Unit filter
+        unitId, // NEW: Unit filter
+        year, // NEW: Year filter
+        quarter // NEW: Quarter filter
       );
     }
 

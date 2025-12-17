@@ -47,6 +47,18 @@ export interface Activity {
   timestamp: Date
 }
 
+export interface ForumPost {
+  id: string
+  title: string
+  content: string
+  author: string
+  authorId: string
+  createdAt: Date
+  updatedAt: Date
+  replies: number
+  views: number
+}
+
 // QPRO Analysis with Aggregation Types
 export interface QPROAggregationMetrics {
   totalKRAs: number
@@ -54,17 +66,19 @@ export interface QPROAggregationMetrics {
   missedKRAs: number
   onTrackKRAs: number
   overallAchievementPercent: number
+  year: number
+  quarter: number
 }
 
 export interface KRAMetricDetail {
   kraId: string
-  kraName: string
+  kraTitle: string
   status: "MET" | "ON_TRACK" | "MISSED"
   reported: number
   target: number
-  variance: number
+  achieved: number
   achievementPercent: number
-  achievementMessage: string
+  message: string
 }
 
 export interface QPROAnalysisResult {
@@ -75,6 +89,7 @@ export interface QPROAnalysisResult {
   gaps: string
   recommendations: string
   achievementScore: number
+  createdAt: string
 }
 
 export interface QPROWithAggregationResults {

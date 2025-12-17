@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useDropzone } from "react-dropzone"
 import { Button } from "@/components/ui/button"
-import { Loader2, Upload, FileText, CheckCircle } from "lucide-react"
+import { Loader2, Upload, FileText, CheckCircle, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { InsightFeed } from "./insight-feed"
 import { QPROResultsWithAggregation } from "@/components/qpro-results-with-aggregation"
@@ -19,6 +20,7 @@ interface ActionZonePanelProps {
 }
 
 export function ActionZonePanel({ year, quarter, unitId, unitName, onAnalysisComplete }: ActionZonePanelProps) {
+  const router = useRouter()
   const [uploading, setUploading] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisId, setAnalysisId] = useState<string | null>(null)
@@ -28,34 +30,37 @@ export function ActionZonePanel({ year, quarter, unitId, unitName, onAnalysisCom
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
-      if (acceptedFiles.length === 0) return
-      if (!unitId) {
-        toast({
-          title: "Unit Required",
-          description: "Please select a unit before uploading.",
-          variant: "destructive",
-        })
+      console.log('[ACTION ZONE] onDrop called with files:', acceptedFiles.length);
+      
+      if (acceptedFiles.length === 0) {
+        console.log('[ACTION ZONE] No files accepted');
         return
       }
 
       const file = acceptedFiles[0]
+      console.log('[ACTION ZONE] File selected:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        unitId
+      });
       
-      // Validate file type
+      // Validate file type (DOCX only)
       const allowedTypes = [
-        "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/msword",
       ]
       
       if (!allowedTypes.includes(file.type)) {
+        console.log('[ACTION ZONE] Invalid file type:', file.type);
         toast({
           title: "Invalid File Type",
-          description: "Please upload a PDF or DOCX file.",
+          description: "Please upload a DOCX file.",
           variant: "destructive",
         })
         return
       }
 
+      console.log('[ACTION ZONE] Setting uploading to true');
       setUploading(true)
       setAnalyzing(true)
 
@@ -90,23 +95,25 @@ export function ActionZonePanel({ year, quarter, unitId, unitName, onAnalysisCom
 
         const result = await response.json()
         
-        setAnalysisId(result.analysis.id)
+        console.log('[ACTION ZONE] Upload response:', result);
+        console.log('[ACTION ZONE] Analysis ID:', result.analysis?.id);
         
-        // Store aggregation results if using new endpoint
-        if (useAggregation && result.aggregation) {
-          setResults(result)
+        if (!result.analysis?.id) {
+          throw new Error('No analysis ID returned from server');
         }
         
+        setAnalysisId(result.analysis.id)
         setUploading(false)
-
+        
+        // Navigate to review page for staging workflow
+        // Analysis is saved as DRAFT until approved
         toast({
           title: "Analysis Complete!",
-          description: useAggregation 
-            ? "Your QPRO report has been analyzed with metrics and aggregations."
-            : "Your QPRO report has been analyzed successfully.",
+          description: "Redirecting to review page...",
         })
-
-        onAnalysisComplete()
+        
+        // Navigate to review page instead of showing modal
+        router.push(`/qpro/review/${result.analysis.id}`)
       } catch (error: any) {
         console.error("Upload error:", error)
         toast({
@@ -120,15 +127,13 @@ export function ActionZonePanel({ year, quarter, unitId, unitName, onAnalysisCom
         setAnalyzing(false)
       }
     },
-    [unitId, year, quarter, toast, onAnalysisComplete]
+    [unitId, year, quarter, toast]
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      "application/pdf": [".pdf"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-      "application/msword": [".doc"],
     },
     maxFiles: 1,
     disabled: uploading,
@@ -216,6 +221,20 @@ export function ActionZonePanel({ year, quarter, unitId, unitName, onAnalysisCom
               Activity matching • Gap analysis • Strategic recommendations
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Quick Review Button for Already Uploaded Draft */}
+      {analysisId && (
+        <div className="pt-4">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push(`/qpro/review/${analysisId}`)}
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Review & Approve Analysis
+          </Button>
         </div>
       )}
     </div>

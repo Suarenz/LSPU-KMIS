@@ -9,6 +9,11 @@ export default {
   theme: {
     extend: {
       colors: {
+        // LSPU Brand Colors
+        'lspu-blue': '#2B4385',
+        'lspu-green': '#2E8B57',
+        'lspu-orange': '#C04E3A',
+        'lspu-bg': '#F3F4F6',
         background: 'oklch(var(--color-background))',
         foreground: 'oklch(var(--color-foreground))',
         card: 'oklch(var(--color-card))',

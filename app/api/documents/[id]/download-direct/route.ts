@@ -47,20 +47,76 @@ export async function GET(
     // Record the download
     await documentService.recordDownload(id, userId);
 
-    // Extract the filename from the stored URL
-    const fileName = document.fileUrl.split('/').pop();
-    if (!fileName) {
+    // Use the stored blob name if available, otherwise extract from URL
+    let blobName = document.blobName;
+    
+    if (!blobName) {
+      // Fallback: Extract the blob path from the stored URL
+      // URL format: https://account.blob.core.windows.net/container/path/to/blob
+      // We need to extract path/to/blob (everything after /container/)
+      const urlWithoutParams = document.fileUrl.split('?')[0];
+      const urlParts = urlWithoutParams.split('/'); // ['https:', '', 'account.blob.core.windows.net', 'container', 'path', 'to', 'blob']
+      
+      // Find container name (after the domain)
+      const containerIndex = urlParts.findIndex((part, idx) => idx >= 3 && part && !part.includes('.'));
+      
+      if (containerIndex !== -1 && containerIndex < urlParts.length - 1) {
+        // Everything after the container name is the blob path
+        // Decode URL-encoded characters (e.g., %20 -> space)
+        blobName = decodeURIComponent(urlParts.slice(containerIndex + 1).join('/'));
+      }
+    }
+    
+    console.log('Download attempt:', {
+      documentId: id,
+      storedBlobName: document.blobName,
+      extractedBlobName: blobName,
+      storedUrl: document.fileUrl,
+    });
+
+    if (!blobName) {
+      console.error('Failed to determine blob name for download:', document.fileUrl);
       return NextResponse.json(
-        { error: 'Invalid file URL' },
+        { error: 'Invalid file URL - could not determine blob name' },
         { status: 500 }
       );
     }
 
-    // Get the file URL from Azure Storage using the fileStorageService
-    const fileUrl = await fileStorageService.getFileUrl(fileName);
-
-    // Create a response that redirects to the file URL to trigger the download
-    return NextResponse.redirect(fileUrl);
+    try {
+      // Determine which container based on URL
+      const containerName = document.fileUrl.includes('/qpro-files/') ? 'qpro-files' : 'repository-files';
+      
+      // Get the file URL from Azure Storage using the fileStorageService
+      const fileUrl = await fileStorageService.getFileUrl(blobName, containerName);
+      
+      // Fetch the file from the signed URL
+      const response = await fetch(fileUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`);
+      }
+      
+      // Get the file content
+      const blob = await response.blob();
+      
+      // Create a response with proper download headers
+      return new NextResponse(blob, {
+        headers: {
+          'Content-Type': document.fileType || 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(document.fileName)}"`,
+          'Content-Length': blob.size.toString(),
+        },
+      });
+    } catch (azureError) {
+      console.error('Azure Storage error:', {
+        blobName,
+        error: azureError instanceof Error ? azureError.message : azureError,
+        documentFileUrl: document.fileUrl
+      });
+      return NextResponse.json(
+        { error: 'Failed to generate download URL from storage' },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Error in direct download:', error);
     return NextResponse.json(

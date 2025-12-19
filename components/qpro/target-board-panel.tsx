@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Loader2, Target, CheckCircle2, AlertCircle, Clock } from "lucide-react"
-import strategicPlan from "@/strategic_plan.json"
+import strategicPlan from "@/lib/data/strategic_plan.json"
 import AuthService from "@/lib/services/auth-service"
 
 interface TargetBoardPanelProps {

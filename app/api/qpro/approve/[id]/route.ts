@@ -94,15 +94,37 @@ export async function POST(
 
     console.log(`[Approve API] Approving analysis ${analysisId} with ${stagedActivities.length} staged activities`);
 
-    // Parse KRAs from the analysis
+    // Parse KRAs from the analysis (for reference only)
     const kras = analysis.kras as any[];
 
-    if (!kras || !Array.isArray(kras)) {
+    if (stagedActivities.length === 0) {
       return NextResponse.json(
-        { error: 'No KRA data found in analysis' },
+        { error: 'No staged activities found to approve' },
         { status: 400 }
       );
     }
+
+    // Build unique KRA+initiative pairs from staged activities (the actual source of truth)
+    const kraInitiativePairs = new Map<string, { kraId: string; initiativeId: string }>();
+    for (const activity of stagedActivities) {
+      if (activity.initiative_id) {
+        // Extract KRA ID from initiative_id (e.g., "KRA3-KPI5" -> "KRA3")
+        const kraMatch = activity.initiative_id.match(/^(KRA\s?\d+)/i);
+        const kraId = kraMatch ? kraMatch[1] : null;
+        
+        if (kraId) {
+          const key = `${kraId}|${activity.initiative_id}`;
+          if (!kraInitiativePairs.has(key)) {
+            kraInitiativePairs.set(key, {
+              kraId: kraId,
+              initiativeId: activity.initiative_id,
+            });
+          }
+        }
+      }
+    }
+
+    console.log(`[Approve API] Found ${kraInitiativePairs.size} unique KRA+initiative pairs from staged activities`);
 
     // Begin transaction to update aggregation tables
     await prisma.$transaction(async (tx) => {
@@ -126,19 +148,19 @@ export async function POST(
         }
       });
 
-      // 2. Process each KRA and update aggregation
-      for (const kra of kras) {
-        if (!kra.kraId || !kra.initiativeId) continue;
+      // 2. Process each unique KRA+initiative pair and update aggregation
+      for (const [, pair] of kraInitiativePairs) {
+        const { kraId, initiativeId } = pair;
 
-        const normalizedKraId = normalizeKraId(kra.kraId);
+        const normalizedKraId = normalizeKraId(kraId);
 
         // Get target metadata from strategic plan
-        const target = await strategicPlanService.getInitiative(normalizedKraId, kra.initiativeId);
+        const target = await strategicPlanService.getInitiative(normalizedKraId, initiativeId);
         const targetType = (target?.targets?.type || 'count').toLowerCase();
 
         // Calculate reported value for this initiative from STAGED aggregation activities (source of truth)
         const stagedForInitiative = stagedActivities.filter(
-          (a) => a.initiative_id === kra.initiativeId
+          (a) => a.initiative_id === initiativeId
         );
 
         const numericReportedValues = stagedForInitiative
@@ -169,7 +191,7 @@ export async function POST(
               year: reportYear,
               quarter: reportQuarter,
               kra_id: normalizedKraId,
-              initiative_id: kra.initiativeId,
+              initiative_id: initiativeId,
             },
           },
         });
@@ -203,11 +225,18 @@ export async function POST(
 
         const metrics = await targetAggregationService.calculateAggregation(
           normalizedKraId,
-          kra.initiativeId,
+          initiativeId,
           reportYear,
           newTotalReported,
           targetType
         );
+
+        // Get KRA title from strategic plan - find the KRA that contains this initiative
+        const kraData = kras?.find((k: any) => {
+          const normalizedId = normalizeKraId(k.kra_id || k.kraId);
+          return normalizedId === normalizedKraId;
+        });
+        const kraTitle = kraData?.kra_title || kraData?.kraTitle || normalizedKraId;
 
         const aggregation = await (async () => {
           if (!existingAggregation) {
@@ -216,8 +245,8 @@ export async function POST(
                 year: reportYear,
                 quarter: reportQuarter,
                 kra_id: normalizedKraId,
-                kra_title: kra.kraTitle || 'Unknown',
-                initiative_id: kra.initiativeId,
+                kra_title: kraTitle,
+                initiative_id: initiativeId,
                 total_reported: newTotalReported,
                 target_value: targetValue,
                 achievement_percent: metrics.achievementPercent,
@@ -247,7 +276,7 @@ export async function POST(
         await tx.aggregationActivity.updateMany({
           where: {
             qpro_analysis_id: analysisId,
-            initiative_id: kra.initiativeId,
+            initiative_id: initiativeId,
             isApproved: false,
           },
           data: {
@@ -262,12 +291,12 @@ export async function POST(
           where: {
             unique_contribution_per_analysis_kpi: {
               analysis_id: analysisId,
-              initiative_id: kra.initiativeId,
+              initiative_id: initiativeId,
             },
           },
           create: {
             kra_id: normalizedKraId,
-            initiative_id: kra.initiativeId,
+            initiative_id: initiativeId,
             document_id: analysis.documentId,
             analysis_id: analysisId,
             unit_id: analysis.unitId,
@@ -285,7 +314,7 @@ export async function POST(
       }
     });
 
-    console.log(`[Approve API] Successfully approved analysis ${analysisId}`);
+    console.log(`[Approve API] Successfully approved analysis ${analysisId} with ${kraInitiativePairs.size} KPI aggregations`);
 
     // Invalidate analysis caches when approved
     const analysisDoc = await prisma.qPROAnalysis.findUnique({

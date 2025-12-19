@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import strategicPlan from '@/strategic_plan.json';
+import strategicPlan from '@/lib/data/strategic_plan.json';
 import { useAuth } from '@/lib/auth-context';
 import AuthService from '@/lib/services/auth-service';
 import {
@@ -27,6 +27,8 @@ import {
   parseNumericValue,
   type TargetDisplayType,
 } from '@/lib/utils/target-type-detector';
+import { DynamicInput, formatDisplayValue, type TargetType } from '@/components/ui/dynamic-input';
+import { mapTargetType } from '@/lib/utils/target-type-utils';
 
 // KPI Progress types
 interface KPIProgressItem {
@@ -34,11 +36,18 @@ interface KPIProgressItem {
   year: number;
   quarter: number;
   targetValue: string | number;
-  currentValue: number;
+  currentValue: number | string;
   achievementPercent: number;
   status: 'MET' | 'ON_TRACK' | 'MISSED' | 'PENDING';
   submissionCount: number;
   participatingUnits: string[];
+  targetType: TargetType;
+  // Manual override fields
+  manualOverride?: number | string | null;
+  manualOverrideReason?: string | null;
+  manualOverrideBy?: string | null;
+  manualOverrideAt?: string | null;
+  valueSource: 'qpro' | 'manual' | 'none';
 }
 
 interface KPIProgressData {
@@ -94,6 +103,9 @@ interface Initiative {
 // Type for storing current values in state
 type CurrentValuesMap = Record<string, string | number>;
 
+// Type for pending saves (values being edited but not yet saved to DB)
+type PendingEditsMap = Record<string, { value: string | number; reason?: string }>;
+
 const kraColors = [
   'bg-red-100 text-red-800',
   'bg-blue-100 text-blue-800',
@@ -143,72 +155,159 @@ export default function KRADetailPage() {
   const [kpiProgress, setKpiProgress] = useState<KPIProgressData | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(false);
   const [selectedProgressYear, setSelectedProgressYear] = useState<number>(new Date().getFullYear());
-  const [selectedProgressQuarter, setSelectedProgressQuarter] = useState<number>(Math.ceil((new Date().getMonth() + 1) / 3));
+  const [selectedProgressQuarter, setSelectedProgressQuarter] = useState<number>(1);
 
-  // QPRO-derived current values for the Targets-by-Year table (fallback only)
+  // QPRO-derived current values for the Targets-by-Year table
   const [qproDerivedValues, setQproDerivedValues] = useState<CurrentValuesMap>({});
   
-  // Current values state management (keyed by "{initiativeId}-{year}")
-  const [currentValues, setCurrentValues] = useState<CurrentValuesMap>({});
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  // Pending edits that haven't been saved to DB yet (keyed by "{initiativeId}-{year}-{quarter}")
+  const [pendingEdits, setPendingEdits] = useState<PendingEditsMap>({});
+  const [savingOverride, setSavingOverride] = useState<string | null>(null); // Track which item is being saved
 
-  // Load saved current values from localStorage on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined' && kraId) {
-      const savedKey = `kra-current-values-${kraId}`;
-      const saved = localStorage.getItem(savedKey);
-      if (saved) {
+  // NOTE: We no longer use localStorage for persistence - all saves go to database
+  // The old localStorage-based currentValues state is replaced by database-backed values
+  
+  // Get the effective current value for a specific initiative-year-quarter from API data
+  const getCurrentValueFromProgress = useCallback((initiativeId: string, year: number, quarter?: number): number | string => {
+    if (!kpiProgress) return 0;
+    const initiative = kpiProgress.initiatives?.find(i => i.id === initiativeId);
+    if (!initiative) return 0;
+    
+    if (quarter) {
+      // Get specific quarter value
+      const progressItem = initiative.progress?.find(p => p.year === year && p.quarter === quarter);
+      return progressItem?.currentValue ?? 0;
+    } else {
+      // Sum all quarters for the year (only for numeric types)
+      const yearItems = initiative.progress?.filter(p => p.year === year) || [];
+      return yearItems.reduce((sum, item) => {
+        const val = typeof item.currentValue === 'number' ? item.currentValue : parseFloat(String(item.currentValue)) || 0;
+        return sum + val;
+      }, 0);
+    }
+  }, [kpiProgress]);
+
+  // Get the value source for a specific initiative-year-quarter from API data
+  const getValueSourceFromProgress = useCallback((initiativeId: string, year: number, quarter?: number): 'qpro' | 'manual' | 'none' => {
+    if (!kpiProgress) return 'none';
+    const initiative = kpiProgress.initiatives?.find(i => i.id === initiativeId);
+    if (!initiative) return 'none';
+    
+    if (quarter) {
+      const progressItem = initiative.progress?.find(p => p.year === year && p.quarter === quarter);
+      return progressItem?.valueSource || 'none';
+    } else {
+      // If any quarter has a value, return the highest priority source
+      const yearItems = initiative.progress?.filter(p => p.year === year) || [];
+      if (yearItems.some(item => item.valueSource === 'manual')) return 'manual';
+      if (yearItems.some(item => item.valueSource === 'qpro')) return 'qpro';
+      return 'none';
+    }
+  }, [kpiProgress]);
+
+  // Save a manual override value to the database
+  const saveManualOverride = useCallback(async (
+    initiativeId: string,
+    year: number,
+    quarter: number,
+    value: number | string | null,
+    reason?: string,
+    targetType?: TargetType
+  ) => {
+    const key = `${initiativeId}-${year}-${quarter}`;
+    setSavingOverride(key);
+    
+    try {
+      const token = await AuthService.getAccessToken();
+      const response = await fetch('/api/kpi-progress', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          kraId: kraId,
+          initiativeId,
+          year,
+          quarter,
+          value,
+          reason,
+          targetType,
+        }),
+      });
+      
+      if (!response.ok) {
+        let error: any = {};
         try {
-          setCurrentValues(JSON.parse(saved));
-        } catch (e) {
-          console.error('Error loading saved current values:', e);
+          error = await response.json();
+        } catch {
+          // If response body is not JSON, try to get text
+          error = { message: `HTTP ${response.status}` };
         }
+        console.error('Failed to save override:', error, 'Status:', response.status);
+        return false;
       }
+      
+      // Remove from pending edits on success
+      setPendingEdits(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      
+      // Always refresh KPI progress for the whole year (all quarters)
+      const params = new URLSearchParams({
+        kraId: kraId,
+        year: selectedProgressYear.toString(),
+        _t: Date.now().toString(), // cache bust
+      });
+      const refreshResponse = await fetch(`/api/kpi-progress?${params}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (refreshResponse.ok) {
+        const api = await refreshResponse.json();
+        setKpiProgress(api.data);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error saving manual override:', error);
+      return false;
+    } finally {
+      setSavingOverride(null);
     }
-  }, [kraId]);
+  }, [kraId, selectedProgressYear, selectedProgressQuarter]);
 
-  // Save current values to localStorage
-  const saveCurrentValues = useCallback(() => {
-    if (typeof window !== 'undefined' && kraId) {
-      const savedKey = `kra-current-values-${kraId}`;
-      localStorage.setItem(savedKey, JSON.stringify(currentValues));
-      setHasUnsavedChanges(false);
-    }
-  }, [kraId, currentValues]);
-
-  // Update a single current value
-  const updateCurrentValue = useCallback((initiativeId: string, year: number, value: string) => {
-    const key = `${initiativeId}-${year}`;
-    setCurrentValues(prev => ({
+  // Update a pending edit (before saving to DB)
+  const updatePendingEdit = useCallback((initiativeId: string, year: number, quarter: number, value: string | number) => {
+    const key = `${initiativeId}-${year}-${quarter}`;
+    // Keep as-is (string or number) based on input type
+    const finalValue = value === '' ? 0 : value;
+    setPendingEdits(prev => ({
       ...prev,
-      [key]: value,
+      [key]: { value: finalValue },
     }));
-    setHasUnsavedChanges(true);
   }, []);
 
-  // Get current value for a specific initiative-year
-  const getCurrentValue = useCallback((initiativeId: string, year: number): string | number | undefined => {
-    const key = `${initiativeId}-${year}`;
-    return currentValues[key] ?? qproDerivedValues[key];
-  }, [currentValues, qproDerivedValues]);
-
-  // Check if value is from localStorage (manual entry) vs QPRO data
-  const getValueSource = useCallback((initiativeId: string, year: number): 'manual' | 'qpro' | 'none' => {
-    const key = `${initiativeId}-${year}`;
-    if (currentValues[key] !== undefined && currentValues[key] !== '') return 'manual';
-    if (qproDerivedValues[key] !== undefined && qproDerivedValues[key] !== 0) return 'qpro';
-    return 'none';
-  }, [currentValues, qproDerivedValues]);
-
-  // Clear localStorage values for this KRA (useful for resetting to QPRO data)
-  const clearLocalStorageValues = useCallback(() => {
-    if (typeof window !== 'undefined' && kraId) {
-      const savedKey = `kra-current-values-${kraId}`;
-      localStorage.removeItem(savedKey);
-      setCurrentValues({});
-      setHasUnsavedChanges(false);
+  // Get current value for display (pending edit → API value → 0)
+  const getDisplayValue = useCallback((initiativeId: string, year: number, quarter: number): string | number => {
+    const key = `${initiativeId}-${year}-${quarter}`;
+    if (pendingEdits[key] !== undefined) {
+      return pendingEdits[key].value;
     }
-  }, [kraId]);
+    return getCurrentValueFromProgress(initiativeId, year, quarter);
+  }, [pendingEdits, getCurrentValueFromProgress]);
+
+  // Check if there's a pending edit for this item
+  const hasPendingEdit = useCallback((initiativeId: string, year: number, quarter: number): boolean => {
+    const key = `${initiativeId}-${year}-${quarter}`;
+    return pendingEdits[key] !== undefined;
+  }, [pendingEdits]);
+
+  // Clear all pending edits and reset to API values
+  const clearPendingEdits = useCallback(() => {
+    setPendingEdits({});
+  }, []);
 
   // Direct access to KRA
   const allKras = (strategicPlan as any).kras || [];
@@ -244,7 +343,7 @@ export default function KRADetailPage() {
     fetchAnalysisData();
   }, [kraId, isAuthenticated, isLoading]);
 
-  // Fetch KPI progress from QPRO documents
+  // Fetch KPI progress from QPRO documents - fetches all quarters for the year
   useEffect(() => {
     if (!isAuthenticated || isLoading || !kraId) return;
 
@@ -252,21 +351,35 @@ export default function KRADetailPage() {
       try {
         setLoadingProgress(true);
         const token = await AuthService.getAccessToken();
+        // Fetch without quarter param to get all quarters for the year
+        // Add cache-busting param to ensure fresh data
         const params = new URLSearchParams({
           kraId: kraId,
           year: selectedProgressYear.toString(),
-          quarter: selectedProgressQuarter.toString(),
+          _t: Date.now().toString(), // Cache bust
         });
         
         const response = await fetch(`/api/kpi-progress?${params}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Cache-Control': 'no-cache',
           },
         });
         
         if (response.ok) {
           const api = (await response.json()) as KPIProgressApiResponse;
           setKpiProgress(api.data);
+          
+          // Build QPRO-derived values map for the per-quarter table
+          const derived: CurrentValuesMap = {};
+          for (const initiative of api.data.initiatives || []) {
+            const progressItems = (initiative.progress || []).filter((p) => p.year === selectedProgressYear);
+            for (const pItem of progressItems) {
+              const key = `${initiative.id}-${pItem.year}-${pItem.quarter}`;
+              derived[key] = pItem.currentValue || 0;
+            }
+          }
+          setQproDerivedValues(derived);
         }
       } catch (error) {
         console.error('Error fetching KPI progress:', error);
@@ -276,54 +389,6 @@ export default function KRADetailPage() {
     };
 
     fetchKPIProgress();
-  }, [kraId, isAuthenticated, isLoading, selectedProgressYear, selectedProgressQuarter]);
-
-  // Fetch ANNUAL KPI progress and derive year-level current values for the Targets-by-Year table
-  useEffect(() => {
-    if (!isAuthenticated || isLoading || !kraId) return;
-
-    const fetchAnnualKPIProgress = async () => {
-      try {
-        const token = await AuthService.getAccessToken();
-        const params = new URLSearchParams({
-          kraId: kraId,
-          year: selectedProgressYear.toString(),
-        });
-
-        const response = await fetch(`/api/kpi-progress?${params}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) return;
-        const api = (await response.json()) as KPIProgressApiResponse;
-
-        const derived: CurrentValuesMap = {};
-        for (const initiative of api.data.initiatives || []) {
-          const key = `${initiative.id}-${selectedProgressYear}`;
-          const progressItems = (initiative.progress || []).filter((p) => p.year === selectedProgressYear);
-
-          // Default: sum quarterly totals
-          let yearValue = progressItems.reduce((sum, p) => sum + (p.currentValue || 0), 0);
-
-          // For percentage KPIs, use the latest non-zero quarter value (fallback to max)
-          if ((initiative.targetType || '').toLowerCase() === 'percentage') {
-            const nonZero = progressItems.filter((p) => (p.currentValue || 0) > 0);
-            const latest = nonZero.sort((a, b) => b.quarter - a.quarter)[0];
-            yearValue = latest?.currentValue ?? Math.max(0, ...progressItems.map((p) => p.currentValue || 0));
-          }
-
-          derived[key] = yearValue;
-        }
-
-        setQproDerivedValues(derived);
-      } catch (error) {
-        console.error('Error fetching annual KPI progress:', error);
-      }
-    };
-
-    fetchAnnualKPIProgress();
   }, [kraId, isAuthenticated, isLoading, selectedProgressYear]);
 
   if (isLoading) {
@@ -397,137 +462,6 @@ export default function KRADetailPage() {
         </div>
       </div>
 
-      {/* KPI Progress Summary Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <BarChart2 className="w-5 h-5 text-blue-600" />
-            QPRO Progress Tracking
-          </h2>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Year:</label>
-              <Select
-                value={selectedProgressYear.toString()}
-                onValueChange={(v) => setSelectedProgressYear(parseInt(v))}
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[2025, 2026, 2027, 2028, 2029].map((y) => (
-                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Quarter:</label>
-              <Tabs value={`Q${selectedProgressQuarter}`} onValueChange={(v) => setSelectedProgressQuarter(parseInt(v.replace('Q', '')))}>
-                <TabsList className="h-9">
-                  <TabsTrigger value="Q1" className="px-3">Q1</TabsTrigger>
-                  <TabsTrigger value="Q2" className="px-3">Q2</TabsTrigger>
-                  <TabsTrigger value="Q3" className="px-3">Q3</TabsTrigger>
-                  <TabsTrigger value="Q4" className="px-3">Q4</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </div>
-        </div>
-
-        {loadingProgress ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-gray-600">Loading progress data...</span>
-          </div>
-        ) : kpiProgress ? (
-          <div className="space-y-4">
-            {(() => {
-              const hasAnyApprovedSubmission = (kpiProgress.initiatives || []).some((i) =>
-                (i.progress || []).some((p) =>
-                  p.year === selectedProgressYear &&
-                  p.quarter === selectedProgressQuarter &&
-                  ((p.submissionCount || 0) > 0)
-                )
-              );
-
-              if (!hasAnyApprovedSubmission) {
-                return (
-                  <div className="text-center py-8 text-gray-500">
-                    <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                    <p>No approved QPRO submissions for {selectedProgressYear} Q{selectedProgressQuarter}</p>
-                    <p className="text-sm mt-1">Approve a QPRO analysis to reflect progress here</p>
-                  </div>
-                );
-              }
-
-              return null;
-            })() || (
-              <>
-                {/* Overall Progress Summary */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-blue-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-700">{kpiProgress.initiatives?.length || 0}</div>
-                    <div className="text-xs text-blue-600">Total KPIs</div>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-green-700">
-                      {kpiProgress.initiatives?.filter((i) =>
-                        i.progress?.some((p) => p.year === selectedProgressYear && p.quarter === selectedProgressQuarter && p.status === 'MET')
-                      ).length || 0}
-                    </div>
-                    <div className="text-xs text-green-600">Met Target</div>
-                  </div>
-                  <div className="bg-yellow-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-yellow-700">
-                      {kpiProgress.initiatives?.filter((i) =>
-                        i.progress?.some((p) => p.year === selectedProgressYear && p.quarter === selectedProgressQuarter && p.status === 'ON_TRACK')
-                      ).length || 0}
-                    </div>
-                    <div className="text-xs text-yellow-600">On Track</div>
-                  </div>
-                  <div className="bg-red-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-red-700">
-                      {kpiProgress.initiatives?.filter((i) =>
-                        i.progress?.some((p) => p.year === selectedProgressYear && p.quarter === selectedProgressQuarter && (p.status === 'MISSED' || p.status === 'PENDING'))
-                      ).length || 0}
-                    </div>
-                    <div className="text-xs text-red-600">Needs Attention</div>
-                  </div>
-                </div>
-
-            {/* Overall KRA Progress Bar */}
-            {(() => {
-              const quarterItems = (kpiProgress.initiatives || [])
-                .map((i) => i.progress?.find((p) => p.year === selectedProgressYear && p.quarter === selectedProgressQuarter))
-                .filter(Boolean) as KPIProgressItem[];
-              const overallProgress = quarterItems.length
-                ? quarterItems.reduce((sum, item) => sum + (item.achievementPercent || 0), 0) / quarterItems.length
-                : undefined;
-
-              if (overallProgress === undefined) return null;
-
-              return (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium text-gray-700">Overall KRA Progress</span>
-                  <span className="text-lg font-bold text-blue-600">{Math.round(overallProgress)}%</span>
-                </div>
-                <Progress value={overallProgress} className="h-3" />
-              </div>
-              );
-            })()}
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-            <p>No QPRO documents uploaded for {selectedProgressYear} Q{selectedProgressQuarter}</p>
-            <p className="text-sm mt-1">Upload documents to track progress automatically</p>
-          </div>
-        )}
-      </div>
 
       {/* KPIs Section */}
       <div className="space-y-6">
@@ -561,44 +495,7 @@ export default function KRADetailPage() {
                       </div>
                     </div>
                     
-                    {/* KPI Progress Badge from QPRO */}
-                    {quarterProgressItem && (
-                      <div className="flex flex-col items-end gap-2 min-w-[140px]">
-                        <Badge 
-                          className={
-                            quarterProgressItem.status === 'MET' ? 'bg-green-100 text-green-800' :
-                            quarterProgressItem.status === 'ON_TRACK' ? 'bg-blue-100 text-blue-800' :
-                            quarterProgressItem.status === 'MISSED' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }
-                        >
-                          {quarterProgressItem.status === 'MET' ? '✓ Target Met' :
-                           quarterProgressItem.status === 'ON_TRACK' ? '→ On Track' :
-                           quarterProgressItem.status === 'MISSED' ? '✗ Missed' :
-                           '○ Pending'}
-                        </Badge>
-                        <div className="w-full">
-                          <div className="flex justify-between text-xs text-gray-500 mb-1">
-                            <span>QPRO Progress</span>
-                            <span className="font-semibold">{Math.round(quarterProgressItem.achievementPercent || 0)}%</span>
-                          </div>
-                          <Progress 
-                            value={quarterProgressItem.achievementPercent || 0} 
-                            className={`h-2 ${
-                              quarterProgressItem.status === 'MET' ? '[&>div]:bg-green-500' :
-                              quarterProgressItem.status === 'ON_TRACK' ? '[&>div]:bg-blue-500' :
-                              quarterProgressItem.status === 'MISSED' ? '[&>div]:bg-red-500' :
-                              '[&>div]:bg-gray-400'
-                            }`}
-                          />
-                        </div>
-                        {(quarterProgressItem.submissionCount || 0) > 0 && (
-                          <span className="text-xs text-gray-500">
-                            {quarterProgressItem.submissionCount} submission{quarterProgressItem.submissionCount > 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {/* QPRO summary removed per user preference - rely on detailed Targets by Year table */}
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
@@ -647,32 +544,22 @@ export default function KRADetailPage() {
                     ) : null;
                   })()}
 
-                  {/* Targets by Year */}
+                  {/* Targets by Year with Per-Quarter Values */}
                   {initiative.targets && initiative.targets.timeline_data && initiative.targets.timeline_data.length > 0 && (
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-semibold text-gray-900">Targets by Year</h4>
                         <div className="flex items-center gap-2">
-                          {Object.keys(currentValues).length > 0 && (
+                          {Object.keys(pendingEdits).length > 0 && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={clearLocalStorageValues}
-                              className="flex items-center gap-1 text-amber-600 border-amber-300 hover:bg-amber-50"
-                              title="Clear manually entered values and use QPRO data"
+                              onClick={clearPendingEdits}
+                              className="flex items-center gap-1 text-gray-600 border-gray-300 hover:bg-gray-50"
+                              title="Discard unsaved changes"
                             >
                               <RefreshCw className="h-3 w-3" />
-                              Reset to QPRO Data
-                            </Button>
-                          )}
-                          {hasUnsavedChanges && (
-                            <Button
-                              size="sm"
-                              onClick={saveCurrentValues}
-                              className="flex items-center gap-1"
-                            >
-                              <Save className="h-3 w-3" />
-                              Save Progress
+                              Discard Changes
                             </Button>
                           )}
                         </div>
@@ -682,8 +569,9 @@ export default function KRADetailPage() {
                           <thead>
                             <tr className="bg-gray-100 border-b">
                               <th className="px-3 py-2 text-left font-semibold text-gray-900 w-20">Year</th>
-                              <th className="px-3 py-2 text-left font-semibold text-gray-900 w-32">Target</th>
-                              <th className="px-3 py-2 text-left font-semibold text-gray-900 w-36">Current Value</th>
+                              <th className="px-3 py-2 text-left font-semibold text-gray-900 w-20">Quarter</th>
+                              <th className="px-3 py-2 text-left font-semibold text-gray-900 w-32">Annual Target</th>
+                              <th className="px-3 py-2 text-left font-semibold text-gray-900 w-48">Current Value</th>
                               <th className="px-3 py-2 text-left font-semibold text-gray-900">Progress</th>
                             </tr>
                           </thead>
@@ -694,106 +582,214 @@ export default function KRADetailPage() {
                                 currency: initiative.targets.currency,
                                 low_count_threshold: initiative.targets.low_count_threshold,
                               };
-                              const currentVal = getCurrentValue(initiative.id, timelineItem.year);
-                              const displayType = detectTargetType(
-                                timelineItem.target_value,
-                                currentVal,
-                                targetConfig
-                              );
-                              const displayInfo = getTargetDisplayInfo(
-                                timelineItem.target_value,
-                                currentVal,
-                                targetConfig
-                              );
 
-                              // Determine input type based on display type
-                              const inputType = displayType === 'milestone' ? 'text' 
-                                : displayType === 'percentage' ? 'percentage'
-                                : displayType === 'currency' ? 'currency'
-                                : 'number';
+                              // Always show Q1-Q4 for every year present in timeline_data
+                              const quarters = [1, 2, 3, 4];
+                              // Get quarterly data from kpiProgress
+                              const initiativeProgress = kpiProgress?.initiatives?.find(ip => ip.id === initiative.id);
+                              const quarterlyItems = initiativeProgress?.progress?.filter(p => p.year === timelineItem.year) || [];
 
-                              // Check value source for visual indicator
-                              const valueSource = getValueSource(initiative.id, timelineItem.year);
+                              return quarters.map((quarter, qIdx) => {
+                                // If there is a quarterly item for this quarter, use its value, else use the annual target value
+                                const quarterItem = quarterlyItems.find(q => q.quarter === quarter);
+                                // If no quarterly data, use the annual target value for all quarters
+                                const displayValue = getDisplayValue(initiative.id, timelineItem.year, quarter);
+                                const valueSource = quarterItem?.valueSource || getValueSourceFromProgress(initiative.id, timelineItem.year, quarter);
+                                const isPending = hasPendingEdit(initiative.id, timelineItem.year, quarter);
+                                const cellKey = `${initiative.id}-${timelineItem.year}-${quarter}`;
+                                const isSaving = savingOverride === cellKey;
 
-                              return (
-                                <tr key={i} className="border-b hover:bg-gray-50">
-                                  <td className="px-3 py-2 text-gray-900 font-medium">
-                                    {timelineItem.year}
-                                  </td>
-                                  <td className="px-3 py-2 text-gray-700">
-                                    {displayInfo.formattedTarget}
-                                    {initiative.targets.unit_basis && (
-                                      <span className="text-xs text-gray-500 block">
-                                        {initiative.targets.unit_basis}
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <div className="flex items-center gap-2">
-                                      <CurrentValueInput
-                                        value={currentVal ?? ''}
-                                        onChange={(val) => updateCurrentValue(initiative.id, timelineItem.year, val)}
-                                        type={inputType}
-                                        placeholder={displayType === 'milestone' ? 'Status...' : '0'}
-                                      />
-                                      {valueSource === 'manual' && (
-                                        <span className="text-xs text-amber-600 whitespace-nowrap" title="Manually entered value (not from QPRO)">
-                                          ⚠ Manual
-                                        </span>
+                                const displayType = detectTargetType(
+                                  timelineItem.target_value,
+                                  displayValue,
+                                  targetConfig
+                                );
+                                const displayInfo = getTargetDisplayInfo(
+                                  timelineItem.target_value,
+                                  displayValue,
+                                  targetConfig
+                                );
+
+                                // Map target type from strategic plan to TargetType enum
+                                const planTargetType = initiative.targets?.type || 'count';
+                                const dynamicTargetType = mapTargetType(planTargetType);
+
+                                const inputType = displayType === 'milestone' ? 'text' 
+                                  : displayType === 'percentage' ? 'percentage'
+                                  : displayType === 'currency' ? 'currency'
+                                  : 'number';
+
+                                return (
+                                  <tr 
+                                    key={`${i}-${quarter}`} 
+                                    className={`border-b hover:bg-gray-50 ${qIdx === 0 ? 'border-t-2 border-t-gray-200' : ''}`}
+                                  >
+                                    {/* Year column - only show for first quarter */}
+                                    {qIdx === 0 ? (
+                                      <td className="px-3 py-2 text-gray-900 font-medium" rowSpan={quarters.length}>
+                                        {timelineItem.year}
+                                      </td>
+                                    ) : null}
+
+                                    {/* Quarter column */}
+                                    <td className="px-3 py-2 text-gray-600">
+                                      Q{quarter}
+                                    </td>
+
+                                    {/* Target column - only show for first quarter */}
+                                    {qIdx === 0 ? (
+                                      <td className="px-3 py-2 text-gray-700" rowSpan={quarters.length}>
+                                        {displayInfo.formattedTarget}
+                                        {initiative.targets.unit_basis && (
+                                          <span className="text-xs text-gray-500 block">
+                                            {initiative.targets.unit_basis}
+                                          </span>
+                                        )}
+                                      </td>
+                                    ) : null}
+
+                                    {/* Current Value column with edit and save */}
+                                    <td className="px-3 py-2">
+                                      <div className="flex items-center gap-2">
+                                        <DynamicInput
+                                          targetType={dynamicTargetType}
+                                          value={displayValue ?? ''}
+                                          onChange={(val) => updatePendingEdit(initiative.id, timelineItem.year, quarter, val)}
+                                          placeholder={dynamicTargetType === 'TEXT_CONDITION' ? 'Select status...' : '0'}
+                                        />
+
+                                        {/* Save button - appears when there's a pending edit */}
+                                        {isPending && (
+                                          <Button
+                                            size="sm"
+                                            variant="default"
+                                            onClick={() => {
+                                              const editValue = pendingEdits[`${initiative.id}-${timelineItem.year}-${quarter}`]?.value;
+                                              
+                                              // Handle different target types
+                                              let valueToSave: number | string | null = null;
+                                              
+                                              if (dynamicTargetType === 'MILESTONE') {
+                                                // Milestone: boolean 0/1
+                                                valueToSave = editValue === 1 || editValue === '1' ? 1 : 0;
+                                              } else if (dynamicTargetType === 'TEXT_CONDITION') {
+                                                // Text condition: string value
+                                                valueToSave = editValue ? String(editValue) : null;
+                                              } else {
+                                                // Numeric types: COUNT, PERCENTAGE, FINANCIAL
+                                                const numValue = typeof editValue === 'string' ? parseFloat(editValue.replace(/,/g, '')) : editValue;
+                                                // Handle NaN case - treat as clearing the override
+                                                valueToSave = (typeof numValue === 'number' && !Number.isNaN(numValue)) ? numValue : null;
+                                              }
+                                              
+                                              // Get QPRO value for this cell
+                                              const qproVal = getCurrentValueFromProgress(initiative.id, timelineItem.year, quarter);
+                                              // If user entered 0 and QPRO value is also 0, treat as clear override
+                                              if (typeof valueToSave === 'number' && valueToSave === 0 && qproVal === 0) {
+                                                valueToSave = null;
+                                              }
+                                              
+                                              saveManualOverride(initiative.id, timelineItem.year, quarter, valueToSave, undefined, dynamicTargetType);
+                                            }}
+                                            disabled={isSaving}
+                                            className="h-7 px-2 text-xs"
+                                          >
+                                            {isSaving ? (
+                                              <span className="animate-spin">⟳</span>
+                                            ) : (
+                                              <>
+                                                <Save className="h-3 w-3 mr-1" />
+                                                Save
+                                              </>
+                                            )}
+                                          </Button>
+                                        )}
+
+                                        {/* Value source indicator */}
+                                        {!isPending && valueSource === 'qpro' && (
+                                          <span className="text-xs text-green-600 whitespace-nowrap" title="Value from approved QPRO analysis">
+                                            ✓ QPRO
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    
+                                    {/* Progress column */}
+                                    <td className="px-3 py-3 min-w-[200px]">
+                                      {displayType === 'percentage' && (
+                                        <PercentageProgress
+                                          currentValue={parseNumericValue(displayValue ?? 0)}
+                                          targetValue={parseNumericValue(timelineItem.target_value)}
+                                        />
                                       )}
-                                      {valueSource === 'qpro' && (
-                                        <span className="text-xs text-green-600 whitespace-nowrap" title="Value from approved QPRO analysis">
-                                          ✓ QPRO
-                                        </span>
+                                      {displayType === 'currency' && (
+                                        <CurrencyProgress
+                                          currentValue={parseNumericValue(displayValue ?? 0)}
+                                          targetValue={parseNumericValue(timelineItem.target_value)}
+                                          formattedCurrent={displayInfo.formattedCurrent}
+                                          formattedTarget={displayInfo.formattedTarget}
+                                        />
                                       )}
-                                    </div>
-                                  </td>
-                                  <td className="px-3 py-3 min-w-[200px]">
-                                    {/* Render appropriate component based on display type */}
-                                    {displayType === 'percentage' && (
-                                      <PercentageProgress
-                                        currentValue={parseNumericValue(currentVal ?? 0)}
-                                        targetValue={parseNumericValue(timelineItem.target_value)}
-                                      />
-                                    )}
-                                    {displayType === 'currency' && (
-                                      <CurrencyProgress
-                                        currentValue={parseNumericValue(currentVal ?? 0)}
-                                        targetValue={parseNumericValue(timelineItem.target_value)}
-                                        formattedCurrent={displayInfo.formattedCurrent}
-                                        formattedTarget={displayInfo.formattedTarget}
-                                      />
-                                    )}
-                                    {displayType === 'high_volume' && (
-                                      <HighVolumeProgress
-                                        currentValue={parseNumericValue(currentVal ?? 0)}
-                                        targetValue={parseNumericValue(timelineItem.target_value)}
-                                        formattedCurrent={displayInfo.formattedCurrent}
-                                        formattedTarget={displayInfo.formattedTarget}
-                                        unit={initiative.targets.unit_basis}
-                                      />
-                                    )}
-                                    {displayType === 'low_count' && (
-                                      <FractionalDisplay
-                                        currentValue={parseNumericValue(currentVal ?? 0)}
-                                        targetValue={parseNumericValue(timelineItem.target_value)}
-                                        unit={initiative.targets.unit_basis}
-                                      />
-                                    )}
-                                    {displayType === 'milestone' && (
-                                      <StatusBadge
-                                        status={getMilestoneStatus(currentVal, timelineItem.target_value)}
-                                        currentValue={currentVal?.toString()}
-                                        targetValue={timelineItem.target_value.toString()}
-                                      />
-                                    )}
-                                  </td>
-                                </tr>
-                              );
+                                      {displayType === 'high_volume' && (
+                                        <HighVolumeProgress
+                                          currentValue={parseNumericValue(displayValue ?? 0)}
+                                          targetValue={parseNumericValue(timelineItem.target_value)}
+                                          formattedCurrent={displayInfo.formattedCurrent}
+                                          formattedTarget={displayInfo.formattedTarget}
+                                          unit={initiative.targets.unit_basis}
+                                        />
+                                      )}
+                                      {displayType === 'low_count' && (
+                                        <FractionalDisplay
+                                          currentValue={parseNumericValue(displayValue ?? 0)}
+                                          targetValue={parseNumericValue(timelineItem.target_value)}
+                                          unit={initiative.targets.unit_basis}
+                                        />
+                                      )}
+                                      {displayType === 'milestone' && (
+                                        <StatusBadge
+                                          status={getMilestoneStatus(displayValue, timelineItem.target_value)}
+                                          currentValue={displayValue?.toString()}
+                                          targetValue={timelineItem.target_value.toString()}
+                                        />
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              });
                             })}
                           </tbody>
                         </table>
                       </div>
+                      
+                      {/* Year totals summary */}
+                      {initiative.targets.timeline_data.length > 0 && (
+                        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                          <h5 className="font-medium text-blue-900 text-sm mb-2">Year Totals</h5>
+                          <div className="flex flex-wrap gap-4">
+                            {initiative.targets.timeline_data.map((timelineItem: TimelineItem, i: number) => {
+                              const initiativeProgress = kpiProgress?.initiatives?.find(ip => ip.id === initiative.id);
+                              const yearItems = initiativeProgress?.progress?.filter(p => p.year === timelineItem.year) || [];
+                              const yearTotal = yearItems.reduce((sum, item) => {
+                                const val = typeof item.currentValue === 'number' ? item.currentValue : parseFloat(String(item.currentValue)) || 0;
+                                return sum + val;
+                              }, 0);
+                              const targetNum = parseNumericValue(timelineItem.target_value);
+                              const yearPct = targetNum > 0 ? Math.min(100, Math.round((yearTotal / targetNum) * 100)) : 0;
+                              
+                              return (
+                                <div key={i} className="text-sm">
+                                  <span className="font-medium text-blue-800">{timelineItem.year}:</span>
+                                  <span className="ml-2 text-blue-700">{yearTotal} / {timelineItem.target_value}</span>
+                                  <span className={`ml-2 font-medium ${yearPct >= 100 ? 'text-green-700' : yearPct >= 80 ? 'text-blue-700' : 'text-amber-700'}`}>
+                                    ({yearPct}%)
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>

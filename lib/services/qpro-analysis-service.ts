@@ -533,12 +533,18 @@ export class QPROAnalysisService {
         const documentInsight = insightLines.join('\n');
 
         // Prescriptive Analysis: actionable steps (imperative verbs + timeframes)
-        const prescriptiveLines: string[] = [];
+        let prescriptiveLines: string[] = [];
         prescriptiveLines.push('### Prescriptive analysis');
         prescriptiveLines.push('- Conduct a focused review of the lowest-performing KPI areas within 2–4 weeks.');
         prescriptiveLines.push('- Define measurable corrective actions per KPI and assign owners within 1 month.');
         prescriptiveLines.push('- Establish a monthly monitoring cadence to track movement versus target.');
         prescriptiveLines.push('- Validate that reported values match the KPI target type (percentage vs count) before final submission each quarter.');
+
+        // Deduplicate prescriptive sections (e.g., Address the primary performance gap, Data quality review)
+        // If these sections are generated elsewhere and pushed into prescriptiveLines, deduplicate here:
+        prescriptiveLines = prescriptiveLines.filter((line, idx, arr) =>
+          arr.findIndex(l => l.trim().toLowerCase() === line.trim().toLowerCase()) === idx
+        );
 
         const prescriptiveAnalysis = prescriptiveLines.join('\n');
 
@@ -911,7 +917,7 @@ export class QPROAnalysisService {
   private async loadStrategicPlan(): Promise<any> {
     try {
       // Import strategic plan JSON (works in Node.js context)
-      const strategicPlan = await import('@/strategic_plan.json').then(m => m.default).catch(() => null);
+      const strategicPlan = await import('@/lib/data/strategic_plan.json').then(m => m.default).catch(() => null);
       return strategicPlan;
     } catch (error) {
       console.error('Error loading strategic plan:', error);

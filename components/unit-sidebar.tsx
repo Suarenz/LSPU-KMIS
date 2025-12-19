@@ -30,37 +30,57 @@ export function UnitSidebar({
   const isUnitAdmin = userRole === 'UNIT_ADMIN' || userRole === 'ADMIN';
 
   return (
-    <div className="w-64 bg-linear-to-b from-background to-muted/20 border-r p-4 h-full flex flex-col shadow-sm">
-      <div className="mb-4">
+    <div className="w-64 bg-white border-r p-4 h-full flex flex-col" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.05)' }}>
+      <div className="mb-6">
         <div className="mb-3 flex items-center gap-2">
-          <Building2 className="w-8 h-8 text-primary" />
-          <h2 className="text-xl font-bold text-foreground">Units</h2>
+          <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(43, 67, 133, 0.1)' }}>
+            <Building2 className="w-6 h-6" style={{ color: '#2B4385' }} />
+          </div>
+          <h2 className="text-xl font-bold" style={{ color: '#2B4385' }}>Units</h2>
         </div>
       </div>
 
-      <div className="space-y-1 flex-1 py-4 overflow-y-auto max-h-[calc(100vh-150px)]">
+      <div className="space-y-1 flex-1 py-2 overflow-y-auto max-h-[calc(100vh-150px)]">
         <TooltipProvider>
-          {units.map((unit) => (
+          {units.map((unit) => {
+            const isActive = currentUnit === unit.id;
+            return (
             <div key={unit.id} className="mb-1">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={currentUnit === unit.id ? "secondary" : "ghost"}
-                    className={`w-full justify-start px-3 py-3 h-auto transition-all duration-200 max-w-full overflow-hidden ${
-                      currentUnit === unit.id
-                        ? 'shadow-sm border-l-4 border-primary bg-secondary text-secondary-foreground font-semibold'
-                        : 'hover:bg-accent hover:shadow-sm text-foreground'
-                    }`}
+                    variant="ghost"
+                    className="w-full justify-start h-auto transition-all duration-200 max-w-full overflow-hidden relative"
+                    style={{
+                      padding: '12px 16px',
+                      backgroundColor: isActive ? 'rgba(43, 67, 133, 0.1)' : 'transparent',
+                      borderLeft: isActive ? '4px solid #2B4385' : '4px solid transparent',
+                      borderRadius: '0 8px 8px 0',
+                    }}
                     onClick={() => {
                       onUnitSelect(unit.id);
                     }}
                   >
                     <div className="flex-1 text-left min-w-0 overflow-hidden">
-                      <div className="font-medium text-sm truncate">
+                      <div 
+                        className="font-semibold truncate"
+                        style={{ 
+                          fontSize: '16px', 
+                          color: isActive ? '#2B4385' : '#374151',
+                        }}
+                      >
                         {unit.code || unit.name}
                       </div>
                       {unit.code && (
-                        <div className="text-xs text-muted-foreground mt-1 leading-tight wrap-break-word pr-6 truncate">{unit.name}</div>
+                        <div 
+                          className="mt-1 leading-tight truncate"
+                          style={{ 
+                            fontSize: '14px', 
+                            color: isActive ? '#2B4385' : '#6B7280',
+                          }}
+                        >
+                          {unit.name}
+                        </div>
                       )}
                     </div>
                   </Button>
@@ -70,18 +90,22 @@ export function UnitSidebar({
                 </TooltipContent>
               </Tooltip>
             </div>
-          ))}
+          )})}
         </TooltipProvider>
       </div>
 
       {(isAdmin || isUnitAdmin) && (
-        <div className="mt-auto pt-2 border-t border-border sticky bottom-0 bg-background">
+        <div className="mt-auto pt-4 border-t border-gray-200 sticky bottom-0 bg-white">
           <Button
-            variant="default"
-            className="w-full bg-linear-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-sm"
+            className="w-full gap-2"
+            style={{ 
+              backgroundColor: '#2B4385', 
+              color: 'white',
+              borderRadius: '8px',
+            }}
             onClick={() => router.push('/units/new')}
           >
-            <PlusCircle className="w-4 h-4 mr-2" />
+            <PlusCircle className="w-4 h-4" />
             Add New Unit
           </Button>
         </div>

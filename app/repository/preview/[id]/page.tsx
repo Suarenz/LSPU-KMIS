@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Document } from '@/lib/api/types';
 import AuthService from '@/lib/services/auth-service';
 import { ExternalLink, Loader2 } from 'lucide-react';
+import DocViewer, { DocViewerRenderers } from 'react-doc-viewer';
 
 export default function DocumentPreviewPage() {
   const { id } = useParams();
@@ -26,8 +27,10 @@ export default function DocumentPreviewPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [qproAnalysis, setQproAnalysis] = useState<any>(null);
   const [loadingQpro, setLoadingQpro] = useState(false);
+  const [viewerError, setViewerError] = useState<string | null>(null);
+  const [authenticatedPreviewUrl, setAuthenticatedPreviewUrl] = useState<string | null>(null);
 
- useEffect(() => {
+  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/');
     }
@@ -80,8 +83,14 @@ export default function DocumentPreviewPage() {
         }
 
         const data = await response.json();
+        console.log('Document data received:', data);
+        console.log('Preview URL:', data.previewUrl);
+        console.log('File URL:', data.fileUrl);
+        console.log('File Type:', data.fileType);
+        console.log('File Name:', data.fileName);
         setDocument(data);
         setPdfUrl(data.previewUrl);
+        setAuthenticatedPreviewUrl(data.previewUrl);
         
         // Fetch QPRO analysis if it exists
         fetchQproAnalysis(data.id);
@@ -265,94 +274,108 @@ export default function DocumentPreviewPage() {
 
   // Helper function to determine the appropriate preview component based on file type
   const getFilePreviewComponent = () => {
-    const fileType = document.fileType.toLowerCase();
-    
-    if (fileType.includes('pdf')) {
+    if (!document?.fileUrl && !pdfUrl) {
       return (
-        <div className="flex-1 bg-background">
-          <iframe
-            src={pdfUrl}
-            className="w-full h-full min-h-[70vh]"
-            style={{ height: 'calc(100vh - 200px)' }}
-            title={`Preview of ${document.title}`}
-          />
-        </div>
-      );
-    } else if (fileType.includes('jpg') || fileType.includes('jpeg') || fileType.includes('png') || fileType.includes('gif')) {
-      return (
-        <div className="flex-1 bg-background flex items-center justify-center p-4">
-          <img
-            src={pdfUrl}
-            alt={document.title}
-            className="max-w-full max-h-full object-contain"
-          />
-        </div>
-      );
-    } else if (fileType.includes('txt')) {
-      return (
-        <div className="flex-1 bg-background p-4 overflow-auto">
-          <iframe
-            src={pdfUrl}
-            className="w-full h-full min-h-[70vh]"
-            style={{ height: 'calc(100vh - 200px)' }}
-            title={`Preview of ${document.title}`}
-          />
-        </div>
-      );
-    } else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].some(type => fileType.includes(type))) {
-      // For Office documents, use preview URL directly if it's from Supabase
-      // Otherwise fall back to Google Docs Viewer
-      if (pdfUrl && (pdfUrl.includes('supabase') || pdfUrl.includes('http'))) {
-        return (
-          <div className="flex-1 bg-background flex flex-col items-center justify-center">
-            <iframe
-              src={pdfUrl}
-              className="w-full h-full min-h-[70vh]"
-              style={{ height: 'calc(100vh - 200px)' }}
-              title={`Preview of ${document.title}`}
-              allow="autoplay; encrypted-media"
-            />
-            <div className="mt-4 text-center w-full">
-              <p className="text-sm text-muted-foreground">
-                {`If you see a 'BlobNotFound' or blank error above, the file may have been deleted or the link has expired.`}
-              </p>
-              <p className="text-sm text-destructive">
-                If the document does not load, please re-upload the file or contact your administrator.
-              </p>
-            </div>
+        <div className="flex items-center justify-center h-full bg-gray-50">
+          <div className="text-center p-8">
+            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">No preview URL available</p>
           </div>
-        );
-      }
-      
-      // Fallback to Google Docs Viewer if URL not suitable for direct embed
-      const encodedUrl = encodeURIComponent(pdfUrl);
-      const externalViewerUrl = `https://docs.google.com/gview?url=${encodedUrl}&embedded=true`;
-      
-      return (
-        <div className="flex-1 bg-background">
-          <iframe
-            src={externalViewerUrl}
-            className="w-full h-full min-h-[70vh]"
-            style={{ height: 'calc(100vh - 200px)' }}
-            title={`Preview of ${document.title}`}
-          />
-        </div>
-      );
-    } else {
-      // For other unsupported file types, provide a message
-      return (
-        <div className="flex-1 bg-background flex flex-col items-center justify-center p-8 text-center">
-          <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Document Preview</h3>
-          <p className="text-muted-foreground mb-4">
-            This {document.fileType} file can be downloaded and viewed with appropriate software.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            For online preview, consider converting to PDF format.
-          </p>
         </div>
       );
     }
+
+    // Use the authenticated preview URL
+    const previewUrl = authenticatedPreviewUrl || pdfUrl || document?.fileUrl;
+    console.log('Rendering preview with URL:', previewUrl);
+    console.log('Document fileName:', document?.fileName);
+    console.log('Document fileType:', document?.fileType);
+
+    // Get file extension
+    const fileExt = document?.fileName?.split('.').pop()?.toLowerCase() || '';
+    console.log('File extension:', fileExt);
+
+    if (viewerError) {
+      return (
+        <div className="flex items-center justify-center h-full bg-gray-50">
+          <div className="text-center p-8">
+            <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <p className="text-red-600 font-medium mb-2">Preview Error</p>
+            <p className="text-gray-600 text-sm">{viewerError}</p>
+            <Button 
+              onClick={handleDownload} 
+              variant="outline" 
+              className="mt-4"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download File Instead
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Use iframe for better compatibility with most file types
+    // Browsers have built-in PDF, image, and text viewers
+    if (['pdf', 'txt', 'jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
+      return (
+        <div className="relative w-full bg-white" style={{ height: 'calc(100vh - 220px)', minHeight: '500px' }}>
+          <iframe
+            src={previewUrl}
+            className="w-full h-full border-0"
+            title={document?.title || 'Document Preview'}
+            onError={(e) => {
+              console.error('Iframe error:', e);
+              setViewerError('Unable to load file preview. Please try downloading the file.');
+            }}
+          />
+        </div>
+      );
+    }
+
+    // For Office documents (doc, docx, xls, xlsx, ppt, pptx), use DocViewer
+    const docs = [
+      {
+        uri: previewUrl,
+        fileName: document?.fileName || document?.title || 'document',
+        fileType: document?.fileType,
+      },
+    ];
+
+    return (
+      <div className="relative w-full bg-white" style={{ height: 'calc(100vh - 220px)', minHeight: '500px' }}>
+        <DocViewer
+          documents={docs}
+          pluginRenderers={DocViewerRenderers}
+          config={{
+            header: {
+              disableHeader: false,
+              disableFileName: false,
+              retainURLParams: false,
+            },
+            csvDelimiter: ',',
+            pdfZoom: {
+              defaultZoom: 1.0,
+              zoomJump: 0.2,
+            },
+            pdfVerticalScrollByDefault: true,
+          }}
+          style={{ 
+            height: '100%',
+            width: '100%'
+          }}
+          theme={{
+            primary: '#2B4385',
+            secondary: '#ffffff',
+            tertiary: '#f3f4f6',
+            textPrimary: '#000000',
+            textSecondary: '#5b5b5b',
+            textTertiary: '#00000099',
+            disableThemeScrollbar: false,
+          }}
+        />
+      </div>
+    );
   };
 
   return (

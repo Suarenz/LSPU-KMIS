@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Loader2, Lightbulb, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react"
-import strategicPlan from "@/strategic_plan.json"
+import strategicPlan from "@/lib/data/strategic_plan.json"
 import AuthService from "@/lib/services/auth-service"
 import { computeAggregatedAchievement, getInitiativeTargetMeta } from "@/lib/utils/qpro-aggregation"
 
@@ -130,31 +130,14 @@ export function InsightFeed({ analysisId, year, quarter }: InsightFeedProps) {
     })
   }
 
-  const getVerdictStyle = (achievement: number) => {
-    if (achievement >= 100) {
-      return {
-        border: "border-green-500",
-        bg: "bg-green-50",
-        icon: <CheckCircle2 className="w-5 h-5 text-green-500" />,
-        text: "Achieved",
-        textColor: "text-green-700",
-      }
-    } else if (achievement >= 50) {
-      return {
-        border: "border-yellow-500",
-        bg: "bg-yellow-50",
-        icon: <AlertTriangle className="w-5 h-5 text-yellow-500" />,
-        text: "Gap Detected",
-        textColor: "text-yellow-700",
-      }
-    } else {
-      return {
-        border: "border-red-500",
-        bg: "bg-red-50",
-        icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
-        text: "Significant Gap",
-        textColor: "text-red-700",
-      }
+  // Neutral verdict style: keep cards visually consistent regardless of achievement
+  const getVerdictStyle = (_achievement: number) => {
+    return {
+      border: "border-gray-300",
+      bg: "",
+      icon: null,
+      text: "",
+      textColor: "text-muted-foreground",
     }
   }
 
@@ -317,15 +300,14 @@ export function InsightFeed({ analysisId, year, quarter }: InsightFeedProps) {
 
                 {/* Sustainability message for met/exceeded targets */}
                 {gap <= 0 && kraActivities.length > 0 && (
-                  <div className="bg-green-50 border border-green-300 rounded-md p-4">
+                  <div className="rounded-md p-4 border border-border/50">
                     <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
                       <div className="flex-1 space-y-2">
                         <div>
-                          <p className="text-xs font-semibold text-green-900 mb-1">
-                            Target {gap === 0 ? 'Met' : 'Exceeded'} ✓
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">
+                            Target {gap === 0 ? 'Met' : 'Exceeded'}
                           </p>
-                          <p className="text-xs text-green-800">
+                          <p className="text-xs text-muted-foreground">
                             {kraActivities[0].prescriptiveAnalysis || (
                               kraActivities[0].authorizedStrategy ? (
                                 <>Sustain this achievement by continuing: <span className="font-semibold">"{kraActivities[0].authorizedStrategy}"</span>. Consider expanding scope or increasing targets for next quarter.</>
@@ -336,9 +318,9 @@ export function InsightFeed({ analysisId, year, quarter }: InsightFeedProps) {
                           </p>
                         </div>
                         {kraActivities[0].authorizedStrategy && kraActivities[0].prescriptiveAnalysis && (
-                          <div className="pt-2 border-t border-green-200">
-                            <p className="text-xs font-medium text-green-900">Authorized Strategy:</p>
-                            <p className="text-xs text-green-700 italic">"{kraActivities[0].authorizedStrategy}"</p>
+                          <div className="pt-2 border-t border-border/50">
+                            <p className="text-xs font-medium text-muted-foreground">Authorized Strategy:</p>
+                            <p className="text-xs text-muted-foreground italic">"{kraActivities[0].authorizedStrategy}"</p>
                           </div>
                         )}
                       </div>

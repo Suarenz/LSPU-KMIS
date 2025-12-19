@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
       const fileName = file.name;
       const fileType = file.type;
       const fileSize = file.size;
+      const blobName = result.blobName; // NEW: Store the blob name
       // Get the full URL for the file from Azure Storage
       const fileUrl = result.url; // The URL is already returned by the saveFile function
       console.log('File URL generated:', fileUrl);
@@ -191,7 +192,8 @@ export async function POST(request: NextRequest) {
         fileSize,
         userId,
         unitId || undefined, // NEW: Pass unitId if provided
-        base64Content // NEW: Pass base64 content for Colivara processing
+        base64Content, // NEW: Pass base64 content for Colivara processing
+        blobName // NEW: Pass blob name
       );
       console.log('Document created successfully:', document.id);
 

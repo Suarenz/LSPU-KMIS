@@ -14,7 +14,7 @@ class FileStorageService {
     this.blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
   }
 
-  async saveFile(file: File, originalFileName: string): Promise<{url: string, metadata: any}> {
+  async saveFile(file: File, originalFileName: string): Promise<{url: string, blobName: string, metadata: any}> {
     console.log('Starting file upload process to Azure Blob Storage...');
     
     // Validate file type
@@ -67,9 +67,10 @@ class FileStorageService {
       hash: createHash('sha256').update(buffer).digest('hex'), // File integrity hash
     };
 
-    // Return both the URL and metadata
+    // Return both the URL and metadata, including the blob name
     return {
       url: blockBlobClient.url,
+      blobName: uniqueFileName,
       metadata
     };
   }
@@ -93,9 +94,9 @@ class FileStorageService {
     }
   }
 
-  async getFileUrl(fileName: string): Promise<string> {
-    console.log('Getting file URL for:', fileName);
-    const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
+  async getFileUrl(fileName: string, containerName: string = 'repository-files'): Promise<string> {
+    console.log('Getting file URL for:', { fileName, containerName });
+    const containerClient = this.blobServiceClient.getContainerClient(containerName);
     const blockBlobClient = containerClient.getBlockBlobClient(fileName);
     
     // Generate a time-limited SAS URL for secure access
@@ -113,7 +114,7 @@ class FileStorageService {
     permissions.read = true;
     
     const sasOptions = {
-      containerName: this.containerName,
+      containerName: containerName,
       blobName: fileName,
       permissions: permissions,
       expiresOn: expiryDate,
@@ -198,7 +199,9 @@ class FileStorageService {
   }
 
   private getFileNameFromUrl(fileUrl: string): string {
-    return fileUrl.split('/').pop() || '';
+    // Remove query parameters first (e.g., SAS tokens)
+    const urlWithoutParams = fileUrl.split('?')[0];
+    return urlWithoutParams.split('/').pop() || '';
   }
 
   private getMimeTypeFromExtension(extension: string): string {

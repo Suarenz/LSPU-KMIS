@@ -258,6 +258,7 @@ class EnhancedDocumentService {
     userId: string,
     unitId?: string, // NEW: Unit assignment
     base64Content?: string, // NEW: Base64 content for Colivara processing
+    blobName?: string, // NEW: Azure Blob Storage blob name
     options?: {
       year?: number; // Reporting year for QPRO documents (2025-2029)
       quarter?: number; // Reporting quarter for QPRO documents (1-4)
@@ -314,6 +315,7 @@ class EnhancedDocumentService {
           uploadedBy: user.name,
           uploadedById: user.id, // Use the database user ID, not the Supabase auth ID
           fileUrl,
+          blobName: blobName || undefined, // NEW: Store blob name if provided
           fileName,
           fileType,
           fileSize,

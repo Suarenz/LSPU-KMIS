@@ -37,13 +37,16 @@ export async function POST(request: NextRequest) {
     // Upload file to storage
     const storageResult = await fileStorageService.saveFile(file, file.name);
     const fileUrl = storageResult.url;
+    const blobName = storageResult.blobName; // Extract blob name for document creation
+
+    console.log(`[QPRO Upload] File uploaded to Azure:`, { fileUrl, blobName });
 
     // Convert to base64 for Colivara
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64Content = buffer.toString('base64');
 
-    // Create document
+    // Create document with blob name
     const document = await enhancedDocumentService.createDocument(
       file.name.replace(/\.[^.]+$/, ''),
       'QPRO Report',
@@ -56,7 +59,8 @@ export async function POST(request: NextRequest) {
       file.size,
       user.id,
       undefined,
-      base64Content
+      base64Content,
+      blobName // Pass the blob name to the document
     );
 
     console.log(`[QPRO Upload] Document created: ${document.id}`);

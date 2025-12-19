@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/downloads/Downloads%20from%20web/LSPU%20KMIS/app/register-sw.tsx"],"sourcesContent":["\"use client\"\n\nimport { useEffect } from \"react\"\n\nexport function RegisterServiceWorker() {\n  useEffect(() => {\n    if (\"serviceWorker\" in navigator) {\n      navigator.serviceWorker\n        .register(\"/sw.js\")\n        .then((registration) => {\n          console.log(\"[v0] Service Worker registered:\", registration)\n        })\n        .catch((error) => {\n          console.log(\"[v0] Service Worker registration failed:\", error)\n        })\n    }\n  }, [])\n\n  return null\n}\n"],"names":[],"mappings":";;;;AAEA;AAFA;;AAIO,SAAS;IACd,IAAA,kNAAS,EAAC;QACR,IAAI,mBAAmB,WAAW;YAChC,UAAU,aAAa,CACpB,QAAQ,CAAC,UACT,IAAI,CAAC,CAAC;gBACL,QAAQ,GAAG,CAAC,mCAAmC;YACjD,GACC,KAAK,CAAC,CAAC;gBACN,QAAQ,GAAG,CAAC,4CAA4C;YAC1D;QACJ;IACF,GAAG,EAAE;IAEL,OAAO;AACT"}}]
+}

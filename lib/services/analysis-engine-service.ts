@@ -2,8 +2,8 @@
 // This replaces the fuzzy vector search with a deterministic logic flow using strategic_plan.json
 
 // Import Strategic Plan JSON (deterministic source of truth)
-// Use the workspace-root copy to keep API + UI consistent.
-import strategicPlan from '@/strategic_plan.json';
+// Use the lib/data copy to keep API + UI consistent.
+import strategicPlan from '@/lib/data/strategic_plan.json';
 
 import { computeAggregatedAchievement, getInitiativeTargetMeta, normalizeKraId } from '@/lib/utils/qpro-aggregation';
 

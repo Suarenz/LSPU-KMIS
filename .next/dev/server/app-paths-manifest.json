@@ -1,0 +1,11 @@
+{
+  "/api/analytics/route": "app/api/analytics/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/documents/route": "app/api/documents/route.js",
+  "/api/qpro-analyses/route": "app/api/qpro-analyses/route.js",
+  "/api/units/route": "app/api/units/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/qpro/page": "app/qpro/page.js",
+  "/repository/page": "app/repository/page.js",
+  "/search/page": "app/search/page.js"
+}

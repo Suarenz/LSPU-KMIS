@@ -1,0 +1,3 @@
+{
+  "/api/qpro/by-document/[documentId]/route": "app/api/qpro/by-document/[documentId]/route.js"
+}

@@ -14,11 +14,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "setup": "npm install && prisma generate && prisma db push",
-    "migrate-to-azure": "ts-node scripts/migrate-to-azure.ts",
-    "start:node": "ts-node src/index.ts",
-    "start:python": "cd ocr-service && python app.py",
-    "dev:ocr": "concurrently --kill-others -n \"TS,PY\" -c \"blue,yellow\" \"npm run start:node\" \"npm run start:python\""
+    "setup": "npm install && prisma generate && prisma db push"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.29.1",
@@ -77,9 +73,11 @@
     "postcss": "^8.5.6",
     "react": "^19.2.1",
     "react-day-picker": "9.8.0",
+    "react-doc-viewer": "^0.1.15",
     "react-dom": "^19.2.1",
     "react-dropzone": "^14.3.8",
     "react-hook-form": "^7.60.0",
+    "react-icons": "^5.5.0",
     "react-is": "^19.2.1",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.7",

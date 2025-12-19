@@ -101,7 +101,7 @@ export function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 border-b border-primary/20 shadow-sm">
+    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur supports-backdrop-filter:bg-white/60 border-b border-gray-200 shadow-sm">
       <div className="flex justify-between items-center h-16 px-4 sm:px-6 lg:px-8">
         {/* Left Side: Logo and Title */}
         <div className="flex items-center gap-2">
@@ -117,8 +117,8 @@ export function Navbar() {
               />
             </div>
             <div className="hidden sm:flex sm:flex-col sm:items-start ml-2">
-              <div className="text-xl font-bold bg-linear-to-r from-primary to-blue-700 bg-clip-text text-transparent">LSPU KMIS</div>
-              <div className="text-xs text-muted-foreground -mt-1">Knowledge Management Information System</div>
+              <div className="text-xl font-bold" style={{ color: '#2B4385' }}>LSPU KMIS</div>
+              <div className="text-xs text-gray-500 -mt-1">Knowledge Management Information System</div>
             </div>
           </Link>
         </div>
@@ -133,7 +133,8 @@ export function Navbar() {
                 <Link key={item.name} href={item.href}>
                   <Button
                     variant={isActive ? "secondary" : "ghost"}
-                    className={cn("gap-2", isActive && "bg-secondary text-secondary-foreground")}
+                    className="gap-2"
+                    style={isActive ? { color: '#2B4385', backgroundColor: 'rgba(43, 67, 133, 0.1)' } : {}}
                   >
                     <Icon className="w-4 h-4" />
                     {item.name}
@@ -150,19 +151,19 @@ export function Navbar() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2">
                 <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-transparent text-foreground text-sm flex items-center justify-center">
+                  <AvatarFallback className="text-sm flex items-center justify-center" style={{backgroundColor: 'rgba(43, 67, 133, 0.1)', color: '#2B4385'}}>
                     <UserRound className="w-4 h-4" />
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:inline text-sm">{user?.name}</span>
+                <span className="hidden sm:inline text-sm text-gray-700">{user?.name}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col gap-1">
-                  <div className="font-medium">{user?.name}</div>
-                  <div className="text-xs text-muted-foreground">{user?.email}</div>
-                  <div className="text-xs text-muted-foreground capitalize">Role: {user?.role}</div>
+                  <div className="font-medium text-gray-900">{user?.name}</div>
+                  <div className="text-xs text-gray-500">{user?.email}</div>
+                  <div className="text-xs text-gray-500 capitalize">Role: {user?.role}</div>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -174,7 +175,7 @@ export function Navbar() {
                 onClick={async () => {
                   await logout();
                 }}
-                className="text-destructive"
+                className="text-red-600"
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout
@@ -195,7 +196,7 @@ export function Navbar() {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-border animate-slide-in px-4 sm:px-6 lg:px-8">
+          <div className="md:hidden py-4 border-t border-gray-200 animate-slide-in px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-2">
               {navigation.map((item) => {
                 const Icon = item.icon
@@ -204,7 +205,8 @@ export function Navbar() {
                   <Link key={item.name} href={item.href} onClick={() => setMobileMenuOpen(false)}>
                     <Button
                       variant={isActive ? "secondary" : "ghost"}
-                      className={cn("w-full justify-start gap-2", isActive && "bg-secondary text-secondary-foreground")}
+                      className="w-full justify-start gap-2"
+                      style={isActive ? { color: '#2B4385', backgroundColor: 'rgba(43, 67, 133, 0.1)' } : {}}
                     >
                       <Icon className="w-4 h-4" />
                       {item.name}

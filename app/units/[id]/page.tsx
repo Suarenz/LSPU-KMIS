@@ -11,8 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Document, Unit } from "@/lib/api/types";
-import { Download, Eye, FileText, Building2, ChevronLeft, ChevronRight, Upload, Trash2, Calendar, FolderOpen } from "lucide-react";
+import { Download, Eye, FileText, Building2, ChevronLeft, ChevronRight, Upload, Trash2, Calendar, FolderOpen, MoreVertical, EyeIcon, CheckCircle, File as FileIcon, FileSpreadsheet, FileImage } from "lucide-react";
 import Image from "next/image";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ClientOnly } from "@/components/client-only-wrapper";
 import { useToast } from "@/components/ui/use-toast";
 import { UnitSidebar } from "@/components/unit-sidebar";
@@ -311,6 +317,32 @@ export default function UnitPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
+  const toTitleCase = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    
+    if (['pdf'].includes(ext)) {
+      return { icon: FileText, color: '#DC2626', bgColor: 'rgba(220, 38, 38, 0.1)' };
+    } else if (['doc', 'docx'].includes(ext)) {
+      return { icon: FileText, color: '#2563EB', bgColor: 'rgba(37, 99, 235, 0.1)' };
+    } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+      return { icon: FileSpreadsheet, color: '#16A34A', bgColor: 'rgba(22, 163, 74, 0.1)' };
+    } else if (['ppt', 'pptx'].includes(ext)) {
+      return { icon: FileText, color: '#EA580C', bgColor: 'rgba(234, 88, 12, 0.1)' };
+    } else if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) {
+      return { icon: FileImage, color: '#7C3AED', bgColor: 'rgba(124, 58, 237, 0.1)' };
+    } else {
+      return { icon: FileIcon, color: '#6B7280', bgColor: 'rgba(107, 114, 128, 0.1)' };
+    }
+  };
+
   return (
     <ClientOnly>
       <div className="min-h-screen bg-background">
@@ -461,114 +493,244 @@ export default function UnitPage() {
 
               {/* Documents Grid */}
               {loading ? (
-                  <div className="animate-fade-in">
-                    <div className="flex justify-center py-12">
-                      <div className="w-16 h-16 flex items-center justify-center">
-                        <Image
-                          src="/LSPULogo.png"
-                          alt="LSPULogo"
-                          width={64}
-                          height={64}
-                          className="object-contain animate-spin"
-                        />
-                      </div>
+                <div className="animate-fade-in">
+                  <div className="flex justify-center py-12">
+                    <div className="w-16 h-16 flex items-center justify-center">
+                      <Image
+                        src="/LSPULogo.png"
+                        alt="LSPULogo"
+                        width={64}
+                        height={64}
+                        className="object-contain animate-spin"
+                      />
                     </div>
                   </div>
-                ) : error ? (
-                  <Card className="animate-fade-in">
-                    <CardContent className="py-12 text-center">
-                      <div className="text-destructive mb-4">⚠️</div>
-                      <h3 className="text-lg font-semibold mb-2">Error Loading Documents</h3>
-                      <p className="text-muted-foreground mb-4">{error}</p>
-                      <Button onClick={() => window.location.reload()}>Retry</Button>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {documents.map((doc, index) => (
-                      <Card
+                </div>
+              ) : error ? (
+                <Card className="animate-fade-in">
+                  <CardContent className="py-12 text-center">
+                    <div className="text-destructive mb-4">⚠️</div>
+                    <h3 className="text-lg font-semibold mb-2">Error Loading Documents</h3>
+                    <p className="text-muted-foreground mb-4">{error}</p>
+                    <Button onClick={() => window.location.reload()}>Retry</Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {documents.map((doc, index) => {
+                    const { icon: DocIcon, color: iconColor, bgColor: iconBgColor } = getFileIcon(doc.fileName || doc.title);
+                    const canDelete = user && (user.role === 'ADMIN' || doc.uploadedById === user.id);
+                    
+                    return (
+                      <div
                         key={doc.id}
-                        className="animate-fade-in hover:shadow-xl transition-all hover:scale-[1.02] cursor-pointer overflow-hidden border-0 shadow-md flex flex-col h-full"
-                        style={{ animationDelay: `${index * 0.05}s` }}
+                        className="animate-fade-in bg-white rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl group flex flex-col"
+                        style={{ 
+                          animationDelay: `${index * 0.05}s`,
+                          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+                          borderRadius: '12px',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-4px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
                       >
-                        <div className="bg-linear-to-r from-primary/5 to-secondary/5 p-5 border-b">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center shrink-0">
-                              <FileText className="w-6 h-6 text-primary" />
+                        {/* Card Header */}
+                        <div className="p-4 pb-0 flex-1 flex flex-col">
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: iconBgColor }}>
+                              <DocIcon className="w-6 h-6" style={{ color: iconColor }} />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-foreground line-clamp-2 mb-1">{doc.title}</h3>
-                              <div className="flex flex-wrap gap-1">
-                                <Badge variant="secondary" className="text-xs px-2 py-1">
-                                  {doc.category}
-                                </Badge>
-                                {doc.isQproDocument && doc.year && doc.quarter && (
-                                  <Badge variant="outline" className="text-xs px-2 py-1 bg-blue-50 text-blue-700 border-blue-200">
-                                    Q{doc.quarter} {doc.year}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
+                            {(canDelete || doc.isQproDocument) && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <MoreVertical className="w-4 h-4 text-gray-500" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {doc.isQproDocument && (
+                                    <DropdownMenuItem
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          const token = await AuthService.getAccessToken();
+                                          if (!token) {
+                                            await AuthService.logout();
+                                            router.push('/');
+                                            return;
+                                          }
+                                          const response = await fetch(`/api/qpro/by-document/${doc.id}`, {
+                                            headers: {
+                                              'Authorization': `Bearer ${token}`,
+                                              'Content-Type': 'application/json',
+                                            }
+                                          });
+                                          if (response.ok) {
+                                            const data = await response.json();
+                                            if (data.analysis) {
+                                              router.push(`/qpro/analysis/${data.analysis.id}`);
+                                            } else {
+                                              toast({
+                                                title: "No Analysis Found",
+                                                description: "This QPRO document hasn't been analyzed yet.",
+                                                variant: "default",
+                                              });
+                                            }
+                                          } else {
+                                            toast({
+                                              title: "No Analysis Found",
+                                              description: "This QPRO document hasn't been analyzed yet.",
+                                              variant: "default",
+                                            });
+                                          }
+                                        } catch (error) {
+                                          console.error('Error fetching QPRO analysis:', error);
+                                          toast({
+                                            title: "Error",
+                                            description: "Failed to fetch QPRO analysis.",
+                                            variant: "destructive",
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      <FileText className="w-4 h-4 mr-2" />
+                                      View QPRO Analysis
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canDelete && (
+                                    <DropdownMenuItem
+                                      className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
+                                          setDeletingDocId(doc.id);
+                                          try {
+                                            const token = await AuthService.getAccessToken();
+                                            if (!token) {
+                                              await AuthService.logout();
+                                              router.push('/');
+                                              return;
+                                            }
+                                            const response = await fetch(`/api/documents/${doc.id}`, {
+                                              method: 'DELETE',
+                                              headers: {
+                                                'Authorization': `Bearer ${token}`,
+                                                'Content-Type': 'application/json',
+                                              }
+                                            });
+                                            if (response.ok) {
+                                              setDeletionSuccessMessage(`Document deleted successfully!`);
+                                              setTimeout(() => setDeletionSuccessMessage(null), 3000);
+                                              const refreshResponse = await fetch(`/api/documents?unit=${unitId}`, {
+                                                headers: {
+                                                  'Authorization': `Bearer ${token}`,
+                                                  'Content-Type': 'application/json',
+                                                }
+                                              });
+                                              if (refreshResponse.ok) {
+                                                const data = await refreshResponse.json();
+                                                setDocuments(data.documents || []);
+                                              }
+                                            } else {
+                                              const errorData = await response.json();
+                                              toast({
+                                                title: response.status === 403 ? "Access Denied" : "Error",
+                                                description: errorData.error || 'Failed to delete document',
+                                                variant: "destructive",
+                                              });
+                                            }
+                                          } catch (error) {
+                                            toast({
+                                              title: "Error",
+                                              description: 'Failed to delete document',
+                                              variant: "destructive",
+                                            });
+                                          } finally {
+                                            setDeletingDocId(null);
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                          
+                          {/* Title and Description */}
+                          <h4 className="text-lg font-semibold text-gray-900 line-clamp-2 mb-1 min-h-[3.5rem]">{toTitleCase(doc.title)}</h4>
+                          <p className="text-sm text-gray-500 line-clamp-2 mb-3 min-h-[2.5rem]">{doc.description}</p>
+                          
+                          {/* Metadata */}
+                          <p className="text-xs text-gray-400 mb-3">
+                            Uploaded by {doc.uploadedBy} • {formatFileSize(doc.fileSize)}
+                          </p>
+                        
+                          {/* Pill Tags */}
+                          <div className="flex flex-wrap gap-2 mb-4 min-h-[2rem]">
+                            {doc.category && doc.category !== "Uncategorized" && (
+                              <span 
+                                className="px-3 py-1 text-xs font-medium rounded-full"
+                                style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
+                              >
+                                {doc.category}
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <CardContent className="p-5 grow">
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                            {doc.description}
-                          </p>
-                          <div className="space-y-4">
-                            <div className="flex flex-wrap gap-1">
-                              {doc.tags.slice(0, 3).map((tag) => (
-                                <Badge key={tag} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {doc.tags.length > 3 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{doc.tags.length - 3} more
-                                </Badge>
-                              )}
+                        
+                        {/* Card Footer */}
+                        <div className="px-4 pb-4 mt-auto">
+                          <div className="flex items-center gap-3 text-sm text-gray-500 mb-4">
+                            <div className="flex items-center gap-1">
+                              <Download className="w-4 h-4" />
+                              <span>{doc.downloadsCount}</span>
                             </div>
-                            
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                              <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-1">
-                                  <Download className="w-3.5 h-3.5" />
-                                  <span>{doc.downloadsCount}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Eye className="w-3.5 h-3.5" />
-                                  <span>{doc.viewsCount}</span>
-                                </div>
-                              </div>
-                              <span>{formatFileSize(doc.fileSize)}</span>
+                            <div className="flex items-center gap-1">
+                              <Eye className="w-4 h-4" />
+                              <span>{doc.viewsCount}</span>
                             </div>
-                            
-                            <div className="text-xs text-muted-foreground flex items-center justify-between">
-                              <span>By {doc.uploadedBy}</span>
-                              <span>v{doc.version}</span>
-                            </div>
-                            
+                            <span className="ml-auto text-xs">v{doc.version}</span>
+                          </div>
+                          
+                          {/* Action Buttons */}
+                          <div className="flex gap-2">
                             {downloadingDocId === doc.id ? (
-                              <Button className="w-full gap-2 mt-2" size="sm" disabled>
+                              <Button 
+                                className="flex-1 gap-2" 
+                                size="sm" 
+                                disabled
+                                style={{ backgroundColor: '#2B4385', color: 'white', borderRadius: '8px' }}
+                              >
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                                 Downloading...
                               </Button>
                             ) : (
                               <Button
-                                className="w-full gap-2 mt-2"
+                                className="flex-1 gap-2"
                                 size="sm"
+                                style={{ backgroundColor: '#2B4385', color: 'white', borderRadius: '8px' }}
                                 onClick={async (e) => {
-                                  e.stopPropagation(); // Prevent card click from triggering
+                                  e.stopPropagation();
                                   setDownloadingDocId(doc.id);
                                   try {
-                                    // Check if running on client side
                                     if (typeof window === 'undefined') {
                                       throw new Error('Download can only be initiated from the browser');
                                     }
-
-                                    // Create a temporary link and trigger download using the direct download endpoint
-                                    // The API endpoint will handle the redirect to the actual file
-                                    const directDownloadUrl = `/api/documents/${doc.id}/download-direct?token=${await AuthService.getAccessToken()}`;
+                                    if (!isAuthenticated || !user) return;
+                                    const downloadToken = await AuthService.getAccessToken();
+                                    if (!downloadToken) {
+                                      await AuthService.logout();
+                                      router.push('/');
+                                      return;
+                                    }
+                                    const directDownloadUrl = `/api/documents/${doc.id}/download-direct?token=${downloadToken}`;
                                     const link = document.createElement('a');
                                     link.href = directDownloadUrl;
                                     link.download = doc.fileName || `document-${doc.id}`;
@@ -577,7 +739,7 @@ export default function UnitPage() {
                                     document.body.removeChild(link);
                                   } catch (error) {
                                     console.error('Download error:', error);
-                                    alert(error instanceof Error ? error.message : 'Failed to download document. Please try again.');
+                                    alert(error instanceof Error ? error.message : 'Failed to download document.');
                                   } finally {
                                     setDownloadingDocId(null);
                                   }
@@ -587,122 +749,33 @@ export default function UnitPage() {
                                 Download
                               </Button>
                             )}
-                            
-                            <div className="flex gap-2 mt-2">
-                              {/* Show preview button for all supported file types */}
-                              {true ? (
-                                <Button
-                                  className="flex-1 gap-2"
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation(); // Prevent card click from triggering
-                                    // Only navigate if document ID is valid
-                                    if (doc.id && doc.id !== 'undefined' && !doc.id.includes('undefined')) {
-                                      router.push(`/repository/preview/${doc.id}`);
-                                    } else {
-                                      // Show an error or do nothing if document ID is invalid
-                                      toast({
-                                        title: "Error",
-                                        description: "Document ID is invalid. Cannot preview this document.",
-                                        variant: "destructive",
-                                      });
-                                    }
-                                  }}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                  Preview
-                                </Button>
-                              ) : null}
-                            </div>
-                            
-                            {/* Delete button - only show if user can actually delete the document */}
-                            {user && (user.role === 'ADMIN' || doc.uploadedById === user.id) && (
-                              <Button
-                                className="w-full gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground mt-2"
-                                size="sm"
-                                variant="default"
-                                onClick={async (e) => {
-                                  e.stopPropagation(); // Prevent card click from triggering
-                                  if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
-                                    setDeletingDocId(doc.id); // Set the document ID that is being deleted
-                                    try {
-                                      const token = await AuthService.getAccessToken();
-                                      if (!token) {
-                                        throw new Error('No authentication token found');
-                                      }
- 
-                                      const response = await fetch(`/api/documents/${doc.id}`, {
-                                        method: 'DELETE',
-                                        headers: {
-                                          'Authorization': `Bearer ${token}`,
-                                          'Content-Type': 'application/json',
-                                        }
-                                      });
- 
-                                      if (response.ok) {
-                                        // Set deletion success message
-                                        setDeletionSuccessMessage(`Document "${doc.title}" deleted successfully!`);
-                                        // Clear the success message after 3 seconds
-                                        setTimeout(() => {
-                                          setDeletionSuccessMessage(null);
-                                        }, 300);
-                                        // Refresh the document list
-                                        const refreshResponse = await fetch(`/api/documents?unit=${unitId}`, {
-                                          headers: {
-                                            'Authorization': `Bearer ${token}`,
-                                            'Content-Type': 'application/json',
-                                          }
-                                        });
- 
-                                        if (refreshResponse.ok) {
-                                          const data = await refreshResponse.json();
-                                          setDocuments(data.documents || []);
-                                        }
-                                      } else {
-                                        const errorData = await response.json();
-                                        if (response.status === 403) {
-                                          toast({
-                                            title: "Access Denied",
-                                            description: "You don't have permission to delete this document.",
-                                            variant: "destructive",
-                                          });
-                                        } else {
-                                          throw new Error(errorData.error || 'Failed to delete document');
-                                        }
-                                      }
-                                    } catch (error) {
-                                      console.error('Delete error:', error);
-                                      toast({
-                                        title: "Error",
-                                        description: error instanceof Error ? error.message : 'Failed to delete document. Please try again.',
-                                        variant: "destructive",
-                                      });
-                                    } finally {
-                                      setDeletingDocId(null); // Reset the deletion state
-                                    }
-                                  }
-                                }}
-                                disabled={deletingDocId === doc.id} // Disable button while deleting
-                              >
-                                {deletingDocId === doc.id ? (
-                                  <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                    Deleting...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Trash2 className="w-4 h-4" />
-                                    Delete
-                                  </>
-                                )}
-                              </Button>
-                            )}
+                            <Button
+                              className="gap-2"
+                              size="sm"
+                              variant="ghost"
+                              style={{ color: '#2B4385', borderRadius: '8px' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (doc.id && doc.id !== 'undefined' && !doc.id.includes('undefined')) {
+                                  router.push(`/repository/preview/${doc.id}`);
+                                } else {
+                                  toast({
+                                    title: "Error",
+                                    description: "Cannot preview this document.",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              <EyeIcon className="w-4 h-4" />
+                              Preview
+                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
                 )}
 
               {documents.length === 0 && !loading && !error && (

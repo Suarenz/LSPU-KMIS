@@ -1,5 +1,0 @@
-flask
-opencv-python-headless
-pdf2image
-numpy>=1.21.0
-pillow

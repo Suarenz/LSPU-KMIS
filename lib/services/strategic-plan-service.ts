@@ -52,8 +52,46 @@ class StrategicPlanService {
     }
 
     try {
-      const filePath = path.join(process.cwd(), 'strategic_plan.json');
-      const fileContent = await fs.readFile(filePath, 'utf-8');
+      // Try multiple resolution strategies for the strategic plan JSON:
+      // 1. Module-relative (this file's directory -> ../data)
+      // 2. Workspace-relative (process.cwd()/lib/data)
+      // 3. Workspace root fallback (process.cwd()/strategic_plan.json)
+      const strategies: string[] = [];
+
+      try {
+        // import.meta.url -> file path for this module (works in ESM)
+        // URL -> file path conversion ensures Windows paths are handled
+        // Use dynamic require of 'url' only inside try to avoid TypeScript runtime issues
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { fileURLToPath } = require('url');
+        const modulePath = fileURLToPath((module as any).url || (module as any).__filename || '');
+        if (modulePath) {
+          const moduleDir = path.dirname(modulePath);
+          strategies.push(path.join(moduleDir, '..', 'data', 'strategic_plan.json'));
+        }
+      } catch (err) {
+        // ignore and continue with other strategies
+      }
+
+      strategies.push(path.join(process.cwd(), 'lib', 'data', 'strategic_plan.json'));
+      strategies.push(path.join(process.cwd(), 'strategic_plan.json'));
+
+      let fileContent: string | null = null;
+      let lastErr: any = null;
+      for (const p of strategies) {
+        try {
+          await fs.access(p);
+          fileContent = await fs.readFile(p, 'utf-8');
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+
+      if (!fileContent) {
+        throw lastErr || new Error('strategic_plan.json not found');
+      }
+
       this.cachedPlan = JSON.parse(fileContent) as StrategicPlan;
       return this.cachedPlan;
     } catch (error) {

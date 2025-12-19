@@ -1,1 +1,0 @@
-All compiled Python files have been removed from this cache folder.

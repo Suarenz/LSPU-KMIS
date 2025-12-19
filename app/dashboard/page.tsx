@@ -89,17 +89,9 @@ export default function DashboardPage() {
 
   return (
     <ClientOnly>
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 w-full">
+      <div className="min-h-screen w-full" style={{ backgroundColor: '#F3F4F6' }}>
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-          {/* Welcome Section */}
-          <div className="mb-8 animate-fade-in w-full max-w-full">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Welcome, {user.name}!</h1>
-            <p className="text-muted-foreground text-sm md:text-base">
-              {user.unit} • {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-            </p>
-          </div>
-
           {/* Stats Grid - Critical section, loaded immediately */}
           <div className="mb-8">
             <Suspense fallback={<SectionLoader />}>

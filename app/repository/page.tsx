@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import type { Document, Unit } from "@/lib/api/types"
-import { Download, Eye, FileText, Filter, Upload, SearchIcon, EyeIcon, Trash2, CheckCircle, XCircle, Building2, ChevronLeft, ChevronRight } from "lucide-react"
+import { Download, Eye, FileText, Filter, Upload, SearchIcon, EyeIcon, Trash2, CheckCircle, XCircle, Building2, ChevronLeft, ChevronRight, MoreVertical, FileSpreadsheet, FileImage, File } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Image from "next/image"
 import { ClientOnly } from "@/components/client-only-wrapper"
@@ -19,6 +19,12 @@ import { useToast } from "@/components/ui/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { UnitSidebar } from "@/components/unit-sidebar";
 import { UnitFilter } from "@/components/unit-filter";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function RepositoryPage() {
   const { toast } = useToast()
@@ -374,6 +380,40 @@ export default function RepositoryPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB"
   }
 
+  // Helper to convert filename to Title Case
+  const toTitleCase = (str: string) => {
+    // Remove file extension first
+    const nameWithoutExt = str.replace(/\.[^/.]+$/, "");
+    // Replace underscores and hyphens with spaces, then convert to title case
+    return nameWithoutExt
+      .replace(/[-_]/g, " ")
+      .split(" ")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
+  // Helper to get file icon based on extension
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName?.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'pdf':
+        return { icon: FileText, color: '#EF4444', bgColor: 'rgba(239, 68, 68, 0.1)' };
+      case 'doc':
+      case 'docx':
+        return { icon: FileText, color: '#2B4385', bgColor: 'rgba(43, 67, 133, 0.1)' };
+      case 'xls':
+      case 'xlsx':
+        return { icon: FileSpreadsheet, color: '#2E8B57', bgColor: 'rgba(46, 139, 87, 0.1)' };
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return { icon: FileImage, color: '#C04E3A', bgColor: 'rgba(192, 78, 58, 0.1)' };
+      default:
+        return { icon: File, color: '#6B7280', bgColor: 'rgba(107, 114, 128, 0.1)' };
+    }
+  };
+
   return (
     <ClientOnly>
       <div className="min-h-screen bg-background">
@@ -415,13 +455,14 @@ export default function RepositoryPage() {
                       {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                     </Button>
                     <div>
-                      <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Knowledge Repository</h1>
-                      <p className="text-muted-foreground">Browse and access institutional knowledge resources</p>
+                      <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: '#2B4385' }}>Knowledge Repository</h1>
+                      <p className="text-gray-500">Browse and access institutional knowledge resources</p>
                     </div>
                   </div>
                   {isAuthenticated && user && canUpload && (
                    <Button
-                     className="gap-2"
+                     className="gap-2 shadow-sm"
+                     style={{ backgroundColor: '#2B4385', color: 'white' }}
                      onClick={() => setShowUploadModal(true)}
                    >
                      <Upload className="w-4 h-4" />
@@ -431,287 +472,347 @@ export default function RepositoryPage() {
                 </div>
               </div>
               
-              {/* Search and Filters */}
-              <Card className="mb-6 animate-fade-in">
-                <CardContent className="pt-6">
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 relative">
-                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search documents or keywords..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="w-full md:w-48">
-                        <Filter className="w-4 h-4 mr-2" />
-                        <SelectValue placeholder="Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category === "all" ? "All Categories" : category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={unitFilter || "all"}
-                      onValueChange={(value) => setUnitFilter(value === "all" ? null : value)}
-                    >
-                      <SelectTrigger className="w-full md:w-48">
-                        <Building2 className="w-4 h-4 mr-2" />
-                        <SelectValue placeholder="All Units" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Units</SelectItem>
-                        {activeUnits.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.id}>
-                            {dept.code} - {dept.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              {/* Search and Filters - Unified Control Center */}
+              <div className="mb-6 animate-fade-in p-4 bg-white rounded-xl shadow-sm" style={{ boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)' }}>
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Search documents or keywords..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      style={{ borderRadius: '8px' }}
+                    />
                   </div>
-                </CardContent>
-              </Card>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-full md:w-48 h-11" style={{ backgroundColor: '#F9FAFB', borderRadius: '8px' }}>
+                      <Filter className="w-4 h-4 mr-2 text-gray-500" />
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category === "all" ? "All Categories" : category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={unitFilter || "all"}
+                    onValueChange={(value) => setUnitFilter(value === "all" ? null : value)}
+                  >
+                    <SelectTrigger className="w-full md:w-48 h-11" style={{ backgroundColor: '#F9FAFB', borderRadius: '8px' }}>
+                      <Building2 className="w-4 h-4 mr-2 text-gray-500" />
+                      <SelectValue placeholder="All Units" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Units</SelectItem>
+                      {activeUnits.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.code} - {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               
               {/* Documents Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {documents.map((doc, index) => (
-                  <Card
-                    key={doc.id}
-                    className="animate-fade-in hover:shadow-lg transition-all hover:scale-105 cursor-pointer"
-                    style={{ animationDelay: `${index * 0.05}s` }}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
-                          <FileText className="w-6 h-6 text-primary" />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                        {doc.category && doc.category !== "Uncategorized" && (
-                          <Badge variant="secondary" className="text-xs self-end">
-                            {doc.category}
-                          </Badge>
-                        )}
-                        {/* Show unit badge when viewing all units */}
-                        {!unitFilter && doc.unit && (
-                          <Badge variant="outline" className="text-xs self-end bg-blue-50 border-blue-200 text-blue-800">
-                            {doc.unit.code || doc.unit.name}
-                          </Badge>
-                        )}
-                        </div>
-                      </div>
-                      <CardTitle className="text-lg line-clamp-2">{doc.title}</CardTitle>
-                      <CardDescription className="line-clamp-2">{doc.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {doc.tags && doc.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {doc.tags.slice(0, 3).map((tag) => (
-                              <Badge key={tag} variant="outline" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
+                {documents.map((doc, index) => {
+                  const { icon: FileIcon, color: iconColor, bgColor: iconBgColor } = getFileIcon(doc.fileName || doc.title);
+                  const canDelete = user && (user.role === 'ADMIN' || doc.uploadedById === user.id);
+                  
+                  return (
+                    <div
+                      key={doc.id}
+                      className="animate-fade-in bg-white rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl group flex flex-col"
+                      style={{ 
+                        animationDelay: `${index * 0.05}s`,
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+                        borderRadius: '12px',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      {/* Card Header */}
+                      <div className="p-4 pb-0 flex-1 flex flex-col">
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: iconBgColor }}>
+                            <FileIcon className="w-6 h-6" style={{ color: iconColor }} />
                           </div>
-                        )}
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1">
-                              <Download className="w-4 h-4" />
-                              {doc.downloadsCount}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Eye className="w-4 h-4" />
-                              {doc.viewsCount}
-                            </div>
-                          </div>
-                          <span className="text-xs">{formatFileSize(doc.fileSize)}</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          By {doc.uploadedBy} • v{doc.version}
+                          {(canDelete || doc.isQproDocument) && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <MoreVertical className="w-4 h-4 text-gray-500" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {doc.isQproDocument && (
+                                  <DropdownMenuItem
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        const token = await AuthService.getAccessToken();
+                                        if (!token) {
+                                          await AuthService.logout();
+                                          router.push('/');
+                                          return;
+                                        }
+                                        const response = await fetch(`/api/qpro/by-document/${doc.id}`, {
+                                          headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                            'Content-Type': 'application/json',
+                                          }
+                                        });
+                                        if (response.ok) {
+                                          const data = await response.json();
+                                          if (data.analysis) {
+                                            router.push(`/qpro/analysis/${data.analysis.id}`);
+                                          } else {
+                                            toast({
+                                              title: "No Analysis Found",
+                                              description: "This QPRO document hasn't been analyzed yet.",
+                                              variant: "default",
+                                            });
+                                          }
+                                        } else {
+                                          toast({
+                                            title: "No Analysis Found",
+                                            description: "This QPRO document hasn't been analyzed yet.",
+                                            variant: "default",
+                                          });
+                                        }
+                                      } catch (error) {
+                                        console.error('Error fetching QPRO analysis:', error);
+                                        toast({
+                                          title: "Error",
+                                          description: "Failed to fetch QPRO analysis.",
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    View QPRO Analysis
+                                  </DropdownMenuItem>
+                                )}
+                                {canDelete && (
+                                  <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
+                                      setDeletingDocId(doc.id);
+                                      try {
+                                        if (!isAuthenticated || !user) return;
+                                        const token = await AuthService.getAccessToken();
+                                        if (!token) {
+                                          await AuthService.logout();
+                                          router.push('/');
+                                          return;
+                                        }
+                                        const response = await fetch(`/api/documents/${doc.id}`, {
+                                          method: 'DELETE',
+                                          headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                            'Content-Type': 'application/json',
+                                          }
+                                        });
+                                        if (response.ok) {
+                                          setDeletionSuccessMessage(`Document deleted successfully!`);
+                                          setTimeout(() => setDeletionSuccessMessage(null), 3000);
+                                          fetchDocuments();
+                                        } else {
+                                          const errorData = await response.json();
+                                          toast({
+                                            title: response.status === 403 ? "Access Denied" : "Error",
+                                            description: errorData.error || 'Failed to delete document',
+                                            variant: "destructive",
+                                          });
+                                        }
+                                      } catch (error) {
+                                        toast({
+                                          title: "Error",
+                                          description: 'Failed to delete document',
+                                          variant: "destructive",
+                                        });
+                                      } finally {
+                                        setDeletingDocId(null);
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </div>
                         
-                        {downloadingDocId === doc.id ? (
-                          <Button className="w-full gap-2" size="sm" disabled>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            Downloading...
-                          </Button>
-                        ) : (
-                          <Button
-                            className="w-full gap-2"
-                            size="sm"
-                            onClick={async () => {
-                              setDownloadingDocId(doc.id);
-                              try {
-                                // Check if running on client side
-                                if (typeof window === 'undefined') {
-                                  throw new Error('Download can only be initiated from the browser');
-                                }
-                                
-                                // First, verify that we have a valid authentication state
-                                if (!isAuthenticated || !user) {
-                                  // If not authenticated, just return to prevent further execution
-                                  return;
-                                }
-                                
-                                // Then try to get the access token
-                                const downloadToken = await AuthService.getAccessToken();
-                                if (!downloadToken) {
-                                  // If no token is available despite being authenticated, log out the user
-                                  await AuthService.logout();
-                                  router.push('/');
-                                  return;
-                                }
-                                
-                                // Create a temporary link and trigger download using the direct download endpoint
-                                // The API endpoint will handle the redirect to the actual file
-                                const directDownloadUrl = `/api/documents/${doc.id}/download-direct?token=${downloadToken}`;
-                                const link = document.createElement('a');
-                                link.href = directDownloadUrl;
-                                link.download = doc.fileName || `document-${doc.id}`;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                              } catch (error) {
-                                console.error('Download error:', error);
-                                alert(error instanceof Error ? error.message : 'Failed to download document. Please try again.');
-                              } finally {
-                                setDownloadingDocId(null);
-                              }
-                            }}
-                          >
-                            <Download className="w-4 h-4" />
-                            Download
-                          </Button>
-                        )}
-                        <div className="flex gap-2">
-                          {/* Show preview button for all supported file types */}
-                          {true ? (
-                            <Button
-                              className="w-full gap-2"
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation(); // Prevent card click from triggering
-                                // Only navigate if document ID is valid
-                                if (doc.id && doc.id !== 'undefined' && !doc.id.includes('undefined')) {
-                                  router.push(`/repository/preview/${doc.id}`);
-                                } else {
-                                  // Show an error or do nothing if document ID is invalid
-                                  toast({
-                                    title: "Error",
-                                    description: "Document ID is invalid. Cannot preview this document.",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }}
+                        {/* Title and Description */}
+                        <h4 className="text-lg font-semibold text-gray-900 line-clamp-2 mb-1 min-h-[3.5rem]">{toTitleCase(doc.title)}</h4>
+                        <p className="text-sm text-gray-500 line-clamp-2 mb-3 min-h-[2.5rem]">{doc.description}</p>
+                        
+                        {/* Metadata */}
+                        <p className="text-xs text-gray-400 mb-3">
+                          Uploaded by {doc.uploadedBy} • {formatFileSize(doc.fileSize)}
+                        </p>
+                      
+                        {/* Pill Tags */}
+                        <div className="flex flex-wrap gap-2 mb-4 min-h-[2rem]">
+                          {!unitFilter && doc.unit && (
+                            <span 
+                              className="px-3 py-1 text-xs font-medium rounded-full"
+                              style={{ backgroundColor: 'rgba(43, 67, 133, 0.1)', color: '#2B4385' }}
                             >
-                              <EyeIcon className="w-4 h-4" />
-                              Preview
-                            </Button>
-                          ) : null}
+                              {doc.unit.code || doc.unit.name}
+                            </span>
+                          )}
+                          {doc.category && doc.category !== "Uncategorized" && (
+                            <span 
+                              className="px-3 py-1 text-xs font-medium rounded-full"
+                              style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
+                            >
+                              {doc.category}
+                            </span>
+                          )}
                         </div>
-                        {/* Delete button - only show if user can actually delete the document */}
-                        {user && (user.role === 'ADMIN' || doc.uploadedById === user.id) && (
-                          <Button
-                            className="w-full gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                            size="sm"
-                            variant="default"
-                            onClick={async (e) => {
-                              e.stopPropagation(); // Prevent card click from triggering
-                              if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
-                                setDeletingDocId(doc.id); // Set the document ID that is being deleted
+                      </div>
+                      
+                      {/* Card Footer */}
+                      <div className="px-4 pb-4 mt-auto">
+                        <div className="flex items-center gap-3 text-sm text-gray-500 mb-4">
+                          <div className="flex items-center gap-1">
+                            <Download className="w-4 h-4" />
+                            <span>{doc.downloadsCount}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Eye className="w-4 h-4" />
+                            <span>{doc.viewsCount}</span>
+                          </div>
+                          <span className="ml-auto text-xs">v{doc.version}</span>
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          {downloadingDocId === doc.id ? (
+                            <Button 
+                              className="flex-1 gap-2" 
+                              size="sm" 
+                              disabled
+                              style={{ backgroundColor: '#2B4385', color: 'white', borderRadius: '8px' }}
+                            >
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              Downloading...
+                            </Button>
+                          ) : (
+                            <Button
+                              className="flex-1 gap-2"
+                              size="sm"
+                              style={{ backgroundColor: '#2B4385', color: 'white', borderRadius: '8px' }}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                setDownloadingDocId(doc.id);
                                 try {
-                                  // First, verify that we have a valid authentication state
-                                  if (!isAuthenticated || !user) {
-                                    // If not authenticated, just return to prevent further execution
-                                    return;
+                                  if (typeof window === 'undefined') {
+                                    throw new Error('Download can only be initiated from the browser');
                                   }
-                                  
-                                  // Then try to get the access token
-                                  const token = await AuthService.getAccessToken();
-                                  if (!token) {
-                                    // If no token is available despite being authenticated, log out the user
+                                  if (!isAuthenticated || !user) return;
+                                  const downloadToken = await AuthService.getAccessToken();
+                                  if (!downloadToken) {
                                     await AuthService.logout();
                                     router.push('/');
                                     return;
                                   }
-                                  
-                                  const response = await fetch(`/api/documents/${doc.id}`, {
-                                    method: 'DELETE',
-                                    headers: {
-                                      'Authorization': `Bearer ${token}`,
-                                      'Content-Type': 'application/json',
-                                    }
-                                  });
-                                  
-                                  if (response.ok) {
-                                    // Set deletion success message
-                                    setDeletionSuccessMessage(`Document "${doc.title}" deleted successfully!`);
-                                    // Clear the success message after 3 seconds
-                                    setTimeout(() => {
-                                      setDeletionSuccessMessage(null);
-                                    }, 300);
-                                    // Refresh the document list
-                                    fetchDocuments();
-                                  } else {
-                                    const errorData = await response.json();
-                                    if (response.status === 403) {
-                                      toast({
-                                        title: "Access Denied",
-                                        description: "You don't have permission to delete this document.",
-                                        variant: "destructive",
-                                      });
-                                    } else {
-                                      throw new Error(errorData.error || 'Failed to delete document');
-                                    }
-                                  }
+                                  const directDownloadUrl = `/api/documents/${doc.id}/download-direct?token=${downloadToken}`;
+                                  const link = document.createElement('a');
+                                  link.href = directDownloadUrl;
+                                  link.download = doc.fileName || `document-${doc.id}`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
                                 } catch (error) {
-                                  console.error('Delete error:', error);
-                                  toast({
-                                    title: "Error",
-                                    description: error instanceof Error ? error.message : 'Failed to delete document. Please try again.',
-                                    variant: "destructive",
-                                  });
+                                  console.error('Download error:', error);
+                                  alert(error instanceof Error ? error.message : 'Failed to download document.');
                                 } finally {
-                                  setDeletingDocId(null); // Reset the deletion state
+                                  setDownloadingDocId(null);
                                 }
+                              }}
+                            >
+                              <Download className="w-4 h-4" />
+                              Download
+                            </Button>
+                          )}
+                          <Button
+                            className="gap-2"
+                            size="sm"
+                            variant="ghost"
+                            style={{ color: '#2B4385', borderRadius: '8px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (doc.id && doc.id !== 'undefined' && !doc.id.includes('undefined')) {
+                                router.push(`/repository/preview/${doc.id}`);
+                              } else {
+                                toast({
+                                  title: "Error",
+                                  description: "Cannot preview this document.",
+                                  variant: "destructive",
+                                });
                               }
                             }}
-                            disabled={deletingDocId === doc.id} // Disable button while deleting
                           >
-                            {deletingDocId === doc.id ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                Deleting...
-                              </>
-                            ) : (
-                              <>
-                                <Trash2 className="w-4 h-4" />
-                                Delete
-                              </>
-                            )}
+                            <EyeIcon className="w-4 h-4" />
+                            Preview
                           </Button>
-                        )}
+                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
               
-              {documents.length === 0 && (
-                <Card className="animate-fade-in">
-                  <CardContent className="py-12 text-center">
-                    <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No documents found</h3>
-                    <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-                  </CardContent>
-                </Card>
+              {/* Empty State */}
+              {documents.length === 0 && !loading && (
+                <div className="animate-fade-in bg-white rounded-xl p-12 text-center" style={{ boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)', borderRadius: '12px' }}>
+                  <div className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(43, 67, 133, 0.1)' }}>
+                    <FileText className="w-10 h-10" style={{ color: '#2B4385' }} />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Documents Found</h3>
+                  <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                    We couldn't find any documents matching your search criteria. Try adjusting your filters or search terms.
+                  </p>
+                  <div className="flex gap-3 justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setCategoryFilter('all');
+                        setUnitFilter(null);
+                      }}
+                      style={{ borderRadius: '8px' }}
+                    >
+                      Clear Filters
+                    </Button>
+                    {canUpload && (
+                      <Button
+                        onClick={() => setShowUploadModal(true)}
+                        style={{ backgroundColor: '#2B4385', color: 'white', borderRadius: '8px' }}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Document
+                      </Button>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </main>

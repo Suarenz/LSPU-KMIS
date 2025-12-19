@@ -41,6 +41,7 @@ model Document {
   uploadedBy               String
   uploadedAt               DateTime             @default(now())
   fileUrl                  String
+  blobName                 String?              // Azure Blob Storage blob name (UUID.ext)
   fileName                 String
   fileType                 String
   fileSize                 Int
@@ -211,6 +212,14 @@ enum PermissionLevel {
   ADMIN
 }
 
+enum TargetType {
+  MILESTONE       // Binary checkbox (0/1)
+  COUNT           // Integer count
+  PERCENTAGE      // Decimal percentage (0-100)
+  FINANCIAL       // Currency with 2 decimals
+  TEXT_CONDITION  // Dropdown (Met/Not Met/In Progress)
+}
+
 model QPROAnalysis {
   id                   String   @id @default(cuid())
   documentId           String   // Reference to the document that was analyzed
@@ -247,23 +256,29 @@ model QPROAnalysis {
 }
 
 model KRAggregation {
-  id                       String   @id @default(dbgenerated("gen_random_uuid()"))
-  year                     Int      // Reporting year
-  quarter                  Int      // Quarter (1-4)
-  kra_id                   String   // KRA identifier
-  kra_title                String?  // KRA title
-  initiative_id            String   // Initiative/KPI identifier
-  total_reported           Int?     // Total reported value
-  target_value             Decimal? // Target value for this KRA
-  achievement_percent      Decimal? // Calculated achievement percentage
-  submission_count         Int      @default(0) // Number of submissions
-  participating_units      Json?    // Array of unit IDs that contributed
-  status                   String?  // Status: MET, MISSED, ON_TRACK, NOT_APPLICABLE
-  last_updated             DateTime @default(now()) @updatedAt
-  updated_by               String?  // User who last updated
-  previous_quarter_achieved Decimal? // Previous quarter achievement for trending
-  previous_quarter_reported Int?    // Previous quarter reported value
-  previous_quarter_target   Decimal? // Previous quarter target
+  id                       String      @id @default(dbgenerated("gen_random_uuid()"))
+  year                     Int         // Reporting year
+  quarter                  Int         // Quarter (1-4)
+  kra_id                   String      // KRA identifier
+  kra_title                String?     // KRA title
+  initiative_id            String      // Initiative/KPI identifier
+  total_reported           Int?        // Total reported value
+  target_value             Decimal?    // Target value for this KRA
+  achievement_percent      Decimal?    // Calculated achievement percentage
+  submission_count         Int         @default(0) // Number of submissions
+  participating_units      Json?       // Array of unit IDs that contributed
+  status                   String?     // Status: MET, MISSED, ON_TRACK, NOT_APPLICABLE
+  last_updated             DateTime    @default(now()) @updatedAt
+  updated_by               String?     // User who last updated
+  previous_quarter_achieved Decimal?   // Previous quarter achievement for trending
+  previous_quarter_reported Int?       // Previous quarter reported value
+  previous_quarter_target   Decimal?   // Previous quarter target
+  manual_override          Decimal?    // Manual override value (when user corrects the current value)
+  manual_override_reason   String?     // Reason for manual override
+  manual_override_by       String?     // User who set the manual override
+  manual_override_at       DateTime?   // When the manual override was set
+  target_type              TargetType  @default(COUNT) // Type of target input (milestone, count, percentage, financial, text_condition)
+  current_value            String?     // Current value stored as string to accommodate all input types
   aggregationActivities    AggregationActivity[]
   
   @@unique([year, quarter, kra_id, initiative_id], name: "unique_aggregation")

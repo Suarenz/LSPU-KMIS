@@ -77,12 +77,13 @@ export async function GET(
       // Use the file storage service to get the signed URL
       const previewUrl = await fileStorageService.getFileUrl(fileName);
       
-      // Return document info with preview URL
+      // Return document info with direct Azure Storage URL
       return NextResponse.json({
         id: document.id,
         title: document.title,
         fileName: document.fileName,
         fileType: document.fileType,
+        fileUrl: previewUrl,
         previewUrl: previewUrl,
         uploadedBy: document.uploadedBy,
         uploadedAt: document.uploadedAt,

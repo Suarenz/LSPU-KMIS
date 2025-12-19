@@ -376,7 +376,7 @@ function formatKRAClassifications(analysis: any) {
 function organizeActivitiesByKRA(analysis: any): any[] {
   const organized: { [key: string]: any } = {};
 
-  const strategicPlanJson = require('@/strategic_plan.json');
+  const strategicPlanJson = require('@/lib/data/strategic_plan.json');
   const allKRAs = strategicPlanJson.kras || [];
 
   const getInitiativeTargetType = (kraId: string, initiativeId: string | undefined | null): string | null => {

@@ -288,7 +288,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get strategic plan for KRA context
-    const strategicPlanJson = require('@/strategic_plan.json');
+    const strategicPlanJson = require('@/lib/data/strategic_plan.json');
     const allKRAs = strategicPlanJson.kras || [];
     const reportYear = analysis.year || 2025;
 

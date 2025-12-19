@@ -1,1 +1,0 @@
-All Python files (app.py, requirements.txt, __pycache__) have been removed as requested.

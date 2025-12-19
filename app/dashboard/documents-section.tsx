@@ -2,37 +2,84 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Eye, Loader2 } from "lucide-react";
+import { Download, Eye, Loader2, FileText, FileSpreadsheet, FileImage, File } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Document } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import AuthService from "@/lib/services/auth-service";
 
+// Helper to get file icon based on extension
+const getFileIcon = (title: string) => {
+  const ext = title.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'doc':
+    case 'docx':
+      return { icon: FileText, color: '#2B4385' };
+    case 'xls':
+    case 'xlsx':
+      return { icon: FileSpreadsheet, color: '#2E8B57' };
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+      return { icon: FileImage, color: '#C04E3A' };
+    case 'pdf':
+      return { icon: FileText, color: '#EF4444' };
+    default:
+      return { icon: File, color: '#6B7280' };
+  }
+};
+
+// Helper to get clean title without extension
+const getCleanTitle = (title: string) => {
+  const parts = title.split('.');
+  if (parts.length > 1) {
+    parts.pop(); // Remove extension
+    return parts.join('.');
+  }
+  return title;
+};
+
 const DocumentCard = ({ doc, delay }: { doc: any; delay?: number }) => {
   const style = delay !== undefined ? { animationDelay: `${delay}s` } : {};
+  const { icon: FileIcon, color } = getFileIcon(doc.title);
+  const cleanTitle = getCleanTitle(doc.title);
+  
   return (
     <Card
       key={doc.id}
-      className="animate-fade-in hover:shadow-lg transition-shadow"
+      className="animate-fade-in hover:shadow-lg transition-shadow border-0 bg-white"
       style={style}
     >
       <CardHeader>
-        <CardTitle className="text-lg line-clamp-1">{doc.title}</CardTitle>
-        <CardDescription className="line-clamp-2">{doc.description}</CardDescription>
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-gray-50" style={{ color }}>
+            <FileIcon className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <CardTitle 
+              className="text-lg line-clamp-1 text-gray-900" 
+              title={doc.title}
+            >
+              {cleanTitle}
+            </CardTitle>
+            <CardDescription className="line-clamp-2">{doc.description}</CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex items-center gap-4 text-sm text-gray-500">
           <div className="flex items-center gap-1" style={{minWidth: '40px'}}>
-            <Download className="w-4 h-4 text-black" aria-hidden="true" style={{minWidth: '16px', minHeight: '16px'}} />
+            <Download className="w-4 h-4" style={{color: '#2B4385'}} aria-hidden="true" />
             <span>{doc.downloadsCount || doc.downloads || 0}</span>
           </div>
           <div className="flex items-center gap-1" style={{minWidth: '40px'}}>
-            <Eye className="w-4 h-4 text-black" aria-hidden="true" style={{minWidth: '16px', minHeight: '16px'}} />
+            <Eye className="w-4 h-4" style={{color: '#2E8B57'}} aria-hidden="true" />
             <span>{doc.viewsCount || doc.views || 0}</span>
           </div>
           <div className="ml-auto">
-            <span className="px-2 py-1 bg-primary/10 text-primary rounded text-xs">{doc.category}</span>
+            <span className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: 'rgba(43, 67, 133, 0.1)', color: '#2B4385' }}>{doc.category}</span>
           </div>
         </div>
       </CardContent>
@@ -98,8 +145,8 @@ export default function DocumentsSection() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Loading recent documents...</p>
+        <Loader2 className="h-8 w-8 animate-spin mb-4" style={{color: '#2B4385'}} />
+        <p className="text-gray-500">Loading recent documents...</p>
       </div>
     );
   }
@@ -107,9 +154,22 @@ export default function DocumentsSection() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">Recent Documents</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Recent Documents</h2>
         <Link href="/repository">
-          <Button variant="outline">View All</Button>
+          <Button 
+            variant="outline" 
+            style={{ borderColor: '#2B4385', color: '#2B4385' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#2B4385';
+              e.currentTarget.style.color = 'white';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = '#2B4385';
+            }}
+          >
+            View All
+          </Button>
         </Link>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -118,7 +178,7 @@ export default function DocumentsSection() {
             <DocumentCard key={doc.id} doc={doc} delay={index * 0.1} />
           ))
         ) : (
-          <div className="col-span-2 text-center py-8 text-muted-foreground">
+          <div className="col-span-2 text-center py-8 text-gray-500 bg-white rounded-xl">
             No recent documents available
           </div>
         )}

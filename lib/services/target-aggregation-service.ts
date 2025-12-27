@@ -228,8 +228,16 @@ class TargetAggregationService {
             Number(targetValue)
           );
 
+        case 'rate':
         case 'percentage':
           return this.calculatePercentageAggregation(
+            Number(reportedValue),
+            Number(targetValue)
+          );
+
+        case 'snapshot':
+          // SNAPSHOT: Latest value only - treat like count for achievement calculation
+          return this.calculateCountAggregation(
             Number(reportedValue),
             Number(targetValue)
           );

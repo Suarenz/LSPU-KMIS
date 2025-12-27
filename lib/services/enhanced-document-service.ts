@@ -120,6 +120,7 @@ class EnhancedDocumentService {
           ...doc,
           tags: Array.isArray(doc.tags) ? doc.tags as string[] : [],
           unitId: doc.unitId ?? undefined,
+          blobName: doc.blobName ?? undefined, // Azure Blob Storage blob name (UUID.ext)
           year: doc.year ?? undefined,
           quarter: doc.quarter ?? undefined,
           isQproDocument: doc.isQproDocument ?? false,
@@ -207,6 +208,7 @@ class EnhancedDocumentService {
         uploadedById: document.uploadedById,
         uploadedAt: new Date(document.uploadedAt),
         fileUrl: document.fileUrl,
+        blobName: document.blobName ?? undefined, // Azure Blob Storage blob name (UUID.ext)
         fileName: document.fileName,
         fileType: document.fileType,
         fileSize: document.fileSize,
@@ -355,11 +357,16 @@ class EnhancedDocumentService {
       }
 
       // Trigger Colivara processing asynchronously without blocking document creation
-      try {
-        colivaraService.processNewDocument(finalDocument as Document, fileUrl, base64Content);
-      } catch (processingError) {
-        console.error(`Error triggering Colivara processing for document ${document.id}:`, processingError);
-        // Don't throw error as we don't want to fail the document creation due to processing issues
+      // SKIP for QPRO documents as they handle indexing in their own upload route
+      if (!options?.isQproDocument) {
+        try {
+          colivaraService.processNewDocument(finalDocument as Document, fileUrl, base64Content);
+        } catch (processingError) {
+          console.error(`Error triggering Colivara processing for document ${document.id}:`, processingError);
+          // Don't throw error as we don't want to fail the document creation due to processing issues
+        }
+      } else {
+        console.log(`[EnhancedDocumentService] Skipping background Colivara processing for QPRO document ${document.id} - handled by upload route`);
       }
       
       return {
@@ -372,6 +379,7 @@ class EnhancedDocumentService {
         uploadedById: finalDocument.uploadedById,
         uploadedAt: new Date(finalDocument.uploadedAt),
         fileUrl: finalDocument.fileUrl,
+        blobName: finalDocument.blobName ?? undefined, // Azure Blob Storage blob name (UUID.ext)
         fileName: finalDocument.fileName,
         fileType: finalDocument.fileType,
         fileSize: finalDocument.fileSize,

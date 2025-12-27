@@ -47,7 +47,7 @@ export async function GET(
     // Record the download
     await documentService.recordDownload(id, userId);
 
-    // Use the stored blob name if available, otherwise extract from URL
+    // Use blobName if available (stored for QPRO and repository uploads), otherwise extract from URL
     let blobName = document.blobName;
     
     if (!blobName) {
@@ -69,7 +69,6 @@ export async function GET(
     
     console.log('Download attempt:', {
       documentId: id,
-      storedBlobName: document.blobName,
       extractedBlobName: blobName,
       storedUrl: document.fileUrl,
     });
@@ -83,8 +82,10 @@ export async function GET(
     }
 
     try {
-      // Determine which container based on URL
-      const containerName = document.fileUrl.includes('/qpro-files/') ? 'qpro-files' : 'repository-files';
+      // Determine the correct container based on document type
+      const containerName = document.isQproDocument || document.category === 'QPRO' 
+        ? 'qpro-files' 
+        : 'repository-files';
       
       // Get the file URL from Azure Storage using the fileStorageService
       const fileUrl = await fileStorageService.getFileUrl(blobName, containerName);

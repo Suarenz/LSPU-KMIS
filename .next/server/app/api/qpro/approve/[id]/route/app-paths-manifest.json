@@ -1,0 +1,3 @@
+{
+  "/api/qpro/approve/[id]/route": "app/api/qpro/approve/[id]/route.js"
+}

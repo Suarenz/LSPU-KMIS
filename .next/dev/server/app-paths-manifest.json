@@ -1,11 +1,16 @@
 {
+  "/_not-found/page": "app/_not-found/page.js",
   "/api/analytics/route": "app/api/analytics/route.js",
-  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/api/documents/[id]/preview/route": "app/api/documents/[id]/preview/route.js",
   "/api/documents/route": "app/api/documents/route.js",
   "/api/qpro-analyses/route": "app/api/qpro-analyses/route.js",
+  "/api/qpro/by-document/[documentId]/route": "app/api/qpro/by-document/[documentId]/route.js",
   "/api/units/route": "app/api/units/route.js",
   "/dashboard/page": "app/dashboard/page.js",
+  "/page": "app/page.js",
   "/qpro/page": "app/qpro/page.js",
   "/repository/page": "app/repository/page.js",
+  "/repository/preview/[id]/page": "app/repository/preview/[id]/page.js",
   "/search/page": "app/search/page.js"
 }

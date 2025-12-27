@@ -106,9 +106,19 @@ export async function GET(
         currentState: `${(analysis.kras ? (Array.isArray(analysis.kras) ? analysis.kras.length : 0) : 0)} KRAs with ${(analysis.activities ? (Array.isArray(analysis.activities) ? analysis.activities.length : 0) : 0)} activities`,
         targetState: 'Full alignment with strategic plan objectives',
       },
+      
+      // Include activities directly for the review modal
+      activities: analysis.activities || [],
     };
 
-    return NextResponse.json(response);
+    // Return response with no-cache headers to ensure fresh data after regeneration
+    return NextResponse.json(response, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
   } catch (error) {
     console.error('[QPRO Analysis Detail] Error:', error);
     return NextResponse.json({ error: 'Failed to fetch analysis details' }, { status: 500 });
@@ -203,9 +213,16 @@ function getKRATitle(kraId: string, fallback?: string): string {
 
 function formatKRAClassifications(analysis: any) {
   // Build activity count per KRA from the activities array OR from embedded activities in KRAs
+  // Uses KPI-type-aware aggregation for achievement rate calculation
   const kraActivityCounts: { [kraId: string]: number } = {};
-  const kraAchievements: { [kraId: string]: number[] } = {};
+  const kraActivitiesData: { [kraId: string]: any[] } = {}; // Store full activity data for aggregation
   const kraTitles: { [kraId: string]: string } = {};
+  const kraInitiativeIds: { [kraId: string]: string } = {}; // Track initiative IDs for type lookup
+  
+  // Load strategic plan for KPI type information
+  const strategicPlanJson = require('@/lib/data/strategic_plan.json');
+  const allKRAs = strategicPlanJson.kras || [];
+  const year = analysis.year || 2025;
   
   console.log('[formatKRAClassifications] activities count:', analysis.activities?.length || 0);
   console.log('[formatKRAClassifications] kras count:', analysis.kras?.length || 0);
@@ -230,15 +247,26 @@ function formatKRAClassifications(analysis: any) {
       totalEmbeddedCount += embeddedActivities.length;
       kraActivityCounts[kraId] = embeddedActivities.length;
       
-      // Track achievements from embedded activities
+      // Store full activity data for proper aggregation
+      if (!kraActivitiesData[kraId]) kraActivitiesData[kraId] = [];
       embeddedActivities.forEach((act: any) => {
-        const achievement = act.achievement || 0;
-        if (!kraAchievements[kraId]) kraAchievements[kraId] = [];
-        kraAchievements[kraId].push(achievement);
+        kraActivitiesData[kraId].push({
+          reported: act.reported || 0,
+          target: act.target || 0,
+          achievement: act.achievement || 0,
+          targetType: act.targetType,
+          initiativeId: act.initiativeId,
+        });
+        if (act.initiativeId && !kraInitiativeIds[kraId]) {
+          kraInitiativeIds[kraId] = act.initiativeId;
+        }
       });
       
       if (kra.kraTitle) {
         kraTitles[kraId] = kra.kraTitle;
+      }
+      if (kra.initiativeId && !kraInitiativeIds[kraId]) {
+        kraInitiativeIds[kraId] = kra.initiativeId;
       }
     });
     
@@ -254,22 +282,27 @@ function formatKRAClassifications(analysis: any) {
         kraActivityCounts[singleKraId] = topLevelCount;
         console.log(`[formatKRAClassifications] Assigned ${topLevelCount} activities to single KRA: ${singleKraId}`);
         
-        // Only calculate achievements from top-level activities if they have achievement values
-        // Otherwise, we'll use the KRA's achievementRate as fallback
-        let hasValidAchievements = false;
+        // Store full activity data for proper aggregation
+        if (!kraActivitiesData[singleKraId]) kraActivitiesData[singleKraId] = [];
         (analysis.activities as any[]).forEach((act: any) => {
-          const achievement = act.achievement;
-          // Only add if achievement is defined and > 0
-          if (achievement !== undefined && achievement !== null && achievement > 0) {
-            if (!kraAchievements[singleKraId]) kraAchievements[singleKraId] = [];
-            kraAchievements[singleKraId].push(achievement);
-            hasValidAchievements = true;
+          kraActivitiesData[singleKraId].push({
+            reported: act.reported || 0,
+            target: act.target || 0,
+            achievement: act.achievement || 0,
+            targetType: act.targetType,
+            initiativeId: act.initiativeId,
+          });
+          if (act.initiativeId && !kraInitiativeIds[singleKraId]) {
+            kraInitiativeIds[singleKraId] = act.initiativeId;
           }
         });
         
-        // If no valid achievements from activities, DON'T populate the array
-        // so we fall back to kra.achievementRate
-        console.log(`[formatKRAClassifications] hasValidAchievements: ${hasValidAchievements}, will use KRA achievementRate: ${kras[0].achievementRate}`);
+        // Use KRA's initiativeId if activities don't have one
+        if (kras[0].initiativeId && !kraInitiativeIds[singleKraId]) {
+          kraInitiativeIds[singleKraId] = kras[0].initiativeId;
+        }
+        
+        console.log(`[formatKRAClassifications] Stored ${kraActivitiesData[singleKraId].length} activities for aggregation`);
       } else if (topLevelCount > 0) {
         // Multiple KRAs case: show as unclassified
         kraActivityCounts['UNCLASSIFIED'] = topLevelCount;
@@ -298,10 +331,20 @@ function formatKRAClassifications(analysis: any) {
       if (kraId) {
         kraActivityCounts[kraId] = (kraActivityCounts[kraId] || 0) + 1;
         
-        // Track achievements for averaging
-        const achievement = activity.achievement || 0;
-        if (!kraAchievements[kraId]) kraAchievements[kraId] = [];
-        kraAchievements[kraId].push(achievement);
+        // Store full activity data for proper aggregation
+        if (!kraActivitiesData[kraId]) kraActivitiesData[kraId] = [];
+        kraActivitiesData[kraId].push({
+          reported: activity.reported || 0,
+          target: activity.target || 0,
+          achievement: activity.achievement || 0,
+          targetType: activity.targetType,
+          initiativeId: activity.initiativeId,
+        });
+        
+        // Track initiative ID for target type lookup
+        if (activity.initiativeId && !kraInitiativeIds[kraId]) {
+          kraInitiativeIds[kraId] = activity.initiativeId;
+        }
         
         // Store KRA title if available
         if (!kraTitles[kraId] && (activity.kraTitle || activity.kra_title)) {
@@ -311,20 +354,52 @@ function formatKRAClassifications(analysis: any) {
     });
   }
 
+  // Helper function to compute aggregated achievement for a KRA
+  const computeKraAchievement = (kraId: string, activitiesData: any[]): number => {
+    if (activitiesData.length === 0) return 0;
+    
+    // Get initiative ID for this KRA
+    const initiativeId = kraInitiativeIds[kraId];
+    
+    // Get target metadata from strategic plan
+    const meta = getInitiativeTargetMeta({ kras: allKRAs } as any, kraId, initiativeId, year);
+    
+    // Fallback target value
+    const fallbackTarget = typeof activitiesData[0]?.target === 'number' 
+      ? activitiesData[0].target 
+      : Number(activitiesData[0]?.target || 0);
+    const targetValue = meta.targetValue ?? (Number.isFinite(fallbackTarget) && fallbackTarget > 0 ? fallbackTarget : 0);
+    
+    // Use KPI-type-aware aggregation
+    const aggregated = computeAggregatedAchievement({
+      targetType: meta.targetType || activitiesData[0]?.targetType,
+      targetValue,
+      targetScope: meta.targetScope,
+      activities: activitiesData,
+    });
+    
+    console.log(`[formatKRAClassifications] KRA ${kraId} aggregation:`, {
+      targetType: meta.targetType || activitiesData[0]?.targetType,
+      targetValue,
+      totalReported: aggregated.totalReported,
+      achievementPercent: aggregated.achievementPercent,
+    });
+    
+    return aggregated.achievementPercent;
+  };
+
   // If no kras array but we have activities with kraIds, generate KRA entries from activities
   if (!analysis.kras || !Array.isArray(analysis.kras) || analysis.kras.length === 0) {
     const generatedKRAs: any[] = [];
     Object.keys(kraActivityCounts).forEach((kraId) => {
-      const achievements = kraAchievements[kraId] || [];
-      const avgAchievement = achievements.length > 0 
-        ? achievements.reduce((a, b) => a + b, 0) / achievements.length 
-        : 0;
+      const activitiesData = kraActivitiesData[kraId] || [];
+      const achievementRate = computeKraAchievement(kraId, activitiesData);
       
       generatedKRAs.push({
         id: kraId,
         title: getKRATitle(kraId, kraTitles[kraId]),
         count: kraActivityCounts[kraId] || 0,
-        achievementRate: Math.round(avgAchievement * 100) / 100,
+        achievementRate: Math.round(achievementRate * 100) / 100,
         strategicAlignment: '',
       });
     });
@@ -355,19 +430,25 @@ function formatKRAClassifications(analysis: any) {
     
     console.log(`[formatKRAClassifications] KRA ${kraId}: countFromActivities=${countFromActivities}, embeddedCount=${embeddedCount}, finalCount=${finalCount}`);
     
-    // Calculate achievement from activities if available, otherwise use KRA's achievementRate
-    const achievements = kraAchievements[kraId] || [];
-    const avgAchievement = achievements.length > 0 
-      ? achievements.reduce((a, b) => a + b, 0) / achievements.length 
-      : (kra.achievementRate || 0);
+    // Use KPI-type-aware aggregation for achievement rate
+    const activitiesData = kraActivitiesData[kraId] || [];
+    let achievementRate = 0;
+    
+    if (activitiesData.length > 0) {
+      // Use the helper function for proper aggregation
+      achievementRate = computeKraAchievement(kraId, activitiesData);
+    } else {
+      // Fallback to KRA's achievementRate if no activity data
+      achievementRate = kra.achievementRate || 0;
+    }
 
-    console.log(`[formatKRAClassifications] KRA ${kraId}: achievements array length=${achievements.length}, avgAchievement=${avgAchievement}, kra.achievementRate=${kra.achievementRate}`);
+    console.log(`[formatKRAClassifications] KRA ${kraId}: activitiesData.length=${activitiesData.length}, achievementRate=${achievementRate}`);
 
     return {
       id: kraId || `kra-${Math.random()}`,
       title: getKRATitle(kraId, kra.kraTitle || kra.title),
       count: finalCount,
-      achievementRate: Math.round(avgAchievement * 100) / 100,
+      achievementRate: Math.round(achievementRate * 100) / 100,
       strategicAlignment: kra.strategicAlignment || '',
     };
   });
@@ -972,7 +1053,7 @@ export async function PATCH(
           data: {
             reported: act.reported,
             target: act.target,
-            initiative_id: act.kraId // Update initiative_id which links to KRA
+            initiative_id: act.initiativeId // Use initiativeId (e.g., KRA3-KPI5), not kraId (e.g., KRA 3)
           }
         });
       }

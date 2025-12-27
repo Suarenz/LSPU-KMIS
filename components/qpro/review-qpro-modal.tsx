@@ -11,11 +11,227 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, CheckCircle, XCircle, Edit2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, CheckCircle, XCircle, Edit2, Target, Lightbulb } from 'lucide-react';
 import AuthService from '@/lib/services/auth-service';
-import ReactMarkdown from 'react-markdown';
 import strategicPlan from '@/lib/data/strategic_plan.json';
 import { ActivityCardRedesigned } from '@/components/qpro/activity-card-redesigned';
+import { computeAggregatedAchievement, getInitiativeTargetMeta, normalizeKraId } from '@/lib/utils/qpro-aggregation';
+
+// Interface for structured prescriptive analysis items
+interface PrescriptiveItem {
+  title: string;
+  issue: string;
+  action: string;
+  nextStep?: string;
+}
+
+// Parse prescriptive text into structured items (same as qpro-analysis-detail.tsx)
+function parsePrescriptiveTextToItems(text: string): PrescriptiveItem[] {
+  if (typeof text !== 'string') return [];
+  const raw = text.replace(/\r\n/g, '\n').trim();
+  if (!raw) return [];
+
+  const lines = raw.split('\n');
+  const items: PrescriptiveItem[] = [];
+  let current: Partial<PrescriptiveItem> | null = null;
+
+  const pushCurrent = () => {
+    if (!current) return;
+    const title = String(current.title || '').trim();
+    const issue = String(current.issue || '').trim();
+    const action = String(current.action || '').trim();
+    const nextStep = current.nextStep ? String(current.nextStep).trim() : undefined;
+    if (title && issue && action) items.push({ title, issue, action, nextStep });
+    current = null;
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const headerMatch = trimmed.match(/^\d+\.\s+(.*)$/);
+    if (headerMatch) {
+      pushCurrent();
+      current = { title: headerMatch[1].trim() };
+      continue;
+    }
+
+    const fieldMatch = trimmed.match(/^(?:-\s*)?(Issue|Action|Next\s*Step)\s*:\s*(.*)$/i);
+    if (fieldMatch && current) {
+      const key = fieldMatch[1].toLowerCase().replace(/\s+/g, '');
+      const value = fieldMatch[2].trim();
+      if (key === 'issue') current.issue = value;
+      if (key === 'action') current.action = value;
+      if (key === 'nextstep') current.nextStep = value;
+      continue;
+    }
+  }
+
+  pushCurrent();
+  return items;
+}
+
+// Format markdown text by removing raw markdown characters (same as qpro-analysis-detail.tsx)
+function formatMarkdownText(text: any): string {
+  if (!text) return '';
+  
+  if (typeof text !== 'string') {
+    if (Array.isArray(text)) {
+      return text.map((item: any) => formatMarkdownText(item)).join('\n');
+    }
+    if (typeof text === 'object') {
+      if (text.action) {
+        return `${text.action}${text.timeline ? ` (${text.timeline})` : ''}`;
+      }
+      if (text.recommendation) {
+        return text.recommendation;
+      }
+      try {
+        return JSON.stringify(text);
+      } catch {
+        return String(text);
+      }
+    }
+    return String(text);
+  }
+  
+  let formatted = text;
+  
+  try {
+    const parsed = JSON.parse(formatted);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item: any) => {
+        if (typeof item === 'string') return item;
+        if (item?.action) return item.action;
+        if (item?.recommendation) return item.recommendation;
+        return String(item);
+      }).join('\n• ');
+    }
+    if (typeof parsed === 'object' && parsed !== null) {
+      if (parsed.action) return parsed.action;
+      if (parsed.recommendation) return parsed.recommendation;
+    }
+  } catch {
+    // Not JSON, continue with string processing
+  }
+  
+  formatted = formatted.replace(/^#{1,3}\s+/gm, '');
+  formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '$1');
+  formatted = formatted.replace(/\*([^*]+)\*/g, '$1');
+  formatted = formatted.replace(/^\["|"\]$/g, '');
+  formatted = formatted.replace(/","/g, ', ');
+  
+  return formatted.trim();
+}
+
+// Render formatted text with proper list formatting (same as qpro-analysis-detail.tsx)
+function renderFormattedText(text: string): React.ReactNode {
+  if (!text) return null;
+  
+  const lines = text.split('\n').filter(line => line.trim());
+  
+  const elements: React.ReactNode[] = [];
+  let currentList: string[] = [];
+  let listType: 'bullet' | 'numbered' | null = null;
+  
+  const flushList = () => {
+    if (currentList.length > 0) {
+      if (listType === 'numbered') {
+        elements.push(
+          <ol key={`ol-${elements.length}`} className="list-decimal list-inside space-y-1 ml-2">
+            {currentList.map((item, idx) => (
+              <li key={idx}>{formatMarkdownText(item)}</li>
+            ))}
+          </ol>
+        );
+      } else {
+        elements.push(
+          <ul key={`ul-${elements.length}`} className="list-disc list-inside space-y-1 ml-2">
+            {currentList.map((item, idx) => (
+              <li key={idx}>{formatMarkdownText(item)}</li>
+            ))}
+          </ul>
+        );
+      }
+      currentList = [];
+      listType = null;
+    }
+  };
+  
+  lines.forEach((line, idx) => {
+    const trimmedLine = line.trim();
+    
+    if (trimmedLine.startsWith('###') || trimmedLine.startsWith('##') || trimmedLine.startsWith('#')) {
+      flushList();
+      const headerText = trimmedLine.replace(/^#{1,3}\s+/, '');
+      elements.push(
+        <p key={`h-${idx}`} className="font-semibold mt-3 first:mt-0">{formatMarkdownText(headerText)}</p>
+      );
+      return;
+    }
+    
+    const numberedMatch = trimmedLine.match(/^\d+\.\s+(.+)/);
+    if (numberedMatch) {
+      if (listType !== 'numbered') {
+        flushList();
+        listType = 'numbered';
+      }
+      currentList.push(numberedMatch[1]);
+      return;
+    }
+    
+    const bulletMatch = trimmedLine.match(/^[-*]\s+(.+)/);
+    if (bulletMatch) {
+      if (listType !== 'bullet') {
+        flushList();
+        listType = 'bullet';
+      }
+      currentList.push(bulletMatch[1]);
+      return;
+    }
+    
+    flushList();
+    if (trimmedLine) {
+      elements.push(
+        <p key={`p-${idx}`} className="mb-2 last:mb-0">{formatMarkdownText(trimmedLine)}</p>
+      );
+    }
+  });
+  
+  flushList();
+  
+  return <div className="space-y-2">{elements}</div>;
+}
+
+// Extract prescriptive value from various data structures
+function extractPrescriptiveValue(data: any): string | null {
+  if (!data) return null;
+  if (typeof data === 'string') return data;
+  
+  if (typeof data === 'object') {
+    if (data.recommendations || data.content || data.analysis || data.text) {
+      return data.recommendations || data.content || data.analysis || data.text;
+    }
+    
+    const keys = Object.keys(data);
+    if (keys.length === 0) return null;
+    
+    const valueKey = keys.find(k => k.length > 1) || keys[0];
+    const value = data[valueKey];
+    
+    if (typeof value === 'object' && value !== null) {
+      if (value.recommendations || value.content || value.analysis) {
+        return value.recommendations || value.content || value.analysis;
+      }
+      return JSON.stringify(value);
+    }
+    
+    return String(value);
+  }
+  
+  return null;
+}
 
 // KRA keywords for mismatch detection
 const KRA_KEYWORDS: { [key: string]: string[] } = {
@@ -97,16 +313,95 @@ export default function ReviewQProModal({
   onReject,
   forceFullPage = false,
 }: ReviewModalProps) {
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<any>(null);
   const [editedActivities, setEditedActivities] = useState<Activity[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [changedKRAIndices, setChangedKRAIndices] = useState<Set<number>>(new Set());
   const [mismatches, setMismatches] = useState<{ [key: number]: boolean }>({});
   const [kraValidationErrors, setKraValidationErrors] = useState<{ [key: number]: string }>({});
   const [kpiValidationErrors, setKpiValidationErrors] = useState<{ [key: number]: string }>({});
+  const [currentProgress, setCurrentProgress] = useState<Map<string, { current: number; target: number }>>(new Map());
+  const [isAlreadyApproved, setIsAlreadyApproved] = useState(false);
+
+  // Fetch current KPI progress to show cumulative achievement
+  useEffect(() => {
+    if (!analysisId || (!isOpen && !forceFullPage)) return;
+
+    const fetchCurrentProgress = async () => {
+      try {
+        const token = await AuthService.getAccessToken();
+        
+        // First get the analysis to know which KPIs are involved
+        const analysisRes = await fetch(`/api/qpro/analyses/${analysisId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (!analysisRes.ok) return;
+        
+        const analysisData = await analysisRes.json();
+        const activities = analysisData.activities || [];
+        
+        // Get unique KRA IDs from activities
+        const kraIds = Array.from(new Set(
+          activities
+            .map((a: any) => a.kraId)
+            .filter(Boolean)
+        ));
+        
+        // Fetch progress for each KRA
+        const progressMap = new Map<string, { current: number; target: number }>();
+        
+        for (const kraId of kraIds) {
+          const year = analysisData.year || new Date().getFullYear();
+          const progressRes = await fetch(
+            `/api/kpi-progress?kraId=${encodeURIComponent(kraId)}&year=${year}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          
+          if (progressRes.ok) {
+            const progressData = await progressRes.json();
+            const kraProgress = progressData.data;
+            
+            // Store current progress for each initiative
+            if (kraProgress?.initiatives) {
+              for (const initiative of kraProgress.initiatives) {
+                // Sum all quarters for the year
+                const yearProgress = initiative.progress
+                  ?.filter((p: any) => p.year === year)
+                  .reduce((sum: number, p: any) => {
+                    const val = typeof p.currentValue === 'number' 
+                      ? p.currentValue 
+                      : parseFloat(String(p.currentValue)) || 0;
+                    return sum + val;
+                  }, 0) || 0;
+                
+                // Get target from first quarter (they should all have same annual target)
+                const firstQuarter = initiative.progress?.find((p: any) => p.year === year);
+                const target = firstQuarter?.targetValue || 0;
+                
+                progressMap.set(initiative.id, {
+                  current: yearProgress,
+                  target: typeof target === 'number' ? target : parseFloat(String(target)) || 0
+                });
+              }
+            }
+          }
+        }
+        
+        setCurrentProgress(progressMap);
+      } catch (err) {
+        console.error('Error fetching current progress:', err);
+      }
+    };
+
+    fetchCurrentProgress();
+  }, [analysisId, isOpen, forceFullPage]);
 
   useEffect(() => {
     if (analysisId && (isOpen || forceFullPage)) {
@@ -181,6 +476,11 @@ export default function ReviewQProModal({
       if (!response.ok) throw new Error('Failed to fetch analysis');
       const data = await response.json();
       setAnalysis(data);
+      
+      // Check if analysis is already approved
+      if (data.status === 'APPROVED') {
+        setIsAlreadyApproved(true);
+      }
       
       // Extract activities from the response (handles both flat and nested structures)
       const activities = extractActivitiesFromResponse(data);
@@ -367,6 +667,13 @@ export default function ReviewQProModal({
     try {
       setIsRegenerating(true);
       setError(null);
+      
+      // Show toast notification that regeneration has started
+      toast({
+        title: 'Regenerating Insights',
+        description: 'Analyzing KPI types and generating fresh recommendations...',
+        duration: 3000,
+      });
 
       const token = await AuthService.getAccessToken();
       if (!token) {
@@ -406,13 +713,20 @@ export default function ReviewQProModal({
 
       const regeneratedData = await response.json();
 
-      // Refresh analysis-level document insights so the review reflects the latest regeneration
+      // CRITICAL FIX: After successful regeneration, refetch the complete analysis from the database
+      // to ensure we have the latest data including any server-side computed fields.
+      // This prevents stale data issues when user corrects KPI/KRA classifications.
+      console.log('[ReviewQProModal] Regeneration successful, refetching fresh analysis data...');
+      
+      // First, update with regenerated data immediately for responsiveness
       setAnalysis((prev: any) => ({
         ...(prev || {}),
-        ...(regeneratedData || {}),
+        ...regeneratedData,
+        // Mark as freshly regenerated
+        _regeneratedAt: new Date().toISOString(),
       }));
 
-      // Update activities with new insights
+      // Update activities with new insights from response
       setEditedActivities((prev) => {
         const updated = [...prev];
         regeneratedData.activities.forEach((regenerated: Activity) => {
@@ -429,10 +743,49 @@ export default function ReviewQProModal({
         return updated;
       });
 
+      // Then, refetch the complete analysis to ensure all computed fields are fresh
+      // This double-fetch ensures we pick up any server-side computed fields we may have missed
+      try {
+        const refetchResponse = await fetch(`/api/qpro/analyses/${analysisId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          // Add cache-busting to ensure we get fresh data
+          cache: 'no-store',
+        });
+        if (refetchResponse.ok) {
+          const freshData = await refetchResponse.json();
+          console.log('[ReviewQProModal] Fresh analysis data retrieved after regeneration');
+          
+          // Update analysis with fresh data from DB, preserving any local edits
+          setAnalysis((prev: any) => ({
+            ...(prev || {}),
+            ...freshData,
+            // Preserve the prescriptiveAnalysis from regeneration if freshData doesn't have it
+            prescriptiveAnalysis: freshData.prescriptiveAnalysis || regeneratedData.prescriptiveAnalysis || prev?.prescriptiveAnalysis,
+          }));
+          
+          // Re-extract activities from fresh data to ensure consistency
+          const freshActivities = extractActivitiesFromResponse(freshData);
+          if (freshActivities.length > 0) {
+            setEditedActivities(freshActivities);
+          }
+        }
+      } catch (refetchError) {
+        // Non-fatal: we already have regenerated data, just log the error
+        console.warn('[ReviewQProModal] Could not refetch fresh data after regeneration:', refetchError);
+      }
+
       // Clear the changed KRA indices since we've regenerated
       setChangedKRAIndices(new Set());
       
       setError(null);
+      
+      // Show prominent success notification
+      toast({
+        title: '✓ Success - Insights Regenerated',
+        description: `${activitiesToRegenerate.length} ${activitiesToRegenerate.length === 1 ? 'activity' : 'activities'} updated with fresh AI analysis and corrected KPI classifications.`,
+        duration: 5000,
+        className: 'bg-green-50 border-green-200',
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to regenerate insights');
     } finally {
@@ -443,20 +796,20 @@ export default function ReviewQProModal({
   // Handle approve
   const handleApprove = async () => {
     try {
-      setIsSubmitting(true);
+      setIsApproving(true);
       setError(null);
       
       // Validate all KRAs are assigned before approval
       if (!validateKRAAssignments()) {
         setError('Please assign a KRA to all activities before approval');
-        setIsSubmitting(false);
+        setIsApproving(false);
         return;
       }
 
       // If any activity was reclassified, enforce KPI selection under the corrected KRA
       if (!validateKPISelections()) {
         setError('Please select the correct KPI under the corrected KRA before approval');
-        setIsSubmitting(false);
+        setIsApproving(false);
         return;
       }
 
@@ -499,19 +852,20 @@ export default function ReviewQProModal({
       }
 
       console.log('[ReviewModal] Analysis approved successfully');
+      console.log('[ReviewModal] Calling onApprove callback to trigger page reload...');
       onApprove?.();
-      onClose();
+      // Note: Don't call onClose() here as the page will reload anyway
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve');
     } finally {
-      setIsSubmitting(false);
+      setIsApproving(false);
     }
   };
 
   // Handle reject
   const handleReject = async () => {
     try {
-      setIsSubmitting(true);
+      setIsRejecting(true);
       setError(null);
 
       const token = await AuthService.getAccessToken();
@@ -539,19 +893,80 @@ export default function ReviewQProModal({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject');
     } finally {
-      setIsSubmitting(false);
+      setIsRejecting(false);
     }
   };
 
-  // Calculate summary stats
-  // FIX: Calculate average achievement by averaging individual activity percentages,
-  // NOT by summing reported values and dividing by max target (which inflates percentages)
+  // Calculate summary stats using KPI-type-aware aggregation
+  // This matches the backend logic in regenerate-insights endpoint
   const summaryStats = (() => {
     const activitiesWithTarget = editedActivities.filter((a) => a.target > 0);
     
-    // Calculate average achievement: sum of all achievement percentages / count
-    const avgAchievement = activitiesWithTarget.length > 0
-      ? activitiesWithTarget.reduce((sum, a) => sum + (a.achievement || 0), 0) / activitiesWithTarget.length
+    // Group activities by KRA+KPI for proper aggregation (matching backend logic)
+    const groups = new Map<string, { kraId: string; initiativeId: string; activities: typeof activitiesWithTarget }>();
+    
+    for (const act of activitiesWithTarget) {
+      const kraId = String(act.kraId || '').trim();
+      const initiativeId = String(act.initiativeId || '').trim();
+      if (!kraId || !initiativeId) continue;
+      
+      const key = `${kraId}::${initiativeId}`;
+      if (!groups.has(key)) {
+        groups.set(key, { kraId, initiativeId, activities: [] });
+      }
+      groups.get(key)!.activities.push(act);
+    }
+    
+    // Calculate KPI-level achievements using type-aware aggregation
+    const allKRAs = (strategicPlan as any).kras || [];
+    const year = analysis?.year || 2025;
+    
+    const kpiAchievements: number[] = [];
+    for (const g of groups.values()) {
+      // Get target metadata from strategic plan
+      const meta = getInitiativeTargetMeta({ kras: allKRAs } as any, g.kraId, g.initiativeId, year);
+      
+      // Fallback target value
+      const fallbackTarget = typeof g.activities?.[0]?.target === 'number' 
+        ? g.activities[0].target 
+        : Number(g.activities?.[0]?.target || 0);
+      const targetValue = meta.targetValue ?? (Number.isFinite(fallbackTarget) && fallbackTarget > 0 ? fallbackTarget : 0);
+      
+      // Use the same aggregation logic as backend
+      const aggregated = computeAggregatedAchievement({
+        targetType: meta.targetType || g.activities?.[0]?.targetType,
+        targetValue,
+        targetScope: meta.targetScope,
+        activities: g.activities.map(a => ({ reported: a.reported, target: a.target })),
+      });
+      
+      // Calculate cumulative achievement including current progress from already approved documents
+      let cumulativeAchievement = aggregated.achievementPercent;
+      
+      if (g.initiativeId && currentProgress.has(g.initiativeId)) {
+        const progress = currentProgress.get(g.initiativeId)!;
+        const target = progress.target || targetValue || 1;
+        
+        // Add this document's contribution to current progress
+        const newTotal = progress.current + aggregated.totalReported;
+        const rawAchievement = target > 0 ? (newTotal / target) * 100 : 0;
+        
+        // Cap achievement at 100% - don't show excess percentage
+        cumulativeAchievement = Math.min(rawAchievement, 100);
+        
+        console.log(`[Review] KPI ${g.initiativeId}:`);
+        console.log(`  Current progress: ${progress.current}, This document adds: ${aggregated.totalReported}`);
+        console.log(`  New total: ${newTotal}, Target: ${target}, Raw Achievement: ${rawAchievement.toFixed(1)}%, Displayed: ${cumulativeAchievement.toFixed(1)}%`);
+      }
+      
+      if (cumulativeAchievement >= 0) {
+        kpiAchievements.push(cumulativeAchievement);
+      }
+    }
+    
+    // Overall achievement is the average of KPI-level cumulative achievements
+    const avgAchievement = kpiAchievements.length > 0
+      ? kpiAchievements.reduce((sum, pct) => sum + pct, 0) / kpiAchievements.length
       : 0;
     
     // Count activities that met their targets (achievement >= 100%)
@@ -580,6 +995,15 @@ export default function ReviewQProModal({
         </div>
       ) : (
         <>
+          {/* Already Approved Warning Banner */}
+          {isAlreadyApproved && (
+            <div className="p-4 mb-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-amber-800 font-medium">
+                Only DRAFT analyses can be edited. This analysis is already APPROVED
+              </p>
+            </div>
+          )}
+          
           {/* Summary Stats */}
           <div className="flex justify-center gap-3 mb-4 flex-wrap">
             <div className="p-3 bg-blue-50 rounded-lg text-center min-w-[100px]">
@@ -599,30 +1023,102 @@ export default function ReviewQProModal({
           {/* Document-Level AI Review (exactly one insight + one prescriptive analysis per document) */}
           {(() => {
             const documentInsight = extractDocumentLevelInsight(analysis);
-            const prescriptive = extractDocumentLevelPrescriptive(analysis);
+            const prescriptiveRaw = extractDocumentLevelPrescriptive(analysis);
 
-            if (!documentInsight && !prescriptive) return null;
+            // Extract structured prescriptive items (same logic as qpro-analysis-detail.tsx)
+            const structuredItems: PrescriptiveItem[] = (() => {
+              // First, try to get prescriptiveItems directly from prescriptiveAnalysis object
+              const fromJson = (() => {
+                if (!analysis?.prescriptiveAnalysis || typeof analysis.prescriptiveAnalysis !== 'object') return [];
+                const items = (analysis.prescriptiveAnalysis as any).prescriptiveItems;
+                if (!Array.isArray(items)) return [];
+                return items
+                  .filter((x: any) => x && typeof x === 'object')
+                  .slice(0, 5)
+                  .map((x: any) => ({
+                    title: String(x.title || '').trim(),
+                    issue: String(x.issue || '').trim(),
+                    action: String(x.action || '').trim(),
+                    nextStep: x.nextStep ? String(x.nextStep).trim() : undefined,
+                  }))
+                  .filter((x: any) => x.title && x.issue && x.action);
+              })();
+
+              if (fromJson.length > 0) return fromJson;
+              
+              // Fallback: parse the prescriptive text into structured items
+              return prescriptiveRaw ? parsePrescriptiveTextToItems(prescriptiveRaw).slice(0, 5) : [];
+            })();
+
+            // Get document insight text from prescriptiveAnalysis object if available
+            const documentInsightText = (() => {
+              const fromJson = (analysis?.prescriptiveAnalysis && typeof analysis.prescriptiveAnalysis === 'object')
+                ? (analysis.prescriptiveAnalysis as any).documentInsight
+                : null;
+              if (typeof fromJson === 'string' && fromJson.trim()) return fromJson.trim();
+              return documentInsight || '';
+            })();
+
+            // Get prescriptive text for fallback rendering
+            const prescriptiveText = (() => {
+              const fromJson = (analysis?.prescriptiveAnalysis && typeof analysis.prescriptiveAnalysis === 'object')
+                ? (analysis.prescriptiveAnalysis as any).prescriptiveAnalysis
+                : null;
+              if (typeof fromJson === 'string' && fromJson.trim()) return fromJson.trim();
+              return prescriptiveRaw || '';
+            })();
+
+            const shouldShow = Boolean(documentInsightText || prescriptiveText || structuredItems.length > 0);
+            if (!shouldShow) return null;
 
             return (
-              <div className="space-y-3 mb-4">
-                {documentInsight && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <Label className="text-xs text-blue-700 font-semibold">
+              <div className="space-y-4 mb-4">
+                {/* Document Insight Section */}
+                {documentInsightText && (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2 text-sm">
+                      <Target className="w-4 h-4" />
                       Document Insight
-                    </Label>
-                    <div className="text-blue-900 mt-1 text-sm prose prose-sm max-w-none">
-                      <ReactMarkdown>{documentInsight}</ReactMarkdown>
+                    </h4>
+                    <div className="text-sm text-blue-800 prose prose-sm prose-blue max-w-none">
+                      {renderFormattedText(documentInsightText)}
                     </div>
                   </div>
                 )}
 
-                {prescriptive && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <Label className="text-xs text-amber-700 font-semibold">
+                {/* Prescriptive Analysis Section - Structured Format */}
+                {(structuredItems.length > 0 || prescriptiveText) && (
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <h4 className="font-semibold text-purple-900 mb-2 flex items-center gap-2 text-sm">
+                      <Lightbulb className="w-4 h-4" />
                       Prescriptive Analysis
-                    </Label>
-                    <div className="text-amber-900 mt-1 text-sm prose prose-sm max-w-none">
-                      <ReactMarkdown>{prescriptive}</ReactMarkdown>
+                    </h4>
+                    <div className="text-sm text-purple-800 prose prose-sm prose-purple max-w-none">
+                      {structuredItems.length > 0 ? (
+                        <ol className="list-decimal list-inside space-y-3">
+                          {structuredItems.map((item, idx) => (
+                            <li key={idx} className="">
+                              <span className="font-semibold text-purple-900">{item.title}</span>
+
+                              <ul className="list-disc ml-6 mt-1 space-y-1">
+                                <li>
+                                  <span className="font-semibold">Issue:</span> {item.issue}
+                                </li>
+                                <li>
+                                  <span className="font-semibold">Action:</span> {item.action}
+                                </li>
+                                {item.nextStep ? (
+                                  <li>
+                                    <span className="font-semibold">Next Step:</span> {item.nextStep}
+                                  </li>
+                                ) : null}
+                              </ul>
+                            </li>
+                          ))}
+                        </ol>
+                      ) : (
+                        renderFormattedText(prescriptiveText)
+                      )}
                     </div>
                   </div>
                 )}
@@ -661,7 +1157,7 @@ export default function ReviewQProModal({
   const ReviewFooter = () => (
     <div className={forceFullPage ? 'mt-6 gap-2 flex flex-col sm:flex-row' : 'gap-2 flex flex-col sm:flex-row'}>
       {/* Info text when KRAs are changed */}
-      {changedKRAIndices.size > 0 && (
+      {changedKRAIndices.size > 0 && !isAlreadyApproved && (
         <div className="sm:col-span-2 md:col-span-3 p-3 bg-blue-50 border border-blue-200 rounded-lg mb-2">
           <p className="text-sm text-blue-700">
             <strong>{changedKRAIndices.size} activity update(s) pending.</strong> Click "Regenerate Insights" to update targets and document-level AI analysis based on corrected KRA/KPI selections.
@@ -669,12 +1165,12 @@ export default function ReviewQProModal({
         </div>
       )}
       
-      <Button variant="outline" onClick={onClose} disabled={isSubmitting || isRegenerating}>
+      <Button variant="outline" onClick={onClose} disabled={isApproving || isRejecting || isRegenerating}>
         Cancel
       </Button>
       
-      {/* Regenerate Insights Button - visible when KRAs changed */}
-      {changedKRAIndices.size > 0 && (
+      {/* Regenerate Insights Button - visible when KRAs changed and not already approved */}
+      {changedKRAIndices.size > 0 && !isAlreadyApproved && (
         <Button
           onClick={handleRegenerateInsights}
           disabled={isRegenerating || isSubmitting}
@@ -692,26 +1188,36 @@ export default function ReviewQProModal({
       <Button
         variant="destructive"
         onClick={handleReject}
-        disabled={isLoading || isSubmitting || isRegenerating}
+        disabled={isLoading || isApproving || isRejecting || isRegenerating || isAlreadyApproved}
       >
-        {isSubmitting ? (
-          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+        {isRejecting ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            Rejecting...
+          </>
         ) : (
-          <XCircle className="w-4 h-4 mr-2" />
+          <>
+            <XCircle className="w-4 h-4 mr-2" />
+            Reject
+          </>
         )}
-        Reject
       </Button>
       <Button
         onClick={handleApprove}
-        disabled={isLoading || isSubmitting || isRegenerating}
+        disabled={isLoading || isApproving || isRejecting || isRegenerating || isAlreadyApproved}
         className="bg-green-600 hover:bg-green-700"
       >
-        {isSubmitting ? (
-          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+        {isApproving ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            Approving...
+          </>
         ) : (
-          <CheckCircle className="w-4 h-4 mr-2" />
+          <>
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Approve & Commit
+          </>
         )}
-        Approve & Commit
       </Button>
     </div>
   );
@@ -719,11 +1225,29 @@ export default function ReviewQProModal({
   // Render as full page or modal based on forceFullPage prop
   if (forceFullPage) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 relative">
         <div className="flex items-center gap-2">
           <Edit2 className="w-5 h-5" />
           <h2 className="text-2xl font-bold">Review QPro Analysis</h2>
         </div>
+        
+        {/* Loading overlay during regeneration */}
+        {isRegenerating && (
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-xl border-2 border-indigo-200 p-8 flex flex-col items-center gap-4 max-w-md mx-4">
+              <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
+              <div className="text-center">
+                <p className="text-xl font-semibold text-slate-900">Regenerating Insights</p>
+                <p className="text-sm text-slate-600 mt-2">
+                  Analyzing KPI types and generating fresh recommendations...
+                </p>
+                <p className="text-xs text-slate-500 mt-2">
+                  This may take a few moments.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         
         <ReviewContent />
         <ReviewFooter />
@@ -746,6 +1270,24 @@ export default function ReviewQProModal({
             Review QPro Analysis
           </DialogTitle>
         </DialogHeader>
+
+        {/* Loading overlay during regeneration */}
+        {isRegenerating && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-xl border-2 border-indigo-200 p-8 flex flex-col items-center gap-4 max-w-md">
+              <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
+              <div className="text-center">
+                <p className="text-xl font-semibold text-slate-900">Regenerating Insights</p>
+                <p className="text-sm text-slate-600 mt-2">
+                  Analyzing KPI types and generating fresh recommendations...
+                </p>
+                <p className="text-xs text-slate-500 mt-2">
+                  This may take a few moments.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <ReviewContent />
 

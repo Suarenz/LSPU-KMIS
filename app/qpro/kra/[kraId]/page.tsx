@@ -2,32 +2,17 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, AlertCircle, Save, TrendingUp, CheckCircle2, Clock, XCircle, BarChart2, FileText, RefreshCw } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ArrowLeft, AlertCircle, Save, TrendingUp, CheckCircle2, FileText, RefreshCw, ListChecks, Building2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import strategicPlan from '@/lib/data/strategic_plan.json';
 import { useAuth } from '@/lib/auth-context';
 import AuthService from '@/lib/services/auth-service';
 import {
-  PercentageProgress,
-  CurrencyProgress,
-  HighVolumeProgress,
-  FractionalDisplay,
-  StatusBadge,
-  CurrentValueInput,
-} from '@/components/ui/target-displays';
-import {
-  detectTargetType,
-  getTargetDisplayInfo,
-  getMilestoneStatus,
   parseNumericValue,
-  type TargetDisplayType,
 } from '@/lib/utils/target-type-detector';
-import { DynamicInput, formatDisplayValue, type TargetType } from '@/components/ui/dynamic-input';
+import { DynamicInput, type TargetType } from '@/components/ui/dynamic-input';
 import { mapTargetType } from '@/lib/utils/target-type-utils';
 
 // KPI Progress types
@@ -142,7 +127,7 @@ const normalizeToArray = (value: any): string[] => {
 export default function KRADetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const kraIdRaw = params.kraId as string;
   
   // Decode the URL parameter - useParams returns encoded values
@@ -155,7 +140,7 @@ export default function KRADetailPage() {
   const [kpiProgress, setKpiProgress] = useState<KPIProgressData | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(false);
   const [selectedProgressYear, setSelectedProgressYear] = useState<number>(new Date().getFullYear());
-  const [selectedProgressQuarter, setSelectedProgressQuarter] = useState<number>(1);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0); // Used to force re-fetch
 
   // QPRO-derived current values for the Targets-by-Year table
   const [qproDerivedValues, setQproDerivedValues] = useState<CurrentValuesMap>({});
@@ -163,6 +148,12 @@ export default function KRADetailPage() {
   // Pending edits that haven't been saved to DB yet (keyed by "{initiativeId}-{year}-{quarter}")
   const [pendingEdits, setPendingEdits] = useState<PendingEditsMap>({});
   const [savingOverride, setSavingOverride] = useState<string | null>(null); // Track which item is being saved
+
+  // Phase 3: KPI Target Management State
+  const [kpiTargets, setKpiTargets] = useState<Record<string, any>>({});
+  const [editingTarget, setEditingTarget] = useState<string | null>(null); // "{initiativeId}-{year}-{quarter}"
+  const [pendingTargetEdits, setPendingTargetEdits] = useState<Record<string, number>>({});
+  const [savingTarget, setSavingTarget] = useState<string | null>(null);
 
   // NOTE: We no longer use localStorage for persistence - all saves go to database
   // The old localStorage-based currentValues state is replaced by database-backed values
@@ -276,7 +267,7 @@ export default function KRADetailPage() {
     } finally {
       setSavingOverride(null);
     }
-  }, [kraId, selectedProgressYear, selectedProgressQuarter]);
+  }, [kraId, selectedProgressYear]);
 
   // Update a pending edit (before saving to DB)
   const updatePendingEdit = useCallback((initiativeId: string, year: number, quarter: number, value: string | number) => {
@@ -309,13 +300,154 @@ export default function KRADetailPage() {
     setPendingEdits({});
   }, []);
 
-  // Direct access to KRA
+  // Phase 3: KPI Target Management Functions
+  
+  // Fetch KPI targets from database for this KRA
+  const fetchKpiTargets = useCallback(async () => {
+    try {
+      const token = await AuthService.getAccessToken();
+      const params = new URLSearchParams({ kraId });
+      const response = await fetch(`/api/kpi-targets?${params}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Index targets by key for quick lookup
+        const targetsMap: Record<string, any> = {};
+        data.targets?.forEach((t: any) => {
+          const key = `${t.initiative_id}-${t.year}-${t.quarter || 'annual'}`;
+          targetsMap[key] = t;
+        });
+        setKpiTargets(targetsMap);
+      }
+    } catch (error) {
+      console.error('Error fetching KPI targets:', error);
+    }
+  }, [kraId]);
+
+  // Get target value for display (pending edit → DB target → strategic plan)
+  const getTargetValue = useCallback((initiativeId: string, year: number, quarter: number, fallbackValue: number | string): number | string => {
+    const key = `${initiativeId}-${year}-${quarter}`;
+    
+    // 1. Check pending edit
+    if (pendingTargetEdits[key] !== undefined) {
+      return pendingTargetEdits[key];
+    }
+    
+    // 2. Check database target
+    const dbTarget = kpiTargets[key];
+    if (dbTarget) {
+      return dbTarget.target_value;
+    }
+    
+    // 3. Fallback to strategic plan value
+    return fallbackValue;
+  }, [pendingTargetEdits, kpiTargets]);
+
+  // Update pending target edit
+  const updateTargetEdit = useCallback((initiativeId: string, year: number, quarter: number, value: number) => {
+    const key = `${initiativeId}-${year}-${quarter}`;
+    setPendingTargetEdits(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  }, []);
+
+  // Save target to database
+  const saveTarget = useCallback(async (
+    initiativeId: string,
+    year: number,
+    quarter: number,
+    targetValue: number,
+    targetType: string,
+    description?: string
+  ) => {
+    const key = `${initiativeId}-${year}-${quarter}`;
+    setSavingTarget(key);
+    
+    try {
+      const token = await AuthService.getAccessToken();
+      const response = await fetch('/api/kpi-targets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          kra_id: kraId,
+          initiative_id: initiativeId,
+          year,
+          quarter,
+          target_value: targetValue,
+          target_type: targetType,
+          description
+        })
+      });
+      
+      if (response.ok) {
+        // Clear pending edit
+        setPendingTargetEdits(prev => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+        
+        // Refresh targets
+        await fetchKpiTargets();
+        setEditingTarget(null);
+        return true;
+      } else {
+        const error = await response.json();
+        console.error('Failed to save target:', error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error saving target:', error);
+      return false;
+    } finally {
+      setSavingTarget(null);
+    }
+  }, [kraId, fetchKpiTargets]);
+
+  // Cancel target editing
+  const cancelTargetEdit = useCallback(() => {
+    setPendingTargetEdits({});
+    setEditingTarget(null);
+  }, []);
+
+  // Direct access to KRA - use normalized ID comparison for URL-encoded values
   const allKras = (strategicPlan as any).kras || [];
-  const kra = allKras.find((k: KRA) => k.kra_id === kraId) || null;
+  // Normalize KRA ID for comparison: handles "KRA%201" -> "KRA 1", "KRA1" -> "KRA 1"
+  const normalizeKraIdLocal = (id: string): string => {
+    const decoded = decodeURIComponent(id);
+    const match = decoded.match(/KRA\s*(\d+)/i);
+    return match ? `KRA ${match[1]}` : decoded;
+  };
+  const normalizedKraId = normalizeKraIdLocal(kraId as string);
+  const kra = allKras.find((k: KRA) => normalizeKraIdLocal(k.kra_id) === normalizedKraId) || null;
 
   const kraColorClass = kra 
     ? kraColors[(parseInt(kra.kra_id.split(' ')[1]) - 1) % kraColors.length]
     : kraColors[0];
+
+  // Get all unique years from all initiatives
+  const availableYears = useMemo(() => {
+    if (!kra) return [new Date().getFullYear()];
+    const years = new Set<number>();
+    kra.initiatives.forEach((initiative: Initiative) => {
+      initiative.targets?.timeline_data?.forEach((t: TimelineItem) => years.add(t.year));
+    });
+    const sortedYears = Array.from(years).sort();
+    return sortedYears.length > 0 ? sortedYears : [new Date().getFullYear()];
+  }, [kra]);
+
+  // Ensure selectedProgressYear is in availableYears
+  useEffect(() => {
+    if (availableYears.length > 0 && !availableYears.includes(selectedProgressYear)) {
+      setSelectedProgressYear(availableYears[0]);
+    }
+  }, [availableYears, selectedProgressYear]);
 
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
@@ -389,7 +521,22 @@ export default function KRADetailPage() {
     };
 
     fetchKPIProgress();
-  }, [kraId, isAuthenticated, isLoading, selectedProgressYear]);
+    // Phase 3: Also fetch KPI targets from database
+    fetchKpiTargets();
+  }, [kraId, isAuthenticated, isLoading, selectedProgressYear, fetchKpiTargets, refreshTrigger]);
+
+  // Auto-refresh when page becomes visible (user returns from approval)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isAuthenticated && !isLoading) {
+        // Trigger a refresh when user returns to this page
+        setRefreshTrigger(prev => prev + 1);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isAuthenticated, isLoading]);
 
   if (isLoading) {
     return (
@@ -463,6 +610,26 @@ export default function KRADetailPage() {
       </div>
 
 
+      {/* Year Tabs */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+          {availableYears.map(year => (
+            <button
+              key={year}
+              onClick={() => setSelectedProgressYear(year)}
+              className={cn(
+                "px-6 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+                selectedProgressYear === year
+                  ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-600 ring-offset-2"
+                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200 hover:border-gray-300"
+              )}
+            >
+              {year}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* KPIs Section */}
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-gray-900">Key Performance Indicators (KPIs)</h2>
@@ -471,329 +638,290 @@ export default function KRADetailPage() {
           <div className="grid gap-6">
             {kra.initiatives.map((initiative: Initiative, index: number) => {
               const initiativeProgress = kpiProgress?.initiatives?.find((i) => i.id === initiative.id);
-              const quarterProgressItem = initiativeProgress?.progress?.find(
-                (p) => p.year === selectedProgressYear && p.quarter === selectedProgressQuarter
-              );
               
+              // Find timeline data for selected year
+              const timelineItem = initiative.targets?.timeline_data?.find(t => t.year === selectedProgressYear);
+              
+              // Calculate annual progress
+              const yearItems = initiativeProgress?.progress?.filter(p => p.year === selectedProgressYear) || [];
+              const yearTotal = yearItems.reduce((sum, item) => {
+                const val = typeof item.currentValue === 'number' ? item.currentValue : parseFloat(String(item.currentValue)) || 0;
+                return sum + val;
+              }, 0);
+              
+              const targetNum = timelineItem ? parseNumericValue(timelineItem.target_value) : 0;
+              const yearPct = targetNum > 0 ? Math.min(100, Math.round((yearTotal / targetNum) * 100)) : 0;
+
               return (
-              <Card key={index} className="overflow-hidden">
-                <CardHeader className="bg-gray-50 border-b">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">
-                        {initiative.id || `KPI ${index + 1}`}
-                      </CardTitle>
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-600">
-                          <span className="font-semibold">Outputs: </span>
-                          {initiative.key_performance_indicator?.outputs}
-                        </p>
-                        <p className="text-sm text-gray-600 mt-1">
-                          <span className="font-semibold">Outcomes: </span>
-                          {initiative.key_performance_indicator?.outcomes}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* QPRO summary removed per user preference - rely on detailed Targets by Year table */}
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  {/* Strategies */}
-                  {(() => {
-                    const strategies = normalizeToArray(initiative.strategies);
-                    return strategies.length > 0 ? (
-                      <div>
-                        <h4 className="font-semibold text-gray-900 mb-2">Strategies</h4>
-                        <ul className="list-disc list-inside space-y-1 text-gray-700 text-sm">
-                          {strategies.map((strategy: string, i: number) => (
-                            <li key={i}>{strategy}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null;
-                  })()}
-
-                  {/* Programs/Activities */}
-                  {(() => {
-                    const activities = normalizeToArray(initiative.programs_activities);
-                    return activities.length > 0 ? (
-                      <div>
-                        <h4 className="font-semibold text-gray-900 mb-2">Programs/Activities</h4>
-                        <ul className="list-disc list-inside space-y-1 text-gray-700 text-sm">
-                          {activities.map((activity: string, i: number) => (
-                            <li key={i}>{activity}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null;
-                  })()}
-
-                  {/* Responsible Offices */}
-                  {(() => {
-                    const offices = normalizeToArray(initiative.responsible_offices);
-                    return offices.length > 0 ? (
-                      <div>
-                        <h4 className="font-semibold text-gray-900 mb-2">Responsible Offices</h4>
-                        <ul className="list-disc list-inside space-y-1 text-gray-700 text-sm">
-                          {offices.map((office: string, i: number) => (
-                            <li key={i}>{office}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null;
-                  })()}
-
-                  {/* Targets by Year with Per-Quarter Values */}
-                  {initiative.targets && initiative.targets.timeline_data && initiative.targets.timeline_data.length > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-gray-900">Targets by Year</h4>
-                        <div className="flex items-center gap-2">
-                          {Object.keys(pendingEdits).length > 0 && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={clearPendingEdits}
-                              className="flex items-center gap-1 text-gray-600 border-gray-300 hover:bg-gray-50"
-                              title="Discard unsaved changes"
-                            >
-                              <RefreshCw className="h-3 w-3" />
-                              Discard Changes
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm border-collapse">
-                          <thead>
-                            <tr className="bg-gray-100 border-b">
-                              <th className="px-3 py-2 text-left font-semibold text-gray-900 w-20">Year</th>
-                              <th className="px-3 py-2 text-left font-semibold text-gray-900 w-20">Quarter</th>
-                              <th className="px-3 py-2 text-left font-semibold text-gray-900 w-32">Annual Target</th>
-                              <th className="px-3 py-2 text-left font-semibold text-gray-900 w-48">Current Value</th>
-                              <th className="px-3 py-2 text-left font-semibold text-gray-900">Progress</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {initiative.targets.timeline_data.map((timelineItem: TimelineItem, i: number) => {
-                              const targetConfig = {
-                                type: initiative.targets.type,
-                                currency: initiative.targets.currency,
-                                low_count_threshold: initiative.targets.low_count_threshold,
-                              };
-
-                              // Always show Q1-Q4 for every year present in timeline_data
-                              const quarters = [1, 2, 3, 4];
-                              // Get quarterly data from kpiProgress
-                              const initiativeProgress = kpiProgress?.initiatives?.find(ip => ip.id === initiative.id);
-                              const quarterlyItems = initiativeProgress?.progress?.filter(p => p.year === timelineItem.year) || [];
-
-                              return quarters.map((quarter, qIdx) => {
-                                // If there is a quarterly item for this quarter, use its value, else use the annual target value
-                                const quarterItem = quarterlyItems.find(q => q.quarter === quarter);
-                                // If no quarterly data, use the annual target value for all quarters
-                                const displayValue = getDisplayValue(initiative.id, timelineItem.year, quarter);
-                                const valueSource = quarterItem?.valueSource || getValueSourceFromProgress(initiative.id, timelineItem.year, quarter);
-                                const isPending = hasPendingEdit(initiative.id, timelineItem.year, quarter);
-                                const cellKey = `${initiative.id}-${timelineItem.year}-${quarter}`;
-                                const isSaving = savingOverride === cellKey;
-
-                                const displayType = detectTargetType(
-                                  timelineItem.target_value,
-                                  displayValue,
-                                  targetConfig
-                                );
-                                const displayInfo = getTargetDisplayInfo(
-                                  timelineItem.target_value,
-                                  displayValue,
-                                  targetConfig
-                                );
-
-                                // Map target type from strategic plan to TargetType enum
-                                const planTargetType = initiative.targets?.type || 'count';
-                                const dynamicTargetType = mapTargetType(planTargetType);
-
-                                const inputType = displayType === 'milestone' ? 'text' 
-                                  : displayType === 'percentage' ? 'percentage'
-                                  : displayType === 'currency' ? 'currency'
-                                  : 'number';
-
-                                return (
-                                  <tr 
-                                    key={`${i}-${quarter}`} 
-                                    className={`border-b hover:bg-gray-50 ${qIdx === 0 ? 'border-t-2 border-t-gray-200' : ''}`}
-                                  >
-                                    {/* Year column - only show for first quarter */}
-                                    {qIdx === 0 ? (
-                                      <td className="px-3 py-2 text-gray-900 font-medium" rowSpan={quarters.length}>
-                                        {timelineItem.year}
-                                      </td>
-                                    ) : null}
-
-                                    {/* Quarter column */}
-                                    <td className="px-3 py-2 text-gray-600">
-                                      Q{quarter}
-                                    </td>
-
-                                    {/* Target column - only show for first quarter */}
-                                    {qIdx === 0 ? (
-                                      <td className="px-3 py-2 text-gray-700" rowSpan={quarters.length}>
-                                        {displayInfo.formattedTarget}
-                                        {initiative.targets.unit_basis && (
-                                          <span className="text-xs text-gray-500 block">
-                                            {initiative.targets.unit_basis}
-                                          </span>
-                                        )}
-                                      </td>
-                                    ) : null}
-
-                                    {/* Current Value column with edit and save */}
-                                    <td className="px-3 py-2">
-                                      <div className="flex items-center gap-2">
-                                        <DynamicInput
-                                          targetType={dynamicTargetType}
-                                          value={displayValue ?? ''}
-                                          onChange={(val) => updatePendingEdit(initiative.id, timelineItem.year, quarter, val)}
-                                          placeholder={dynamicTargetType === 'TEXT_CONDITION' ? 'Select status...' : '0'}
-                                        />
-
-                                        {/* Save button - appears when there's a pending edit */}
-                                        {isPending && (
-                                          <Button
-                                            size="sm"
-                                            variant="default"
-                                            onClick={() => {
-                                              const editValue = pendingEdits[`${initiative.id}-${timelineItem.year}-${quarter}`]?.value;
-                                              
-                                              // Handle different target types
-                                              let valueToSave: number | string | null = null;
-                                              
-                                              if (dynamicTargetType === 'MILESTONE') {
-                                                // Milestone: boolean 0/1
-                                                valueToSave = editValue === 1 || editValue === '1' ? 1 : 0;
-                                              } else if (dynamicTargetType === 'TEXT_CONDITION') {
-                                                // Text condition: string value
-                                                valueToSave = editValue ? String(editValue) : null;
-                                              } else {
-                                                // Numeric types: COUNT, PERCENTAGE, FINANCIAL
-                                                const numValue = typeof editValue === 'string' ? parseFloat(editValue.replace(/,/g, '')) : editValue;
-                                                // Handle NaN case - treat as clearing the override
-                                                valueToSave = (typeof numValue === 'number' && !Number.isNaN(numValue)) ? numValue : null;
-                                              }
-                                              
-                                              // Get QPRO value for this cell
-                                              const qproVal = getCurrentValueFromProgress(initiative.id, timelineItem.year, quarter);
-                                              // If user entered 0 and QPRO value is also 0, treat as clear override
-                                              if (typeof valueToSave === 'number' && valueToSave === 0 && qproVal === 0) {
-                                                valueToSave = null;
-                                              }
-                                              
-                                              saveManualOverride(initiative.id, timelineItem.year, quarter, valueToSave, undefined, dynamicTargetType);
-                                            }}
-                                            disabled={isSaving}
-                                            className="h-7 px-2 text-xs"
-                                          >
-                                            {isSaving ? (
-                                              <span className="animate-spin">⟳</span>
-                                            ) : (
-                                              <>
-                                                <Save className="h-3 w-3 mr-1" />
-                                                Save
-                                              </>
-                                            )}
-                                          </Button>
-                                        )}
-
-                                        {/* Value source indicator */}
-                                        {!isPending && valueSource === 'qpro' && (
-                                          <span className="text-xs text-green-600 whitespace-nowrap" title="Value from approved QPRO analysis">
-                                            ✓ QPRO
-                                          </span>
-                                        )}
-                                      </div>
-                                    </td>
-                                    
-                                    {/* Progress column */}
-                                    <td className="px-3 py-3 min-w-[200px]">
-                                      {displayType === 'percentage' && (
-                                        <PercentageProgress
-                                          currentValue={parseNumericValue(displayValue ?? 0)}
-                                          targetValue={parseNumericValue(timelineItem.target_value)}
-                                        />
-                                      )}
-                                      {displayType === 'currency' && (
-                                        <CurrencyProgress
-                                          currentValue={parseNumericValue(displayValue ?? 0)}
-                                          targetValue={parseNumericValue(timelineItem.target_value)}
-                                          formattedCurrent={displayInfo.formattedCurrent}
-                                          formattedTarget={displayInfo.formattedTarget}
-                                        />
-                                      )}
-                                      {displayType === 'high_volume' && (
-                                        <HighVolumeProgress
-                                          currentValue={parseNumericValue(displayValue ?? 0)}
-                                          targetValue={parseNumericValue(timelineItem.target_value)}
-                                          formattedCurrent={displayInfo.formattedCurrent}
-                                          formattedTarget={displayInfo.formattedTarget}
-                                          unit={initiative.targets.unit_basis}
-                                        />
-                                      )}
-                                      {displayType === 'low_count' && (
-                                        <FractionalDisplay
-                                          currentValue={parseNumericValue(displayValue ?? 0)}
-                                          targetValue={parseNumericValue(timelineItem.target_value)}
-                                          unit={initiative.targets.unit_basis}
-                                        />
-                                      )}
-                                      {displayType === 'milestone' && (
-                                        <StatusBadge
-                                          status={getMilestoneStatus(displayValue, timelineItem.target_value)}
-                                          currentValue={displayValue?.toString()}
-                                          targetValue={timelineItem.target_value.toString()}
-                                        />
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              });
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      {/* Year totals summary */}
-                      {initiative.targets.timeline_data.length > 0 && (
-                        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                          <h5 className="font-medium text-blue-900 text-sm mb-2">Year Totals</h5>
-                          <div className="flex flex-wrap gap-4">
-                            {initiative.targets.timeline_data.map((timelineItem: TimelineItem, i: number) => {
-                              const initiativeProgress = kpiProgress?.initiatives?.find(ip => ip.id === initiative.id);
-                              const yearItems = initiativeProgress?.progress?.filter(p => p.year === timelineItem.year) || [];
-                              const yearTotal = yearItems.reduce((sum, item) => {
-                                const val = typeof item.currentValue === 'number' ? item.currentValue : parseFloat(String(item.currentValue)) || 0;
-                                return sum + val;
-                              }, 0);
-                              const targetNum = parseNumericValue(timelineItem.target_value);
-                              const yearPct = targetNum > 0 ? Math.min(100, Math.round((yearTotal / targetNum) * 100)) : 0;
-                              
-                              return (
-                                <div key={i} className="text-sm">
-                                  <span className="font-medium text-blue-800">{timelineItem.year}:</span>
-                                  <span className="ml-2 text-blue-700">{yearTotal} / {timelineItem.target_value}</span>
-                                  <span className={`ml-2 font-medium ${yearPct >= 100 ? 'text-green-700' : yearPct >= 80 ? 'text-blue-700' : 'text-amber-700'}`}>
-                                    ({yearPct}%)
-                                  </span>
-                                </div>
-                              );
-                            })}
+                <div key={index} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-8">
+                  {/* Header & Metadata */}
+                  <div className="p-6 border-b border-gray-100">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold text-gray-900">{initiative.id}</h3>
+                        <div className="mt-3 space-y-2">
+                          <div className="bg-blue-50/50 p-3 rounded-md border border-blue-100">
+                            <p className="text-sm text-gray-800">
+                              <span className="font-bold text-blue-800 uppercase text-xs tracking-wide block mb-1">Output</span>
+                              {initiative.key_performance_indicator?.outputs}
+                            </p>
+                          </div>
+                          <div className="bg-green-50/50 p-3 rounded-md border border-green-100">
+                            <p className="text-sm text-gray-800">
+                              <span className="font-bold text-green-800 uppercase text-xs tracking-wide block mb-1">Outcome</span>
+                              {initiative.key_performance_indicator?.outcomes}
+                            </p>
                           </div>
                         </div>
-                      )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                         {/* Refresh Button */}
+                         <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRefreshTrigger(prev => prev + 1)}
+                            disabled={loadingProgress}
+                            className="flex items-center gap-1 text-blue-600 border-blue-300 hover:bg-blue-50"
+                          >
+                            <RefreshCw className={`h-3 w-3 ${loadingProgress ? 'animate-spin' : ''}`} />
+                            Refresh
+                          </Button>
+                      </div>
+                    </div>
+
+                    {/* Context Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Strategies */}
+                      <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-purple-500 h-full">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                          <TrendingUp className="w-3 h-3" /> Strategies
+                        </h4>
+                        <ul className="text-sm text-gray-700 space-y-2 pl-1">
+                          {normalizeToArray(initiative.strategies).map((s, i) => (
+                            <li key={i} className="flex gap-2">
+                              <span className="text-purple-400 mt-1">•</span>
+                              <span>{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      
+                      {/* Activities */}
+                      <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 h-full">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                          <ListChecks className="w-3 h-3" /> Activities
+                        </h4>
+                        <ul className="text-sm text-gray-700 space-y-2 pl-1">
+                          {normalizeToArray(initiative.programs_activities).map((a, i) => (
+                            <li key={i} className="flex gap-2">
+                              <span className="text-blue-400 mt-1">•</span>
+                              <span>{a}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Responsible Offices */}
+                      <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-green-500 h-full">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                          <Building2 className="w-3 h-3" /> Responsible Offices
+                        </h4>
+                        <ul className="text-sm text-gray-700 space-y-2 pl-1">
+                          {normalizeToArray(initiative.responsible_offices).map((o, i) => (
+                            <li key={i} className="flex gap-2">
+                              <span className="text-green-400 mt-1">•</span>
+                              <span>{o}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hero Summary */}
+                  {timelineItem ? (
+                    <div className="bg-blue-50/50 p-6 border-b border-gray-100">
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                        <div className="flex items-center gap-6">
+                          {/* Progress Circle */}
+                          <div className="relative w-24 h-24 flex items-center justify-center">
+                            <svg className="w-full h-full transform -rotate-90">
+                              <circle
+                                cx="48"
+                                cy="48"
+                                r="40"
+                                stroke="currentColor"
+                                strokeWidth="8"
+                                fill="transparent"
+                                className="text-gray-200"
+                              />
+                              <circle
+                                cx="48"
+                                cy="48"
+                                r="40"
+                                stroke="currentColor"
+                                strokeWidth="8"
+                                fill="transparent"
+                                strokeDasharray={251.2}
+                                strokeDashoffset={251.2 - (251.2 * yearPct) / 100}
+                                className={yearPct >= 100 ? "text-green-500" : "text-blue-500"}
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center flex-col">
+                              <span className="text-xl font-bold text-gray-900">{yearPct}%</span>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-900">{selectedProgressYear} Overview</h4>
+                            <div className="flex items-baseline gap-2 mt-1">
+                              <span className="text-3xl font-bold text-gray-900">{yearTotal}</span>
+                              <span className="text-gray-500">/</span>
+                              
+                              {/* Editable Target */}
+                              {(() => {
+                                const quarter = 1; // Use Q1 for annual target editing context
+                                const targetKey = `${initiative.id}-${timelineItem.year}-${quarter}`;
+                                const isEditingThisTarget = editingTarget === targetKey;
+                                const isSavingThisTarget = savingTarget === targetKey;
+                                const currentTargetValue = getTargetValue(initiative.id, timelineItem.year, quarter, timelineItem.target_value);
+                                const canEditTarget = user && (user.role === 'ADMIN' || user.role === 'FACULTY');
+
+                                if (isEditingThisTarget) {
+                                  return (
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="number"
+                                        className="w-24 px-2 py-1 border border-blue-500 rounded text-lg font-bold focus:outline-none"
+                                        value={pendingTargetEdits[targetKey] ?? currentTargetValue}
+                                        onChange={(e) => updateTargetEdit(initiative.id, timelineItem.year, quarter, parseFloat(e.target.value) || 0)}
+                                        autoFocus
+                                      />
+                                      <Button size="sm" onClick={() => saveTarget(initiative.id, timelineItem.year, quarter, typeof (pendingTargetEdits[targetKey] ?? currentTargetValue) === 'number' ? (pendingTargetEdits[targetKey] ?? currentTargetValue) : parseFloat(String(pendingTargetEdits[targetKey] ?? currentTargetValue)) || 0, mapTargetType(initiative.targets?.type || 'count'), initiative.key_performance_indicator?.outputs)} disabled={isSavingThisTarget}>Save</Button>
+                                      <Button size="sm" variant="ghost" onClick={cancelTargetEdit}>Cancel</Button>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="flex items-center gap-2 group">
+                                    <span className="text-xl font-medium text-gray-600">{typeof currentTargetValue === 'number' ? currentTargetValue.toLocaleString() : currentTargetValue}</span>
+                                    {canEditTarget && (
+                                      <button 
+                                        onClick={() => setEditingTarget(targetKey)}
+                                        className="opacity-0 group-hover:opacity-100 text-blue-600 hover:text-blue-800 transition-opacity"
+                                      >
+                                        <FileText className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                              
+                              <span className="text-sm text-gray-500 ml-1">{initiative.targets.unit_basis}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-gray-500">No target data for {selectedProgressYear}</div>
+                  )}
+
+                  {/* Quarter Input Cards */}
+                  {timelineItem && (
+                    <div className="p-6 bg-gray-50">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[1, 2, 3, 4].map(quarter => {
+                          const quarterItem = yearItems.find(q => q.quarter === quarter);
+                          const displayValue = getDisplayValue(initiative.id, timelineItem.year, quarter);
+                          const valueSource = quarterItem?.valueSource || getValueSourceFromProgress(initiative.id, timelineItem.year, quarter);
+                          const isPending = hasPendingEdit(initiative.id, timelineItem.year, quarter);
+                          const cellKey = `${initiative.id}-${timelineItem.year}-${quarter}`;
+                          const isSaving = savingOverride === cellKey;
+                          
+                          const targetConfig = {
+                            type: initiative.targets.type,
+                            currency: initiative.targets.currency,
+                            low_count_threshold: initiative.targets.low_count_threshold,
+                          };
+                          const dynamicTargetType = mapTargetType(initiative.targets?.type || 'count');
+                          
+                          // Determine card state
+                          const hasValue = displayValue !== 0 && displayValue !== '0' && displayValue !== '';
+                          const isCompleted = hasValue && !isPending;
+                          const isActive = true; // Logic for active/locked could be added here based on dates
+
+                          return (
+                            <div 
+                              key={quarter}
+                              className={cn(
+                                "bg-white rounded-lg border p-4 transition-all",
+                                isCompleted ? "border-green-200 shadow-sm" : "border-gray-200 shadow-sm",
+                                isActive ? "hover:border-blue-300 hover:shadow-md" : "opacity-75 bg-gray-50"
+                              )}
+                            >
+                              <div className="flex justify-between items-start mb-3">
+                                <span className={cn(
+                                  "text-xs font-bold px-2 py-1 rounded uppercase",
+                                  isCompleted ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                                )}>
+                                  Q{quarter}
+                                </span>
+                                {valueSource === 'qpro' && (
+                                  <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3" /> QPRO
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="space-y-3">
+                                <label className="text-xs font-medium text-gray-500 uppercase">Actual Value</label>
+                                <div className="flex items-center gap-2">
+                                  <DynamicInput
+                                    targetType={dynamicTargetType}
+                                    value={displayValue ?? ''}
+                                    onChange={(val) => updatePendingEdit(initiative.id, timelineItem.year, quarter, val)}
+                                    placeholder="0"
+                                    className="text-lg font-semibold h-10"
+                                  />
+                                </div>
+                                
+                                {isPending && (
+                                  <Button
+                                    size="sm"
+                                    className="w-full mt-2"
+                                    onClick={() => {
+                                       // Save logic (copied from original)
+                                       const editValue = pendingEdits[`${initiative.id}-${timelineItem.year}-${quarter}`]?.value;
+                                       let valueToSave: number | string | null = null;
+                                       if (dynamicTargetType === 'MILESTONE') {
+                                         valueToSave = editValue === 1 || editValue === '1' ? 1 : 0;
+                                       } else if (dynamicTargetType === 'TEXT_CONDITION') {
+                                         valueToSave = editValue ? String(editValue) : null;
+                                       } else {
+                                         const numValue = typeof editValue === 'string' ? parseFloat(editValue.replace(/,/g, '')) : editValue;
+                                         valueToSave = (typeof numValue === 'number' && !Number.isNaN(numValue)) ? numValue : null;
+                                       }
+                                       const qproVal = getCurrentValueFromProgress(initiative.id, timelineItem.year, quarter);
+                                       if (typeof valueToSave === 'number' && valueToSave === 0 && qproVal === 0) {
+                                         valueToSave = null;
+                                       }
+                                       saveManualOverride(initiative.id, timelineItem.year, quarter, valueToSave, undefined, dynamicTargetType);
+                                    }}
+                                    disabled={isSaving}
+                                  >
+                                    {isSaving ? 'Saving...' : 'Save Changes'}
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
               );
             })}
           </div>

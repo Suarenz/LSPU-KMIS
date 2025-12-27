@@ -17,6 +17,7 @@ import Image from "next/image"
 import { ClientOnly } from "@/components/client-only-wrapper"
 import { useToast } from "@/components/ui/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { UnitSidebar } from "@/components/unit-sidebar";
 import { UnitFilter } from "@/components/unit-filter";
 import {
@@ -45,6 +46,7 @@ export default function RepositoryPage() {
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
   const [deletionSuccessMessage, setDeletionSuccessMessage] = useState<string | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null); // Track which document is being deleted
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null); // Track document for deletion confirmation
  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const [units, setUnits] = useState<Unit[]>([]); // NEW: Units for unit filtering
  const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -606,52 +608,15 @@ export default function RepositoryPage() {
                                 {canDelete && (
                                   <DropdownMenuItem
                                     className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
-                                      setDeletingDocId(doc.id);
-                                      try {
-                                        if (!isAuthenticated || !user) return;
-                                        const token = await AuthService.getAccessToken();
-                                        if (!token) {
-                                          await AuthService.logout();
-                                          router.push('/');
-                                          return;
-                                        }
-                                        const response = await fetch(`/api/documents/${doc.id}`, {
-                                          method: 'DELETE',
-                                          headers: {
-                                            'Authorization': `Bearer ${token}`,
-                                            'Content-Type': 'application/json',
-                                          }
-                                        });
-                                        if (response.ok) {
-                                          setDeletionSuccessMessage(`Document deleted successfully!`);
-                                          setTimeout(() => setDeletionSuccessMessage(null), 3000);
-                                          fetchDocuments();
-                                        } else {
-                                          const errorData = await response.json();
-                                          toast({
-                                            title: response.status === 403 ? "Access Denied" : "Error",
-                                            description: errorData.error || 'Failed to delete document',
-                                            variant: "destructive",
-                                          });
-                                        }
-                                      } catch (error) {
-                                        toast({
-                                          title: "Error",
-                                          description: 'Failed to delete document',
-                                          variant: "destructive",
-                                        });
-                                      } finally {
-                                        setDeletingDocId(null);
-                                      }
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDocumentToDelete(doc);
+                                    }}
+                                    disabled={deletingDocId === doc.id}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    {deletingDocId === doc.id ? 'Deleting...' : 'Delete'}
+                                  </DropdownMenuItem>
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -1140,6 +1105,70 @@ export default function RepositoryPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!documentToDelete} onOpenChange={(open) => !open && setDocumentToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete <span className="font-semibold">&quot;{documentToDelete?.title}&quot;</span>. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={!!deletingDocId}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={!!deletingDocId}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  if (!documentToDelete) return;
+                  
+                  setDeletingDocId(documentToDelete.id);
+                  try {
+                    if (!isAuthenticated || !user) return;
+                    const token = await AuthService.getAccessToken();
+                    if (!token) {
+                      await AuthService.logout();
+                      router.push('/');
+                      return;
+                    }
+                    const response = await fetch(`/api/documents/${documentToDelete.id}`, {
+                      method: 'DELETE',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      }
+                    });
+                    if (response.ok) {
+                      setDeletionSuccessMessage(`Document deleted successfully!`);
+                      setTimeout(() => setDeletionSuccessMessage(null), 3000);
+                      setDocumentToDelete(null);
+                      fetchDocuments();
+                    } else {
+                      const errorData = await response.json();
+                      toast({
+                        title: response.status === 403 ? "Access Denied" : "Error",
+                        description: errorData.error || 'Failed to delete document',
+                        variant: "destructive",
+                      });
+                    }
+                  } catch (error) {
+                    toast({
+                      title: "Error",
+                      description: 'Failed to delete document',
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setDeletingDocId(null);
+                  }
+                }}
+              >
+                {deletingDocId ? 'Deleting...' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </ClientOnly>
   )

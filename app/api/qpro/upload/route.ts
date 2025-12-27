@@ -46,24 +46,61 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
     const base64Content = buffer.toString('base64');
 
-    // Create document with blob name
+    // Get current year and quarter for QPRO document
+    const currentYear = new Date().getFullYear();
+    const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+
+    // Create document with blob name and QPRO flag
     const document = await enhancedDocumentService.createDocument(
       file.name.replace(/\.[^.]+$/, ''),
       'QPRO Report',
       'QPRO',
-      [],
+      ['qpro', 'performance', 'report'],
       user.name || user.email,
       fileUrl,
       file.name,
       file.type,
       file.size,
       user.id,
-      undefined,
+      undefined, // unitId
       base64Content,
-      blobName // Pass the blob name to the document
+      blobName, // Pass the blob name to the document
+      {
+        year: currentYear,
+        quarter: currentQuarter,
+        isQproDocument: true, // Flag this as a QPRO document for search
+      }
     );
 
     console.log(`[QPRO Upload] Document created: ${document.id}`);
+    console.log(`[QPRO Upload] Base64 content length: ${base64Content.length} characters`);
+
+    // IMPORTANT: Trigger Colivara indexing IMMEDIATELY and WAIT for it
+    // This ensures the document is indexed before the response returns
+    try {
+      console.log(`[QPRO Upload] Starting Colivara indexing for document ${document.id}`);
+      const ColivaraService = (await import('@/lib/services/colivara-service')).default;
+      const colivaraService = new ColivaraService();
+      
+      console.log(`[QPRO Upload] Initializing Colivara service...`);
+      await colivaraService.initialize();
+      console.log(`[QPRO Upload] Colivara service initialized`);
+      
+      // Start indexing - this will update the document status in the background
+      console.log(`[QPRO Upload] Calling indexDocument with base64 content length: ${base64Content.length}`);
+      const success = await colivaraService.indexDocument(document.id, base64Content);
+      
+      if (success) {
+        console.log(`[QPRO Upload] ✅ Colivara indexing started successfully for document ${document.id}`);
+        console.log(`[QPRO Upload] ⏳ Colivara is now processing the document in the background...`);
+      } else {
+        console.error(`[QPRO Upload] ❌ Colivara indexing failed for document ${document.id}`);
+      }
+    } catch (colivaraError) {
+      console.error(`[QPRO Upload] ❌ Error starting Colivara indexing:`, colivaraError);
+      console.error(`[QPRO Upload] Error stack:`, (colivaraError as Error).stack);
+      // Don't fail the upload if Colivara fails - the document is still created
+    }
 
     // Cache the upload metadata
     await qproCacheService.cacheUpload({

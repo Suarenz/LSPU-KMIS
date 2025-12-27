@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import {
   Select,
   SelectContent,
@@ -544,6 +545,7 @@ interface QPROAnalysisDetailProps {
 export default function QPROAnalysisDetail({
   analysisId,
 }: QPROAnalysisDetailProps) {
+  const { toast } = useToast();
   const [analysis, setAnalysis] = useState<QPROAnalysisDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -612,6 +614,13 @@ export default function QPROAnalysisDetail({
     try {
       setIsRegenerating(true);
       setError(null);
+      
+      // Show toast notification that regeneration has started
+      toast({
+        title: 'Regenerating Insights',
+        description: `Analyzing ${changedActivityIds.size} activities with corrected KPI types...`,
+        duration: 3000,
+      });
 
       const token = await AuthService.getAccessToken();
       if (!token) {
@@ -711,6 +720,13 @@ export default function QPROAnalysisDetail({
       // Clear the changed activity IDs
       setChangedActivityIds(new Set());
       setEditedKRAs({});
+      
+      // Show success toast
+      toast({
+        title: 'Insights Regenerated',
+        description: 'Fresh analysis generated with updated KPI classifications.',
+        duration: 3000,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to regenerate insights');
     } finally {

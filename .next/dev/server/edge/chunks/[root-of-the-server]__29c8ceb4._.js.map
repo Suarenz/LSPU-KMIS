@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 16, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/app/api/auth/logout/route.ts"],"sourcesContent":["import { NextRequest, NextResponse } from 'next/server';\r\n\r\n// Explicitly set the runtime to edge to ensure compatibility\r\nexport const runtime = 'edge';\r\n\r\nexport async function POST(request: NextRequest) {\r\n  try {\r\n    // In a JWT-based system, logout is typically just removing the token from the client\r\n    // We can add server-side token invalidation if needed, but for now, we'll just return success\r\n    \r\n    return NextResponse.json({\r\n      success: true,\r\n      message: 'Logged out successfully'\r\n    });\r\n  } catch (error) {\r\n    console.error('Logout error:', error);\r\n    return NextResponse.json(\r\n      { error: 'An unexpected error occurred during logout' },\r\n      { status: 500 }\r\n    );\r\n  }\r\n}"],"names":[],"mappings":";;;;;;AAAA;AAAA;;AAGO,MAAM,UAAU;AAEhB,eAAe,KAAK,OAAoB;IAC7C,IAAI;QACF,qFAAqF;QACrF,8FAA8F;QAE9F,OAAO,kMAAY,CAAC,IAAI,CAAC;YACvB,SAAS;YACT,SAAS;QACX;IACF,EAAE,OAAO,OAAO;QACd,QAAQ,KAAK,CAAC,iBAAiB;QAC/B,OAAO,kMAAY,CAAC,IAAI,CACtB;YAAE,OAAO;QAA6C,GACtD;YAAE,QAAQ;QAAI;IAElB;AACF"}}]
+}

@@ -6,7 +6,8 @@ import { strategicPlanService } from '@/lib/services/strategic-plan-service';
 import { BlobServiceClient } from '@azure/storage-blob';
 import { PrismaClient } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
-import { computeAggregatedAchievement, getInitiativeTargetMeta } from '@/lib/utils/qpro-aggregation';
+import { computeAggregatedAchievement, getInitiativeTargetMeta, normalizeKraId } from '@/lib/utils/qpro-aggregation';
+import { qproCacheService } from '@/lib/services/qpro-cache-service';
 
 const prisma = new PrismaClient();
 
@@ -108,13 +109,41 @@ export async function POST(request: NextRequest) {
         fileName: fileName,
         fileType: file.type,
         fileSize: file.size,
+        blobName: blobName, // Store the blob path for file operations
         unitId: unitId || user.unitId || null,
         year: year, // Reporting year (2025-2029)
         quarter: quarter, // Reporting quarter (1-4)
         isQproDocument: true, // Flag for QPRO documents
+        colivaraProcessingStatus: 'PENDING', // Set initial Colivara processing status
+        status: 'ACTIVE', // Mark as ACTIVE so it appears in search results
       }
     });
     console.log('[QPRO-WITH-AGGREGATION] Document record created:', documentId, `for Q${quarter} ${year} in unit:`, unitId || user.unitId);
+
+    // Step 2.5: Trigger Colivara indexing for AI-powered search
+    // This runs asynchronously and doesn't block the QPRO analysis
+    try {
+      console.log(`[QPRO-WITH-AGGREGATION] Starting Colivara indexing for document ${documentId}`);
+      const base64Content = buffer.toString('base64');
+      
+      const ColivaraService = (await import('@/lib/services/colivara-service')).default;
+      const colivaraService = new ColivaraService();
+      await colivaraService.initialize();
+      
+      // Start indexing in background - this will update document status automatically
+      colivaraService.indexDocument(documentId, base64Content).then((success) => {
+        if (success) {
+          console.log(`[QPRO-WITH-AGGREGATION] ✅ Colivara indexing started for document ${documentId}`);
+        } else {
+          console.error(`[QPRO-WITH-AGGREGATION] ❌ Colivara indexing failed for document ${documentId}`);
+        }
+      }).catch((error) => {
+        console.error(`[QPRO-WITH-AGGREGATION] ❌ Colivara indexing error:`, error);
+      });
+    } catch (colivaraError) {
+      console.error(`[QPRO-WITH-AGGREGATION] ❌ Error starting Colivara indexing:`, colivaraError);
+      // Don't fail the upload if Colivara fails - the document is still created
+    }
 
     // Step 3: Create QPRO analysis with aggregation calculation
     const qproAnalysis = await qproAnalysisService.createQPROAnalysis({

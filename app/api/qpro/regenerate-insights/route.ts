@@ -4,6 +4,8 @@ import prisma from '@/lib/prisma';
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { computeAggregatedAchievement, getInitiativeTargetMeta, normalizeKraId } from '@/lib/utils/qpro-aggregation';
+import { qproCacheService } from '@/lib/services/qpro-cache-service';
+import { getKpiTypeCategory, getGapInterpretation, generateTypeSpecificLogicInstruction } from '@/lib/utils/kpi-type-logic';
 
 interface ActivityToRegenerate {
   name: string;
@@ -585,14 +587,134 @@ export async function POST(request: NextRequest) {
         `${improvementArea}\n`;
     }
 
-    // Screenshot-style prescriptive items (structured)
-    const prescriptiveItems = (() => {
+    // =========================================================================
+    // LLM-BASED PRESCRIPTIVE ANALYSIS GENERATION
+    // =========================================================================
+    
+    console.log('[Regenerate] Generating fresh prescriptive analysis via LLM...');
+    
+    // Build context for LLM with KPI type information
+    const activitiesContext = updatedActivities.map((act: any) => {
+      const normalizedKraIdForType = normalizeKraId(act.kraId);
+      const kra = allKRAs.find((k: any) => normalizeKraId(k.kra_id) === normalizedKraIdForType);
+      const initiative = kra?.initiatives?.find((i: any) => i.id === act.initiativeId);
+      const kpiType = initiative?.targets?.type || act.targetType || 'count';
+      const kpiCategory = getKpiTypeCategory(kpiType);
+      const gapInterpretation = getGapInterpretation(kpiCategory);
+      
+      return {
+        name: act.name,
+        kraTitle: kra?.kra_title || act.kraId,
+        kpiId: act.initiativeId,
+        kpiType,
+        kpiCategory,
+        reported: act.reported,
+        target: act.target,
+        achievement: act.achievement,
+        status: act.status,
+        gapType: gapInterpretation.gapType,
+        actionArchetype: gapInterpretation.actionArchetype,
+        antiPattern: gapInterpretation.antiPattern,
+      };
+    });
+
+    // Build type-specific instructions
+    const typeInstructions = activitiesContext.map((act: any) => 
+      generateTypeSpecificLogicInstruction(act.kpiType)
+    ).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).join('\n');
+
+    // Build KPI type change notices for the LLM (critical for breaking old patterns)
+    const kpiTypeNotices = activitiesContext
+      .filter((act: any) => act.kpiCategory === 'EFFICIENCY')
+      .map((act: any) => `- "${act.name}": Type is ${act.kpiType.toUpperCase()} (RATE/PERCENTAGE) - diagnose as QUALITY issue, NOT volume/pipeline issue`)
+      .join('\n');
+
+    // Call LLM for fresh prescriptive analysis
+    let llmPrescriptiveResult: { documentInsight: string; prescriptiveItems: any[] } | null = null;
+    
+    try {
+      // Build fresh start system message with explicit type constraints
+      const systemPrompt = `[SYSTEM INSTRUCTION: FRESH START]
+You are analyzing this QPRO data from scratch. Disregard all previous analyses.
+
+CRITICAL METADATA UPDATE - KPI TYPES HAVE BEEN CORRECTED:
+${kpiTypeNotices || 'All KPIs are count/volume based.'}
+
+STRICT CONSTRAINTS:
+1. For KPIs marked as RATE, PERCENTAGE, or EFFICIENCY type:
+   - You are FORBIDDEN from diagnosing as "data collection", "pipeline", "reporting workflow", or "scale" issues
+   - You MUST diagnose as "quality", "performance", "curriculum alignment", "training effectiveness", or "conversion" issues
+   - Recommendations must focus on IMPROVING QUALITY, not increasing volume
+
+2. For KPIs marked as COUNT or VOLUME type:
+   - You may diagnose as scaling, capacity, or collection issues
+   - Recommendations can focus on increasing volume or streamlining processes
+
+Respond with valid JSON only.`;
+
+      const prescriptivePrompt = `[FRESH ANALYSIS REQUIRED - NEW KPI CLASSIFICATIONS]
+
+**KPI Type Rules (MUST FOLLOW):**
+${typeInstructions}
+
+**Summary:** ${overallAchievementScore.toFixed(2)}% achievement across ${updatedActivities.length} activities. KRAs: ${kraList}
+
+**Activities with CORRECTED KPI Types:**
+${activitiesContext.map((act: any, i: number) => 
+  `${i+1}. ${act.name}
+   - KPI Type: ${act.kpiType.toUpperCase()} (Category: ${act.kpiCategory})
+   - Values: ${act.reported}/${act.target} = ${act.achievement.toFixed(1)}%
+   - Status: ${act.status}
+   - Required Action Type: ${act.actionArchetype}
+   ${act.antiPattern ? `- FORBIDDEN: ${act.antiPattern}` : ''}`
+).join('\n\n')}
+
+Return JSON: {"documentInsight": "<2-3 sentence summary matching KPI types>", "prescriptiveItems": [{"title": "<action title>", "issue": "<describe issue matching KPI type>", "action": "<recommendation matching KPI type>", "nextStep": "<optional next step>"}]}
+
+REMEMBER: For RATE/PERCENTAGE KPIs, the issue is NEVER about "collecting more data" or "scaling pipelines". It's about IMPROVING QUALITY.`;
+
+      const llmResponse = await llm.invoke([
+        new SystemMessage(systemPrompt),
+        new HumanMessage(prescriptivePrompt),
+      ]);
+      
+      const jsonMatch = (llmResponse.content?.toString() || '').match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        llmPrescriptiveResult = JSON.parse(jsonMatch[0]);
+        console.log('[Regenerate] LLM prescriptive analysis generated with fresh KPI types');
+      }
+    } catch (llmError) {
+      console.error('[Regenerate] LLM failed, using fallback:', llmError);
+    }
+
+    // Fallback or use LLM result - now type-aware based on KPI classification
+    const prescriptiveItems = llmPrescriptiveResult?.prescriptiveItems || (() => {
       const items: Array<{ title: string; issue: string; action: string; nextStep?: string }> = [];
       if (bottleneck?.name) {
+        // Get the KPI type for the bottleneck to generate type-appropriate recommendations
+        const bottleneckContext = activitiesContext.find((a: any) => a.name === bottleneck.name);
+        const bottleneckKpiType = bottleneckContext?.kpiType || 'count';
+        const bottleneckCategory = bottleneckContext?.kpiCategory || 'VOLUME';
+        
+        let issueDescription = '';
+        let actionRecommendation = '';
+        
+        if (bottleneckCategory === 'EFFICIENCY') {
+          // Rate/percentage KPIs: QUALITY focus, NOT volume/pipeline
+          issueDescription = `"${bottleneck.name}" is at ${Number(bottleneck.achievement || 0).toFixed(1)}% of target. This is a ${bottleneckKpiType.toUpperCase()} KPI measuring quality/efficiency, NOT volume.`;
+          actionRecommendation = 'Focus on improving quality of outcomes, process efficiency, curriculum alignment, or training effectiveness. Review compliance criteria and conversion rates rather than increasing volume.';
+        } else if (bottleneckCategory === 'VOLUME') {
+          issueDescription = `"${bottleneck.name}" is at ${Number(bottleneck.achievement || 0).toFixed(1)}% of target. This is a count-based KPI measuring volume.`;
+          actionRecommendation = 'Scale up production capacity, increase activity frequency, or streamline collection processes to meet volume targets.';
+        } else {
+          issueDescription = `"${bottleneck.name}" is at ${Number(bottleneck.achievement || 0).toFixed(1)}% of target.`;
+          actionRecommendation = 'Conduct root cause analysis and implement targeted interventions.';
+        }
+        
         items.push({
           title: 'Address the primary performance gap',
-          issue: `"${bottleneck.name}" is currently at ${Number(bottleneck.achievement || 0).toFixed(1)}% of target, indicating a scale or reporting workflow constraint.`,
-          action: 'Shift from ad-hoc collection to a scalable process (batch collection and centralized consolidation) and align with the responsible office to obtain updated lists by the next reporting cycle.',
+          issue: issueDescription,
+          action: actionRecommendation,
         });
       } else {
         items.push({
@@ -613,9 +735,9 @@ export async function POST(request: NextRequest) {
       }
 
       items.push({
-        title: 'Data quality review',
-        issue: 'Ambiguities in what counts as “1 reported” can materially distort achievement calculations.',
-        action: 'Validate measurement definitions (unit of count, rate vs count, and evidence rules) and recalibrate reporting instructions before the next submission window.',
+        title: 'KPI classification verification',
+        issue: 'Ensure KPI types are correctly classified (rate/percentage vs count) to generate appropriate recommendations.',
+        action: 'Validate that rate KPIs focus on quality/efficiency outcomes while count KPIs track volumes correctly.',
       });
 
       // If no high performers exist, we intentionally return only 2 items.
@@ -635,8 +757,31 @@ export async function POST(request: NextRequest) {
       .join('\n\n');
 
     // Build document-level prescriptive analysis JSON for database
+    // Use LLM-generated insight or create type-aware fallback
+    const typeAwareDocumentInsight = llmPrescriptiveResult?.documentInsight || (() => {
+      const parts: string[] = [];
+      parts.push(`The report indicates an overall achievement score of ${overallAchievementScore.toFixed(2)}% across ${updatedActivities.length} tracked activities.`);
+      if (kraList) {
+        parts.push(`Coverage spans ${kraIds.length} KRA(s): ${kraList}.`);
+      }
+      if (strongestHighPerformer?.name) {
+        parts.push(`Key strengths appear in "${strongestHighPerformer.name}" (${Number(strongestHighPerformer.achievement || 0).toFixed(1)}% of target).`);
+      }
+      if (bottleneck?.name) {
+        const bottleneckContext = activitiesContext.find((a: any) => a.name === bottleneck.name);
+        const bottleneckCategory = bottleneckContext?.kpiCategory || 'VOLUME';
+        
+        if (bottleneckCategory === 'EFFICIENCY') {
+          parts.push(`Performance is constrained by "${bottleneck.name}" (${Number(bottleneck.achievement || 0).toFixed(1)}% of target), a rate/percentage KPI indicating a quality or conversion issue that requires process optimization, not volume scaling.`);
+        } else {
+          parts.push(`Performance is constrained by "${bottleneck.name}" (${Number(bottleneck.achievement || 0).toFixed(1)}% of target).`);
+        }
+      }
+      return parts.join(' ');
+    })();
+
     const prescriptiveAnalysisData = {
-      documentInsight: documentInsightPlain,
+      documentInsight: typeAwareDocumentInsight,
       prescriptiveAnalysis: prescriptiveTextFormatted,
       prescriptiveItems,
       summary: {
@@ -663,6 +808,28 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // CRITICAL: Invalidate all cached data for this analysis to ensure fresh data on next fetch
+    // This fixes the stale data issue when user corrects KPI/KRA classifications
+    console.log(`[Regenerate] Invalidating cache for analysis: ${analysisId}`);
+    try {
+      // Invalidate analysis cache by analysisId
+      await qproCacheService.invalidateAnalysisCache(analysisId);
+      // Also invalidate by documentId if we have it
+      if (analysis.documentId) {
+        await qproCacheService.invalidateAnalysisCache(analysis.documentId);
+      }
+      // Invalidate processing status
+      await qproCacheService.invalidateProcessingStatus(analysisId);
+      // Invalidate the uploader's user cache so their analyses list refreshes
+      if (analysis.uploadedById) {
+        await qproCacheService.invalidateUserAnalysesCache(analysis.uploadedById);
+      }
+      console.log(`[Regenerate] Cache invalidation complete`);
+    } catch (cacheError) {
+      // Log but don't fail the request if cache invalidation fails
+      console.error('[Regenerate] Cache invalidation error (non-fatal):', cacheError);
+    }
+
     // Log final response before sending
     console.log(`[Regenerate] Sending response with ${regeneratedActivities.length} activities:`);
     regeneratedActivities.forEach((act: any, idx: number) => {
@@ -677,7 +844,16 @@ export async function POST(request: NextRequest) {
       opportunities: opportunitiesText,
       recommendations: prescriptiveTextFormatted,
       prescriptiveAnalysis: prescriptiveAnalysisData,
-    }, { status: 200 });
+      // Include timestamp to help frontend detect fresh data
+      regeneratedAt: new Date().toISOString(),
+    }, { 
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
   } catch (error) {
     console.error('Error regenerating insights:', error);
     return NextResponse.json(

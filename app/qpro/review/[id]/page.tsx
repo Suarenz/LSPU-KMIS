@@ -29,8 +29,10 @@ export default function ReviewPage() {
   };
 
   const handleApproveSuccess = () => {
-    // Navigate to the analysis detail page after approval
-    router.push(`/qpro/analysis/${analysisId}`);
+    console.log('[Review Page] handleApproveSuccess called - redirecting to QPRO page...');
+    // Redirect to QPRO dashboard after successful approval
+    // This avoids reloading the same analysis which is now APPROVED
+    router.push('/qpro');
   };
 
   if (isLoading) {

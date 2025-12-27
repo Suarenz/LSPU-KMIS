@@ -276,8 +276,75 @@ export class QPROAnalysisService {
         }
       }
       
+      // Helper function to check if initiativeId is a valid KPI format (e.g., "KRA3-KPI5")
+      const isValidKpiId = (id: string | undefined): boolean => {
+        if (!id) return false;
+        // Valid formats: "KRA1-KPI1", "KRA 3-KPI 5", etc.
+        return /^KRA\s?\d+[\s-]KPI\s?\d+$/i.test(id.trim());
+      };
+      
+      // Helper function to find best-fit KPI for an activity within its KRA
+      const findBestKpi = (act: any, targetKraId: string): { initiativeId: string; kpiTitle: string; target: number } | null => {
+        const strategicPlanKras = (strategicPlan && strategicPlan.kras) || [];
+        const normalizedTargetKraId = normalizeKraId(targetKraId);
+        const targetKra = strategicPlanKras.find((kra: any) => normalizeKraId(kra.kra_id) === normalizedTargetKraId);
+        
+        if (!targetKra?.initiatives?.length) return null;
+        
+        let bestInitiative = targetKra.initiatives[0];
+        let bestScore = 0;
+        const actName = (act.name || '').toLowerCase();
+        
+        targetKra.initiatives.forEach((initiative: any) => {
+          const kraText = [
+            targetKra.kra_title,
+            initiative.key_performance_indicator?.outputs || '',
+            initiative.key_performance_indicator?.outcomes || '',
+            Array.isArray(initiative.strategies) ? initiative.strategies.join(' ') : '',
+            Array.isArray(initiative.programs_activities) ? initiative.programs_activities.join(' ') : ''
+          ].join(' ').toLowerCase();
+          
+          const score = this.calculateSemanticScore(actName, kraText);
+          if (score > bestScore) {
+            bestScore = score;
+            bestInitiative = initiative;
+          }
+        });
+        
+        let targetValue = 1;
+        if (bestInitiative.targets?.timeline_data) {
+          const timelineData = bestInitiative.targets.timeline_data.find((t: any) => t.year === 2025);
+          if (timelineData) {
+            targetValue = typeof timelineData.target_value === 'number' ? timelineData.target_value : 1;
+          }
+        }
+        
+        return {
+          initiativeId: bestInitiative.id,
+          kpiTitle: bestInitiative.key_performance_indicator?.outputs || bestInitiative.id || '',
+          target: targetValue
+        };
+      };
+      
       // If activity is already classified, enrich with KRA/KPI titles
+      // BUT also validate that initiativeId is a proper KPI format
       if (currentKraId && currentKraId !== 'UNCLASSIFIED') {
+        // Check if initiativeId is valid KPI format
+        if (!isValidKpiId(activity.initiativeId)) {
+          console.log(`[QPRO VALIDATION] Activity "${activity.name}" has invalid initiativeId "${activity.initiativeId}" - finding best KPI match`);
+          
+          const bestKpi = findBestKpi(activity, currentKraId);
+          if (bestKpi) {
+            console.log(`  ✓ Auto-assigned to KPI: ${bestKpi.initiativeId}`);
+            return {
+              ...enrichActivity(activity, currentKraId, bestKpi.initiativeId),
+              initiativeId: bestKpi.initiativeId,
+              kpiTitle: bestKpi.kpiTitle,
+              target: bestKpi.target
+            };
+          }
+        }
+        
         return enrichActivity(activity, currentKraId, activity.initiativeId);
       }
       
@@ -662,6 +729,9 @@ export class QPROAnalysisService {
       try {
         for (const activity of validatedActivities) {
           if (activity.kraId && activity.initiativeId) {
+            console.log(`[QPROAnalysisService] Creating staged activity: ${activity.name}`);
+            console.log(`  kraId: ${activity.kraId}, initiativeId: ${activity.initiativeId}`);
+            
             await prisma.aggregationActivity.create({
               data: {
                 // aggregation_id is NULL for DRAFT - will be linked on approval

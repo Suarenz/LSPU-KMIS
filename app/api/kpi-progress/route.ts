@@ -27,6 +27,7 @@ interface KPIProgressItem {
   manualOverrideBy?: string | null;
   manualOverrideAt?: string | null;
   valueSource: 'qpro' | 'manual' | 'none';
+  hasUnapprovedData?: boolean; // Indicates this includes unapproved/draft QPRO submissions
 }
 
 interface KPIProgress {
@@ -108,23 +109,136 @@ export async function GET(request: NextRequest) {
     })();
 
     // Get KPIContributions - the source of truth for per-document contributions
+    // Include created_at for SNAPSHOT logic (take latest value)
     const kpiContributions = await prisma.kPIContribution.findMany({
       where: {
         year,
         ...(quarter && { quarter }),
         ...(kraIdVariants && { kra_id: { in: kraIdVariants } }),
       },
+      orderBy: {
+        created_at: 'desc', // Most recent first for SNAPSHOT logic
+      },
     });
 
-    // Build contribution totals by KPI (sum of all per-document contributions)
-    const contributionTotals = new Map<string, { total: number; count: number; targetType: string }>();
+    // Also get DRAFT (unapproved) aggregation activities to show provisional progress
+    // These are activities staged for review but not yet approved
+    const draftActivities = await prisma.aggregationActivity.findMany({
+      where: {
+        isApproved: false,
+        qproAnalysis: {
+          year,
+          ...(quarter && { quarter }),
+          status: 'DRAFT', // Only include DRAFT analyses
+        },
+      },
+      include: {
+        qproAnalysis: {
+          select: {
+            id: true,
+            year: true,
+            quarter: true,
+            unitId: true,
+            status: true,
+            unit: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    console.log(`[KPI Progress] Found ${draftActivities.length} DRAFT activities for year ${year}${quarter ? `, quarter ${quarter}` : ''}`);
+    if (draftActivities.length > 0) {
+      console.log('[KPI Progress] Sample draft activity:', JSON.stringify(draftActivities[0], null, 2));
+    }
+
+    // Build contribution totals by KPI with proper aggregation based on target_type:
+    // - COUNT: Sum all contributions (research outputs, events, etc.)
+    // - SNAPSHOT: Take latest value (faculty count, student population)
+    // - RATE/PERCENTAGE: Average all contributions (employment rate, grades)
+    // - MILESTONE/BOOLEAN: Take latest (once achieved, done)
+    interface ContributionAggregate {
+      total: number;       // For COUNT: sum, For RATE: sum for averaging, For SNAPSHOT/MILESTONE: latest value
+      count: number;       // Number of contributions
+      targetType: string;
+      latestValue: number; // Most recent contribution value (for SNAPSHOT)
+      latestAt: Date;      // Timestamp of latest contribution
+    }
+    const contributionTotals = new Map<string, ContributionAggregate>();
+    
+    console.log(`[KPI Progress] Processing ${kpiContributions.length} KPIContribution records...`);
+    
     for (const contrib of kpiContributions) {
       const key = `${normalizeKraId(contrib.kra_id)}|${contrib.initiative_id}|${contrib.year}|${contrib.quarter}`;
-      const existing = contributionTotals.get(key) || { total: 0, count: 0, targetType: contrib.target_type };
-      existing.total += contrib.value;
-      existing.count += 1;
-      contributionTotals.set(key, existing);
+      const existing = contributionTotals.get(key);
+      
+      // DEFENSIVE VALIDATION: Ensure target_type is valid before processing
+      if (!contrib.target_type || typeof contrib.target_type !== 'string') {
+        console.error(`[KPI Progress] ⚠️  CRITICAL: Invalid target_type in contribution ${contrib.id}: ${contrib.target_type} (type: ${typeof contrib.target_type})`);
+        continue; // Skip this contribution to prevent corruption
+      }
+      
+      const targetType = contrib.target_type.toUpperCase();
+      
+      if (!existing) {
+        // First contribution for this key - initialize
+        contributionTotals.set(key, {
+          total: contrib.value,
+          count: 1,
+          targetType: contrib.target_type,
+          latestValue: contrib.value,
+          latestAt: contrib.created_at,
+        });
+      } else {
+        // DEFENSIVE CHECK: Warn if target_type mismatch detected
+        // This prevents the bug where different contributions have inconsistent types
+        if (existing.targetType.toUpperCase() !== targetType) {
+          console.warn(`[KPI Progress] ⚠️  Target type mismatch for ${key}: existing="${existing.targetType}", current="${contrib.target_type}". Using existing type.`);
+        }
+        
+        // Aggregate based on target type
+        if (targetType === 'SNAPSHOT' || targetType === 'MILESTONE' || targetType === 'BOOLEAN' || targetType === 'TEXT_CONDITION') {
+          // SNAPSHOT/MILESTONE: Keep only the latest value (most recent by created_at)
+          // Since we ordered by created_at DESC, first entry is already latest
+          // Only update if this is newer (shouldn't happen due to ordering, but safety check)
+          if (contrib.created_at > existing.latestAt) {
+            existing.latestValue = contrib.value;
+            existing.latestAt = contrib.created_at;
+          }
+          existing.count += 1;
+        } else if (targetType === 'RATE' || targetType === 'PERCENTAGE') {
+          // RATE/PERCENTAGE: Accumulate for averaging
+          existing.total += contrib.value;
+          existing.count += 1;
+        } else {
+          // COUNT (default): Sum all contributions
+          existing.total += contrib.value;
+          existing.count += 1;
+        }
+      }
     }
+    
+    // DEFENSIVE SUMMARY: Log aggregation patterns to detect anomalies
+    console.log(`[KPI Progress] Aggregation summary: ${contributionTotals.size} unique KPI/period combinations`);
+    const typeCounts = new Map<string, number>();
+    contributionTotals.forEach((agg, key) => {
+      const type = agg.targetType.toUpperCase();
+      typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
+      
+      // Log detailed aggregation for debugging
+      console.log(`[KPI Progress] ${key}: type=${type}, count=${agg.count}, total=${agg.total}, latest=${agg.latestValue}`);
+      
+      // Warn if COUNT aggregation has suspiciously low total (possible SNAPSHOT behavior)
+      if (type === 'COUNT' && agg.count > 1 && agg.total === agg.latestValue) {
+        console.warn(`[KPI Progress] ⚠️  Possible aggregation anomaly for ${key}: COUNT type with ${agg.count} contributions but total=${agg.total} equals latest=${agg.latestValue}`);
+      }
+    });
+    console.log(`[KPI Progress] Aggregation types: ${Array.from(typeCounts.entries()).map(([t, c]) => `${t}=${c}`).join(', ')}`);
 
     const kraAggregations = await prisma.kRAggregation.findMany({
       where: {
@@ -143,7 +257,17 @@ export async function GET(request: NextRequest) {
       return Number.isFinite(n) ? n : null;
     };
 
-    // Process aggregation activities
+    // Build a Set of KPIs that have KPIContribution records (new system)
+    // We'll use this to avoid double-counting when processing legacy AggregationActivity data
+    const kpisWithContributions = new Set<string>();
+    for (const contrib of kpiContributions) {
+      const key = `${normalizeKraId(contrib.kra_id)}|${contrib.initiative_id}|${contrib.year}|${contrib.quarter}`;
+      kpisWithContributions.add(key);
+    }
+
+    // Process aggregation activities (LEGACY system for backwards compatibility)
+    // Only process activities for KPIs that DON'T have KPIContribution records
+    // This ensures old documents (approved before KPIContribution system) still show progress
     for (const activity of aggregationActivities) {
       const qpro = activity.qproAnalysis;
       if (!qpro) continue;
@@ -162,6 +286,13 @@ export async function GET(request: NextRequest) {
       // Use normalized comparison for KRA ID filtering
       if (kraId && activityKraId !== normalizeKraId(kraId)) continue;
       if (!activityKraId) continue;
+
+      // IMPORTANT: Skip this KPI if it already has KPIContribution records (avoid double-counting)
+      const skipKey = `${activityKraId}|${initiativeId}|${qpro.year}|${qpro.quarter}`;
+      if (kpisWithContributions.has(skipKey)) {
+        console.log(`[KPI Progress] Skipping legacy activity for ${skipKey} - has KPIContribution records`);
+        continue;
+      }
 
       // Initialize maps
       if (!progressMap.has(activityKraId)) {
@@ -207,6 +338,7 @@ export async function GET(request: NextRequest) {
           manualOverrideBy: null,
           manualOverrideAt: null,
           valueSource: 'none',
+          hasUnapprovedData: false,
         };
         progressItems.push(progressItem);
       }
@@ -254,6 +386,122 @@ export async function GET(request: NextRequest) {
       progressItem.submissionCount++;
       
       // Track participating units
+      if (qpro.unit && !progressItem.participatingUnits.includes(qpro.unit.code)) {
+        progressItem.participatingUnits.push(qpro.unit.code);
+      }
+    }
+
+    // Process DRAFT activities to show provisional progress (pending approval)
+    // These are newly uploaded documents that haven't been approved yet
+    console.log(`[KPI Progress] Processing ${draftActivities.length} DRAFT activities...`);
+    for (const activity of draftActivities) {
+      const qpro = activity.qproAnalysis;
+      if (!qpro) continue;
+
+      const initiativeId = activity.initiative_id;
+      
+      console.log(`[KPI Progress] DRAFT activity: ${initiativeId}, reported: ${activity.reported}, year: ${qpro.year}, quarter: ${qpro.quarter}`);
+      
+      // Extract KRA from initiative ID
+      const kraMatch = initiativeId.match(/^(KRA\s?\d+)/i);
+      const rawKraId = kraMatch ? kraMatch[1] : null;
+      const activityKraId = rawKraId ? normalizeKraId(rawKraId) : null;
+      
+      if (kraId && activityKraId !== normalizeKraId(kraId)) continue;
+      if (!activityKraId) continue;
+
+      // Initialize maps
+      if (!progressMap.has(activityKraId)) {
+        progressMap.set(activityKraId, new Map());
+      }
+      const kraMap = progressMap.get(activityKraId)!;
+      
+      if (!kraMap.has(initiativeId)) {
+        kraMap.set(initiativeId, []);
+      }
+      
+      const progressItems = kraMap.get(initiativeId)!;
+      
+      // Find or create progress item for this year/quarter
+      let progressItem = progressItems.find(
+        p => p.year === qpro.year && p.quarter === qpro.quarter
+      );
+      
+      if (!progressItem) {
+        // Get target from strategic plan
+        const normalizedActKraId = normalizeKraId(activityKraId);
+        const kra = allKras.find((k: any) => normalizeKraId(k.kra_id) === normalizedActKraId);
+        const initiative = kra?.initiatives.find((i: any) => i.id === initiativeId);
+        const timelineData = initiative?.targets?.timeline_data?.find((t: any) => t.year === qpro.year);
+        
+        const planTargetType = initiative?.targets?.type || 'count';
+        const targetType = mapTargetTypeFromPlan(planTargetType);
+        
+        progressItem = {
+          initiativeId,
+          year: qpro.year,
+          quarter: qpro.quarter,
+          targetValue: timelineData?.target_value ?? 0,
+          currentValue: 0,
+          achievementPercent: 0,
+          status: 'PENDING', // Mark as pending approval
+          submissionCount: 0,
+          participatingUnits: [],
+          targetType,
+          manualOverride: null,
+          manualOverrideReason: null,
+          manualOverrideBy: null,
+          manualOverrideAt: null,
+          valueSource: 'none',
+          hasUnapprovedData: true,
+        };
+        progressItems.push(progressItem);
+      }
+
+      // Aggregate reported values from DRAFT activities
+      // These will be added to approved values to show total provisional progress
+      if (activity.reported != null) {
+        const reported = toFiniteNumber(activity.reported);
+        if (reported !== null) {
+          const meta = getInitiativeTargetMeta(
+            strategicPlan as any,
+            activityKraId,
+            initiativeId,
+            qpro.year
+          );
+          const targetType = String(meta.targetType || '').toLowerCase();
+
+          if (targetType === 'percentage') {
+            // Normalize percent for DRAFT activities too
+            let pct: number | null = null;
+            if (reported >= 0 && reported <= 100) {
+              pct = reported;
+            } else {
+              const denom = toFiniteNumber(activity.target);
+              if (denom !== null && denom > 0 && reported >= 0) {
+                const computed = (reported / denom) * 100;
+                if (computed >= 0 && computed <= 100) pct = computed;
+              }
+            }
+
+            if (pct !== null) {
+              const sumKey = '_pctSum';
+              const countKey = '_pctCount';
+              (progressItem as any)[sumKey] = ((progressItem as any)[sumKey] || 0) + pct;
+              (progressItem as any)[countKey] = ((progressItem as any)[countKey] || 0) + 1;
+            }
+          } else {
+            const currentNum = typeof progressItem.currentValue === 'number' ? progressItem.currentValue : 0;
+            progressItem.currentValue = currentNum + reported;
+          }
+        }
+      }
+      progressItem.submissionCount++;
+      
+      // Mark that this progress item includes unapproved/draft submissions
+      progressItem.hasUnapprovedData = true;
+      
+      // Track participating units for DRAFT activities
       if (qpro.unit && !progressItem.participatingUnits.includes(qpro.unit.code)) {
         progressItem.participatingUnits.push(qpro.unit.code);
       }
@@ -324,6 +572,123 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // =====================================================================
+    // USE KPIContribution data as the PRIMARY source of truth for progress
+    // This ensures approved document contributions are reflected immediately
+    // =====================================================================
+    console.log(`[KPI Progress] Processing ${contributionTotals.size} contribution totals...`);
+    
+    for (const [key, contribData] of contributionTotals) {
+      console.log(`[KPI Progress] Processing contribution key: ${key}, total=${contribData.total}, count=${contribData.count}`);
+      
+      const [kraIdKey, initiativeId, yearStr, quarterStr] = key.split('|');
+      const contribYear = parseInt(yearStr);
+      const contribQuarter = parseInt(quarterStr);
+      
+      console.log(`[KPI Progress] Parsed: kraIdKey=${kraIdKey}, initiativeId=${initiativeId}, year=${contribYear}, quarter=${contribQuarter}`);
+      
+      // Initialize progress map entries if needed
+      if (!progressMap.has(kraIdKey)) {
+        progressMap.set(kraIdKey, new Map());
+        console.log(`[KPI Progress] Created new kraMap for ${kraIdKey}`);
+      }
+      const kraMap = progressMap.get(kraIdKey)!;
+      
+      if (!kraMap.has(initiativeId)) {
+        kraMap.set(initiativeId, []);
+        console.log(`[KPI Progress] Created new progressItems array for ${initiativeId}`);
+      }
+      
+      const progressItems = kraMap.get(initiativeId)!;
+      console.log(`[KPI Progress] Current progressItems length: ${progressItems.length}`);
+      
+      let progressItem = progressItems.find(
+        p => p.year === contribYear && p.quarter === contribQuarter
+      );
+      
+      console.log(`[KPI Progress] Found existing progressItem: ${!!progressItem}`);
+      
+      if (!progressItem) {
+        // Get target from strategic plan
+        const kra = allKras.find((k: any) => normalizeKraId(k.kra_id) === kraIdKey);
+        const initiative = kra?.initiatives.find((i: any) => i.id === initiativeId);
+        const timelineData = initiative?.targets?.timeline_data?.find((t: any) => t.year === contribYear);
+        const planTargetType = initiative?.targets?.type || 'count';
+        const targetType = mapTargetTypeFromPlan(planTargetType);
+        
+        console.log(`[KPI Progress] Target lookup for ${initiativeId}:`);
+        console.log(`  - KRA found: ${!!kra}`);
+        console.log(`  - Initiative found: ${!!initiative}`);
+        console.log(`  - Targets object: ${!!initiative?.targets}`);
+        console.log(`  - Timeline data array: ${initiative?.targets?.timeline_data?.length || 0} items`);
+        console.log(`  - Looking for year: ${contribYear}`);
+        console.log(`  - Timeline data found: ${!!timelineData}`);
+        if (timelineData) {
+          console.log(`  - Target value: ${timelineData.target_value}`);
+        }
+        
+        progressItem = {
+          initiativeId,
+          year: contribYear,
+          quarter: contribQuarter,
+          targetValue: timelineData?.target_value ?? 0,
+          currentValue: 0,
+          achievementPercent: 0,
+          status: 'PENDING',
+          submissionCount: 0,
+          participatingUnits: [],
+          targetType,
+          manualOverride: null,
+          manualOverrideReason: null,
+          manualOverrideBy: null,
+          manualOverrideAt: null,
+          valueSource: 'none',
+          hasUnapprovedData: false,
+        };
+        progressItems.push(progressItem);
+      }
+      
+      console.log(`[KPI Progress] progressItem found/created, valueSource=${progressItem.valueSource}, currentValue=${progressItem.currentValue}`);
+      
+      // ALWAYS update with KPIContribution data - it's the source of truth from approved documents
+      // KPIContribution takes precedence over manual overrides since it represents actual submitted data
+      console.log(`[KPI Progress] Updating progressItem with contribution data (overriding any manual value)`);
+      const targetType = contribData.targetType.toUpperCase();
+      
+      // Calculate the final value based on aggregation type
+      let finalContribValue: number;
+      if (targetType === 'SNAPSHOT' || targetType === 'MILESTONE' || targetType === 'BOOLEAN' || targetType === 'TEXT_CONDITION') {
+        // SNAPSHOT: Use latest value only
+        finalContribValue = contribData.latestValue;
+      } else if (targetType === 'RATE' || targetType === 'PERCENTAGE') {
+        // RATE/PERCENTAGE: Average all contributions
+        finalContribValue = contribData.count > 0 ? Math.round(contribData.total / contribData.count) : 0;
+      } else {
+        // COUNT (default): Sum all contributions
+        finalContribValue = contribData.total;
+      }
+      
+      // Update progress item with contribution data
+      progressItem.currentValue = finalContribValue;
+      progressItem.submissionCount = contribData.count;
+      progressItem.valueSource = 'qpro';
+      
+      // Clear manual override since QPRO data takes precedence
+      progressItem.manualOverride = null;
+      progressItem.manualOverrideReason = null;
+      progressItem.manualOverrideBy = null;
+      progressItem.manualOverrideAt = null;
+      
+      // Clear the unapproved flag since we're now using approved data
+      // If there were draft submissions, they'll be added on top of this approved data
+      if (progressItem.hasUnapprovedData !== true) {
+        progressItem.hasUnapprovedData = false;
+      }
+      
+      // Log contribution application for debugging
+      console.log(`[KPI Progress] Applied contribution: ${key} -> currentValue=${finalContribValue}, submissionCount=${contribData.count} (type: ${targetType}, method: ${targetType === 'SNAPSHOT' ? 'latest' : targetType === 'RATE' || targetType === 'PERCENTAGE' ? 'average' : 'sum'})`);
+    }
+
     // Finalize percentage KPI averages and calculate achievement/status for items without aggregation data
     for (const [kraIdKey, kraMap] of progressMap) {
       for (const [initiativeIdKey, progressItems] of kraMap) {
@@ -344,8 +709,13 @@ export async function GET(request: NextRequest) {
               ? item.targetValue
               : parseFloat(String(item.targetValue)) || 0;
 
+            console.log(`[KPI Progress] Final calc check for ${item.initiativeId}: currentValue=${currentNum}, targetValue=${target} (from item.targetValue=${item.targetValue})`);
+
             if (target > 0) {
               item.achievementPercent = Math.round((currentNum / target) * 100 * 100) / 100;
+              console.log(`[KPI Progress] Achievement calc for ${item.initiativeId}: currentValue=${currentNum}, targetValue=${target}, achievement=${item.achievementPercent}%`);
+            } else {
+              console.log(`[KPI Progress] ⚠️ SKIP: target is 0 or negative for ${item.initiativeId}`);
             }
           }
 
@@ -396,19 +766,21 @@ export async function GET(request: NextRequest) {
 
       for (const initiative of kra.initiatives || []) {
         const kraMap = progressMap.get(normalizedKraIdForLookup);
-        const progressItems = kraMap?.get(initiative.id) || [];
+        let progressItems = kraMap?.get(initiative.id) || [];
+        
+        console.log(`[KPI Progress Response] Building response for ${initiative.id}: found ${progressItems.length} progress items in progressMap`);
 
-        // If no progress data exists, create empty entries for the year
-        if (progressItems.length === 0) {
-          const timelineData = initiative.targets?.timeline_data?.find((t: any) => t.year === year);
-          if (timelineData) {
-            // Create entries for all quarters if no specific quarter requested
-            const quartersToCreate = quarter ? [quarter] : [1, 2, 3, 4];
-            for (const q of quartersToCreate) {
-              // Map target type from strategic plan
-              const planTargetType = initiative.targets?.type || 'count';
-              const targetType = mapTargetTypeFromPlan(planTargetType);
-              
+        // Get target from strategic plan for creating missing quarter entries
+        const timelineData = initiative.targets?.timeline_data?.find((t: any) => t.year === year);
+        if (timelineData) {
+          const quartersToCreate = quarter ? [quarter] : [1, 2, 3, 4];
+          const planTargetType = initiative.targets?.type || 'count';
+          const targetType = mapTargetTypeFromPlan(planTargetType);
+          
+          // Create entries for any missing quarters
+          for (const q of quartersToCreate) {
+            const existingItem = progressItems.find(p => p.year === year && p.quarter === q);
+            if (!existingItem) {
               progressItems.push({
                 initiativeId: initiative.id,
                 year,
@@ -428,6 +800,9 @@ export async function GET(request: NextRequest) {
               });
             }
           }
+          
+          // Sort by quarter for consistent display
+          progressItems.sort((a, b) => a.quarter - b.quarter);
         }
 
         kraProgress.initiatives.push({
@@ -437,23 +812,44 @@ export async function GET(request: NextRequest) {
           targetType: initiative.targets?.type || 'count',
           progress: progressItems,
         });
+        
+        // Log what we're adding to response
+        if (progressItems.length > 0 && progressItems.some(p => p.currentValue !== 0)) {
+          console.log(`[KPI Progress Response] Added ${initiative.id} with ${progressItems.length} items:`, 
+            progressItems.map(p => `Q${p.quarter}=${p.currentValue}`).join(', '));
+        }
       }
 
       response.push(kraProgress);
     }
+    
+    console.log(`[KPI Progress] Final response: ${response.length} KRAs`);
 
     return NextResponse.json({
       success: true,
       year,
       quarter,
       data: kraId ? response[0] : response,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
 
   } catch (error) {
     console.error('Error fetching KPI progress:', error);
     return NextResponse.json(
       { error: 'Failed to fetch KPI progress', details: (error as Error).message },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }
     );
   }
 }

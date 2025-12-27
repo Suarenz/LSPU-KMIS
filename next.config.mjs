@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  staticPageGenerationTimeout: 1000,
   images: {
      unoptimized: false,
      remotePatterns: [

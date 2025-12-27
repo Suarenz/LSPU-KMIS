@@ -34,6 +34,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState<any[]>([]); // State to store the sources used in the AI response
   const [relevantDocumentUrl, setRelevantDocumentUrl] = useState<string | undefined>(undefined); // State to store the relevant document URL
+  const [noRelevantDocuments, setNoRelevantDocuments] = useState<boolean>(false); // State to track if no relevant documents were found
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -105,10 +106,12 @@ export default function SearchPage() {
           setGenerationType(data.generationType || 'semantic'); // Default to semantic
           setSources(data.sources || []); // Set the sources used in the AI response
           setRelevantDocumentUrl(data.relevantDocumentUrl || undefined); // Set the relevant document URL
+          setNoRelevantDocuments(data.noRelevantDocuments || false); // Set the no relevant documents flag
         } else {
           setGeneratedResponse(null);
           setSources([]); // Clear sources when there's no generated response
           setRelevantDocumentUrl(undefined); // Clear the document URL as well
+          setNoRelevantDocuments(false); // Clear the flag
         }
         
         setSearchResults({
@@ -120,6 +123,7 @@ export default function SearchPage() {
         setGeneratedResponse(null);
         setSources([]); // Clear sources on error as well
         setRelevantDocumentUrl(undefined); // Clear document URL on error as well
+        setNoRelevantDocuments(false); // Clear the flag on error
       } finally {
         setLoading(false);
         setIsGenerating(false);
@@ -130,6 +134,7 @@ export default function SearchPage() {
       setHasPerformedSearch(false);
       setSources([]); // Clear sources when there's no search query
       setRelevantDocumentUrl(undefined); // Clear document URL when there's no search query
+      setNoRelevantDocuments(false); // Clear the flag when there's no search query
     }
   };
 
@@ -153,42 +158,7 @@ export default function SearchPage() {
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4 overflow-hidden">
-            <Image
-              src="/LSPULogo.png"
-              alt="LSPU Logo"
-              width={64}
-              height={64}
-              className="object-contain animate-spin"
-            />
-          </div>
-          <p className="text-lg text-muted-foreground">Redirecting to login...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render if user is null but authentication is loading
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4 overflow-hidden">
-            <Image
-              src="/LSPULogo.png"
-              alt="LSPU Logo"
-              width={64}
-              height={64}
-              className="object-contain animate-spin"
-            />
-          </div>
-          <p className="text-lg text-muted-foreground">Loading user data...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const totalResults = searchResults.documents.length
@@ -254,10 +224,11 @@ export default function SearchPage() {
               sources={sources} // Pass the sources used in the AI response
               relevantDocumentUrl={relevantDocumentUrl} // Pass the relevant document URL
               isLoading={isGenerating} // Always show loading when generating since we're always using semantic search
+              noRelevantDocuments={noRelevantDocuments} // Pass the flag for no relevant documents
             />
 
-            {/* Only show the documents tab if we don't have a generated response or if we want to show both */}
-            {!generatedResponse ? (
+            {/* Only show the documents tab if we're not generating and don't have a generated response */}
+            {!generatedResponse && !isGenerating ? (
               searchResults.documents.length > 0 && (
                 <Tabs defaultValue="documents" className="w-full">
                   <TabsList className="mb-6">
@@ -275,36 +246,45 @@ export default function SearchPage() {
                         const enhancedResult = Array.isArray(searchResults.documents) && searchResults.documents.length > 0 && 'documentId' in searchResults.documents[0];
                         const enhancedDoc = enhancedResult ? (searchResults as any).documents[index] : null;
                         
+                        // Helper function to get the correct navigation URL
+                        const getDocumentUrl = () => {
+                          const resultWithUrl = doc as any;
+                          // Check for QPRO document first - redirect to analysis page
+                          if (resultWithUrl.isQproDocument && resultWithUrl.qproAnalysisId) {
+                            return `/qpro/analysis/${resultWithUrl.qproAnalysisId}`;
+                          }
+                          if (enhancedDoc?.isQproDocument && enhancedDoc?.qproAnalysisId) {
+                            return `/qpro/analysis/${enhancedDoc.qproAnalysisId}`;
+                          }
+                          // Check for direct documentUrl
+                          if (resultWithUrl.documentUrl && resultWithUrl.documentUrl !== `/repository/preview/undefined` && !resultWithUrl.documentUrl.includes('/repository/preview/undefined')) {
+                            return resultWithUrl.documentUrl;
+                          }
+                          if (enhancedDoc?.documentUrl && enhancedDoc.documentUrl !== `/repository/preview/undefined` && !enhancedDoc.documentUrl.includes('/repository/preview/undefined')) {
+                            return enhancedDoc.documentUrl;
+                          }
+                          // Check for originalDocumentId
+                          if (enhancedDoc?.originalDocumentId) {
+                            return `/repository/preview/${enhancedDoc.originalDocumentId}`;
+                          }
+                          // Check for colivaraDocumentId
+                          if (doc.colivaraDocumentId) {
+                            return `/repository/preview/${doc.colivaraDocumentId}`;
+                          }
+                          // Fallback to document ID
+                          return `/repository/preview/${doc.id}`;
+                        };
+                        
                         return (
                           <Card key={`${doc.id}-${index}`} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => {
-                            // Navigate to the document preview page
-                            // Check multiple possible locations for the document ID or URL
-                            
-                            // First, check if the result has a direct documentUrl field (using type assertion to any)
-                            const resultWithUrl = doc as any;
-                            if (resultWithUrl.documentUrl && resultWithUrl.documentUrl !== `/repository/preview/undefined` && !resultWithUrl.documentUrl.includes('/repository/preview/undefined')) {
-                              router.push(resultWithUrl.documentUrl);
-                            }
-                            // Then check if enhancedDoc has originalDocumentId which is the database ID
-                            else if (enhancedDoc?.originalDocumentId) {
-                              // Use the original database document ID for preview
-                              router.push(`/repository/preview/${enhancedDoc.originalDocumentId}`);
-                            }
-                            // Check if enhancedDoc has documentUrl
-                            else if (enhancedDoc?.documentUrl && enhancedDoc.documentUrl !== `/repository/preview/undefined` && !enhancedDoc.documentUrl.includes('/repository/preview/undefined')) {
-                              // Use the document URL if available
-                              router.push(enhancedDoc.documentUrl);
-                            }
-                            // Check if the document has a colivaraDocumentId and try to find the database ID
-                            else if (doc.colivaraDocumentId) {
-                              // If we have a Colivara document ID, navigate to the preview page with it
-                              // The preview API will handle mapping Colivara ID to database ID
-                              router.push(`/repository/preview/${doc.colivaraDocumentId}`);
-                            }
-                            // Fallback to the standard document preview URL using the document's own ID
-                            else {
-                              router.push(`/repository/preview/${doc.id}`);
-                            }
+                            const url = getDocumentUrl();
+                            console.log('[Search] Navigating to:', url, {
+                              docId: doc.id,
+                              isQpro: (doc as any).isQproDocument || enhancedDoc?.isQproDocument,
+                              qproAnalysisId: (doc as any).qproAnalysisId || enhancedDoc?.qproAnalysisId,
+                              documentUrl: (doc as any).documentUrl || enhancedDoc?.documentUrl,
+                            });
+                            router.push(url);
                           }}>
                             <CardHeader>
                               <div className="flex items-start gap-3">
@@ -313,77 +293,95 @@ export default function SearchPage() {
                                   </div>
                                 <div className="flex-1">
                                   <div className="flex items-start justify-between gap-2">
-                                    <CardTitle className="text-lg">{cleanDocumentTitle(SuperMapper.getFieldValue(doc, 'title') || (doc as any).title || ((doc as any).document && SuperMapper.getFieldValue((doc as any).document, 'title')) || (doc as any).originalName || "Untitled Document")}</CardTitle>
+                                    <div className="flex items-center gap-2">
+                                      <CardTitle className="text-lg">{cleanDocumentTitle(SuperMapper.getFieldValue(doc, 'title') || (doc as any).title || ((doc as any).document && SuperMapper.getFieldValue((doc as any).document, 'title')) || (doc as any).originalName || "Untitled Document")}</CardTitle>
+                                      {/* Show QPRO badge if it's a QPRO document */}
+                                      {((doc as any).isQproDocument || enhancedDoc?.isQproDocument) && (
+                                        <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">QPRO</Badge>
+                                      )}
+                                    </div>
                                     <Badge variant="secondary">{SuperMapper.getFieldValue(doc, 'category') || (doc as any).category || (doc as any).type || "Uncategorized"}</Badge>
                                   </div>
-                                  {/* Show enhanced content snippet if available */}
-                                  {enhancedDoc?.snippet ? (
-                                    <CardDescription className="mt-1" dangerouslySetInnerHTML={{ __html: enhancedDoc.snippet }} />
-                                  ) : (
-                                    <CardDescription className="mt-1">{(doc as any).snippet || (doc as any).content || (doc as any).text || doc.description || (doc as any).document?.description || (doc as any).summary || "No preview available"}</CardDescription>
-                                  )}
+                                  
+                                  {/* Evidence Section - Show extracted text/snippet from the document */}
+                                  <div className="mt-3 p-3 bg-muted/50 rounded-lg border-l-4 border-primary/30">
+                                    <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                                      <TrendingUp className="w-3 h-3" />
+                                      💬 Evidence from document:
+                                    </div>
+                                    {(() => {
+                                      // Try to get meaningful snippet in order of preference
+                                      const snippet = enhancedDoc?.snippet || (doc as any).snippet;
+                                      const extractedText = enhancedDoc?.extractedText || (doc as any).extractedText;
+                                      const content = (doc as any).content;
+                                      const description = doc.description || (doc as any).document?.description;
+                                      
+                                      // Prefer snippet, then extractedText, then content, then description
+                                      const evidence = snippet || extractedText || content || description;
+                                      
+                                      // Check if the evidence is meaningful or just a placeholder
+                                      const isMeaningfulText = evidence && 
+                                                               evidence.trim().length > 20 && 
+                                                               !evidence.toLowerCase().includes('visual content') && 
+                                                               !evidence.toLowerCase().includes('visual document') && 
+                                                               !evidence.toLowerCase().includes('ai will extract') &&
+                                                               !evidence.toLowerCase().includes('click to preview');
+                                      
+                                      if (isMeaningfulText) {
+                                        // Show actual content with quotes
+                                        const displayText = evidence.length > 300 ? evidence.substring(0, 300) + '...' : evidence;
+                                        return (
+                                          <CardDescription className="mt-1 text-sm italic leading-relaxed">
+                                            &quot;{displayText}&quot;
+                                          </CardDescription>
+                                        );
+                                      } else {
+                                        // Show document description or prompt to view
+                                        const docDescription = doc.description || (doc as any).document?.description;
+                                        if (docDescription && docDescription.trim().length > 10) {
+                                          return (
+                                            <CardDescription className="mt-1 text-sm italic leading-relaxed">
+                                              &quot;{docDescription.substring(0, 200)}{docDescription.length > 200 ? '...' : ''}&quot;
+                                            </CardDescription>
+                                          );
+                                        }
+                                        return (
+                                          <CardDescription className="mt-1 text-sm text-muted-foreground">
+                                            📄 Document matched your search query. Click to view full content.
+                                          </CardDescription>
+                                        );
+                                      }
+                                    })()}
+                                  </div>
+                                  
                                   <div className="flex flex-wrap gap-1 mt-2">
-                                    {(doc.tags || (doc as any).keywords || []).map((tag: string, index: number) => (
-                                      <Badge key={index} variant="outline" className="text-xs">
+                                    {(doc.tags || (doc as any).keywords || []).map((tag: string, tagIndex: number) => (
+                                      <Badge key={tagIndex} variant="outline" className="text-xs">
                                         {tag}
                                       </Badge>
                                     ))}
                                   </div>
-                                  {/* Show additional metadata if available from enhanced search */}
-                                  {enhancedDoc?.confidenceScore && (
-                                    <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
-                                      <span>Relevance: {(enhancedDoc.confidenceScore * 100).toFixed(0)}%</span>
-                                      {enhancedDoc.pageNumbers && enhancedDoc.pageNumbers.length > 0 && (
-                                        <span>Pages: {enhancedDoc.pageNumbers.join(', ')}</span>
-                                      )}
-                                    </div>
-                                  )}
-                                  {/* Show visual content if available */}
-                                  {enhancedDoc?.visualContent && (
-                                    <div className="mt-2">
-                                      <div className="text-xs font-medium text-muted-foreground mb-1">Evidence Image:</div>
-                                      <img
-                                        src={`data:image/png;base64,${enhancedDoc.visualContent}`}
-                                        alt="Evidence from document"
-                                        className="max-w-xs max-h-32 object-contain border rounded"
-                                      />
-                                    </div>
-                                  )}
+                                  {/* Show relevance score and page info */}
+                                  <div className="mt-2 flex items-center gap-3">
+                                    {(enhancedDoc?.confidenceScore || (doc as any).confidenceScore || (doc as any).score) ? (
+                                      <div className="inline-flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-md">
+                                        <span className="text-xs font-medium text-primary">
+                                          Relevance: {(((enhancedDoc?.confidenceScore || (doc as any).confidenceScore || (doc as any).score) || 0.85) * 100).toFixed(0)}%
+                                        </span>
+                                      </div>
+                                    ) : null}
+                                    {(enhancedDoc?.pageNumbers?.length > 0 || (doc as any).pageNumbers?.length > 0) && (
+                                      <span className="text-xs text-muted-foreground">Pages: {(enhancedDoc?.pageNumbers || (doc as any).pageNumbers).join(', ')}</span>
+                                    )}
+                                  </div>
                                   {/* Preview link */}
                                   <div className="mt-3 flex justify-end">
                                     <Button variant="outline" size="sm" onClick={(e) => {
                                       e.stopPropagation(); // Prevent card click from triggering
-                                      // Navigate to the document preview page
-                                      // Check multiple possible locations for the document ID or URL
-                                      
-                                      // First, check if the result has a direct documentUrl field (using type assertion to any)
-                                      const resultWithUrl = doc as any;
-                                      if (resultWithUrl.documentUrl && resultWithUrl.documentUrl !== `/repository/preview/undefined` && !resultWithUrl.documentUrl.includes('/repository/preview/undefined')) {
-                                        router.push(resultWithUrl.documentUrl);
-                                      }
-                                      // Then check if enhancedDoc has originalDocumentId which is the database ID
-                                      else if (enhancedDoc?.originalDocumentId) {
-                                        // Use the original database document ID for preview
-                                        router.push(`/repository/preview/${enhancedDoc.originalDocumentId}`);
-                                      }
-                                      // Check if enhancedDoc has documentUrl
-                                      else if (enhancedDoc?.documentUrl && enhancedDoc.documentUrl !== `/repository/preview/undefined` && !enhancedDoc.documentUrl.includes('/repository/preview/undefined')) {
-                                        // Use the document URL if available
-                                        router.push(enhancedDoc.documentUrl);
-                                      }
-                                      // Check if the document has a colivaraDocumentId and try to find the database ID
-                                      else if (doc.colivaraDocumentId) {
-                                        // If we have a Colivara document ID, navigate to the preview page with it
-                                        // The preview API will handle mapping Colivara ID to database ID
-                                        router.push(`/repository/preview/${doc.colivaraDocumentId}`);
-                                      }
-                                      // Fallback to the standard document preview URL using the document's own ID
-                                      else {
-                                        router.push(`/repository/preview/${doc.id}`);
-                                      }
+                                      router.push(getDocumentUrl());
                                     }}>
                                       <Eye className="w-4 h-4 mr-1" />
-                                      Preview
+                                      {((doc as any).isQproDocument || enhancedDoc?.isQproDocument) ? 'View Analysis' : 'Preview'}
                                     </Button>
                                   </div>
                                 </div>

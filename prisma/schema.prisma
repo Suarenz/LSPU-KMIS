@@ -214,10 +214,12 @@ enum PermissionLevel {
 
 enum TargetType {
   MILESTONE       // Binary checkbox (0/1)
-  COUNT           // Integer count
-  PERCENTAGE      // Decimal percentage (0-100)
+  COUNT           // Integer count - sums all contributions (research outputs, events, graduates)
+  PERCENTAGE      // Decimal percentage (0-100) - same as RATE, kept for backwards compatibility
   FINANCIAL       // Currency with 2 decimals
   TEXT_CONDITION  // Dropdown (Met/Not Met/In Progress)
+  SNAPSHOT        // Latest value only (faculty count, student population, inventory) - NOT summed
+  RATE            // Averaged percentage (employment rate, grades, satisfaction) - averaged across units
 }
 
 model QPROAnalysis {
@@ -342,4 +344,28 @@ model KPIContribution {
   @@index([document_id])
   @@index([year, quarter])
   @@map("kpi_contributions")
+}
+
+// KPITarget: Database-backed target management for KRAs/KPIs.
+// Replaces static strategic_plan.json targets with user-editable database records.
+// Supports quarterly and annual targets with proper type classification (COUNT, SNAPSHOT, RATE).
+model KPITarget {
+  id            String     @id @default(dbgenerated("gen_random_uuid()"))
+  kra_id        String     // Normalized KRA identifier (e.g., "KRA 1")
+  initiative_id String     // Initiative/KPI identifier (e.g., "KRA1-KPI1")
+  year          Int        // Target year
+  quarter       Int?       // Target quarter (1-4), null for annual targets
+  target_value  Decimal    // The target value (numeric or can be converted to string for text)
+  target_type   TargetType // Type of target: COUNT, SNAPSHOT, RATE, PERCENTAGE, MILESTONE, etc.
+  description   String?    // Optional description/notes for this target
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+  created_by    String?    // User who created this target
+  updated_by    String?    // User who last updated this target
+  
+  @@unique([kra_id, initiative_id, year, quarter], name: "unique_kpi_target")
+  @@index([kra_id])
+  @@index([initiative_id])
+  @@index([year])
+  @@map("kpi_targets")
 }

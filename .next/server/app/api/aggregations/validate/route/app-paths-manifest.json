@@ -1,0 +1,3 @@
+{
+  "/api/aggregations/validate/route": "app/api/aggregations/validate/route.js"
+}

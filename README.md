@@ -61,25 +61,30 @@ Additionally, there was an issue where default admin users were being assigned t
    - Now only shows essential login functionality
    - Maintains demo account information for testing
  
-2. **Created Separate Landing Page** (`app/landing/page.tsx`)
-   - Moved all marketing/feature content to this new page
-   - Added authentication redirect to dashboard for logged-in users
-   - Maintains clear distinction between public and authenticated content
- 
-3. **Fixed Role Assignment Issue** (`scripts/fix-user-roles.ts`)
+2. **Fixed Role Assignment Issue** (`scripts/fix-user-roles.ts`)
    - Created a script to fix incorrect user roles in the database
    - Ensured admin users have ADMIN role, faculty users have FACULTY role, etc.
    - Added proper role verification and assignment for default users
  
-4. **Enhanced RBAC System** (`lib/utils/rbac.ts`)
+3. **Enhanced RBAC System** (`lib/utils/rbac.ts`)
    - Created comprehensive RBAC utilities for role checking
    - Implemented role hierarchy and permission management
    - Updated auth middleware to use the new RBAC system
  
-5. **Routing**
-   - `/` now leads to the simplified login page
-   - `/landing` leads to the marketing/feature content page
+4. **Routing**
+   - `/` leads to the login page
    - Authenticated users are automatically redirected to `/dashboard`
+
+## System Cleanup (December 2025)
+
+Removed unused files to optimize the codebase:
+- **Removed**: `app/demo/` - Demo pages for testing UI components
+- **Removed**: `app/landing/` - Unused landing page (redundant with login page)
+- **Removed**: `references/synalink.md` - External reference documentation (11K lines)
+- **Removed**: `lib/mock-data.ts` - Mock data not used in production
+- **Removed**: `hooks/use-isomorphic-layout-effect.ts` - Unused hook file
+
+All core functionality remains intact and fully operational.
 
 ## How to Run
 

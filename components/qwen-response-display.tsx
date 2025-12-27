@@ -5,14 +5,39 @@ import { BotIcon, LightbulbIcon, FileText, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { cleanDocumentTitle } from '@/lib/utils/document-utils';
 
+interface SourceInfo {
+  title: string;
+  documentId: string;
+  confidence: number;
+  isQproDocument?: boolean;
+  qproAnalysisId?: string;
+}
+
 interface QwenResponseDisplayProps {
   generatedResponse: string;
- generationType: string;
- sources?: Array<{ title: string; documentId: string; confidence: number }>;
- isLoading?: boolean;
+  generationType: string;
+  sources?: SourceInfo[];
+  isLoading?: boolean;
   error?: string;
   relevantDocumentUrl?: string; // Added for the clickable document link
+  noRelevantDocuments?: boolean; // Flag to indicate no relevant documents were found
 }
+
+// Helper function to get the correct document URL based on document type
+const getDocumentUrl = (source: SourceInfo): string => {
+  if (source.isQproDocument && source.qproAnalysisId) {
+    return `/qpro/analysis/${source.qproAnalysisId}`;
+  }
+  return `/repository/preview/${source.documentId}`;
+};
+
+// Helper function to check if document ID is valid
+const isValidDocumentId = (documentId: string): boolean => {
+  return documentId && 
+         documentId !== 'undefined' && 
+         !documentId.includes('undefined') && 
+         !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(documentId);
+};
 
 const QwenResponseDisplay: React.FC<QwenResponseDisplayProps> = ({
   generatedResponse,
@@ -20,7 +45,8 @@ const QwenResponseDisplay: React.FC<QwenResponseDisplayProps> = ({
   sources,
   isLoading,
   error,
-  relevantDocumentUrl // Added to props
+  relevantDocumentUrl, // Added to props
+  noRelevantDocuments // Added to props
 }) => {
  if (isLoading) {
     return (
@@ -49,22 +75,27 @@ const QwenResponseDisplay: React.FC<QwenResponseDisplayProps> = ({
                         {index + 1}
                       </span>
                       <div className="flex-1">
-                        {source.documentId && source.documentId !== 'undefined' && !source.documentId.includes('undefined') && !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(source.documentId) ? (
-                          <Link href={`/repository/preview/${source.documentId}`} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:text-blue-800 transition-colors">
-                            {cleanDocumentTitle(source.title)}
-                          </Link>
+                        {isValidDocumentId(source.documentId) ? (
+                          <div className="flex items-center gap-2">
+                            <Link href={getDocumentUrl(source)} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:text-blue-800 transition-colors">
+                              {cleanDocumentTitle(source.title)}
+                            </Link>
+                            {source.isQproDocument && (
+                              <Badge variant="default" className="bg-blue-600 hover:bg-blue-700 text-xs">QPRO</Badge>
+                            )}
+                          </div>
                         ) : (
                           <div className="font-medium">{cleanDocumentTitle(source.title)}</div>
                         )}
-                        {source.confidence && (
+                        {typeof source.confidence === 'number' && source.confidence > 0 && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded mt-1 inline-block">
                             {(source.confidence * 100).toFixed(1)}% relevance
                           </span>
                         )}
                       </div>
                       {/* Make all source documents clickable if they have a documentId */}
-                      {source.documentId && source.documentId !== 'undefined' && !source.documentId.includes('undefined') && !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(source.documentId) ? (
-                        <Link href={`/repository/preview/${source.documentId}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 transition-colors">
+                      {isValidDocumentId(source.documentId) ? (
+                        <Link href={getDocumentUrl(source)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 transition-colors">
                           <ExternalLink className="w-4 h-4" />
                           <span className="sr-only">View Document</span>
                         </Link>
@@ -100,6 +131,34 @@ const QwenResponseDisplay: React.FC<QwenResponseDisplayProps> = ({
 
   if (!generatedResponse) {
     return null;
+  }
+
+  // Special handling for when no relevant documents were found
+  if (noRelevantDocuments) {
+    return (
+      <Card className="mb-6 border-amber-200 bg-amber-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-700">
+            <LightbulbIcon className="w-5 h-5" />
+            No Relevant Documents Found
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="prose prose-amber max-w-none">
+            <div className="whitespace-pre-wrap text-amber-800">
+              <p className="mb-3">The documents in the system do not contain information that matches your query.</p>
+              <p className="font-medium mb-2">Suggestions:</p>
+              <ul className="list-disc ml-6 space-y-1">
+                <li>Try using different search terms or keywords</li>
+                <li>Make sure the document you&apos;re looking for has been uploaded to the system</li>
+                <li>Check if the document is still being processed (this can take a few minutes after upload)</li>
+                <li>Contact your administrator if you believe the document should exist</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
  return (
@@ -157,22 +216,27 @@ const QwenResponseDisplay: React.FC<QwenResponseDisplayProps> = ({
                       {index + 1}
                     </span>
                     <div className="flex-1">
-                      {source.documentId && source.documentId !== 'undefined' && !source.documentId.includes('undefined') && !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(source.documentId) ? (
-                        <Link href={`/repository/preview/${source.documentId}`} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:text-blue-800 transition-colors">
-                          {cleanDocumentTitle(source.title)}
-                        </Link>
+                      {isValidDocumentId(source.documentId) ? (
+                        <div className="flex items-center gap-2">
+                          <Link href={getDocumentUrl(source)} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:text-blue-800 transition-colors">
+                            {cleanDocumentTitle(source.title)}
+                          </Link>
+                          {source.isQproDocument && (
+                            <Badge variant="default" className="bg-blue-600 hover:bg-blue-700 text-xs">QPRO</Badge>
+                          )}
+                        </div>
                       ) : (
                         <div className="font-medium">{cleanDocumentTitle(source.title)}</div>
                       )}
-                      {source.confidence && (
+                      {typeof source.confidence === 'number' && source.confidence > 0 && (
                         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded mt-1 inline-block">
                           {(source.confidence * 100).toFixed(1)}% relevance
                         </span>
                       )}
                     </div>
                     {/* Make all source documents clickable if they have a documentId */}
-                    {source.documentId && source.documentId !== 'undefined' && !source.documentId.includes('undefined') && !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(source.documentId) ? (
-                      <Link href={`/repository/preview/${source.documentId}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 transition-colors">
+                    {isValidDocumentId(source.documentId) ? (
+                      <Link href={getDocumentUrl(source)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 transition-colors">
                         <ExternalLink className="w-4 h-4" />
                         <span className="sr-only">View Document</span>
                       </Link>
@@ -190,7 +254,7 @@ const QwenResponseDisplay: React.FC<QwenResponseDisplayProps> = ({
               <div className="bg-blue-50 p-4 rounded-lg">
                 <Link href={relevantDocumentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors font-medium">
                   <FileText className="w-5 h-5" />
-                  <span>View Source Document in Repository</span>
+                  <span>View Source Document</span>
                   <ExternalLink className="w-5 h-5" />
                 </Link>
               </div>

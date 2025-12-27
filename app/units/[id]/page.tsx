@@ -23,6 +23,7 @@ import { ClientOnly } from "@/components/client-only-wrapper";
 import { useToast } from "@/components/ui/use-toast";
 import { UnitSidebar } from "@/components/unit-sidebar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function UnitPage() {
   const { toast } = useToast();
@@ -46,6 +47,7 @@ export default function UnitPage() {
  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [deletionSuccessMessage, setDeletionSuccessMessage] = useState<string | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null); // Track which document is being deleted
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null); // Track document for deletion confirmation
 
   // Year and Quarter filter state for QPRO document organization
   const [selectedYear, setSelectedYear] = useState<number | null>(null); // null means show all
@@ -603,59 +605,14 @@ export default function UnitPage() {
                                   {canDelete && (
                                     <DropdownMenuItem
                                       className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                                      onClick={async (e) => {
+                                      onClick={(e) => {
                                         e.stopPropagation();
-                                        if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
-                                          setDeletingDocId(doc.id);
-                                          try {
-                                            const token = await AuthService.getAccessToken();
-                                            if (!token) {
-                                              await AuthService.logout();
-                                              router.push('/');
-                                              return;
-                                            }
-                                            const response = await fetch(`/api/documents/${doc.id}`, {
-                                              method: 'DELETE',
-                                              headers: {
-                                                'Authorization': `Bearer ${token}`,
-                                                'Content-Type': 'application/json',
-                                              }
-                                            });
-                                            if (response.ok) {
-                                              setDeletionSuccessMessage(`Document deleted successfully!`);
-                                              setTimeout(() => setDeletionSuccessMessage(null), 3000);
-                                              const refreshResponse = await fetch(`/api/documents?unit=${unitId}`, {
-                                                headers: {
-                                                  'Authorization': `Bearer ${token}`,
-                                                  'Content-Type': 'application/json',
-                                                }
-                                              });
-                                              if (refreshResponse.ok) {
-                                                const data = await refreshResponse.json();
-                                                setDocuments(data.documents || []);
-                                              }
-                                            } else {
-                                              const errorData = await response.json();
-                                              toast({
-                                                title: response.status === 403 ? "Access Denied" : "Error",
-                                                description: errorData.error || 'Failed to delete document',
-                                                variant: "destructive",
-                                              });
-                                            }
-                                          } catch (error) {
-                                            toast({
-                                              title: "Error",
-                                              description: 'Failed to delete document',
-                                              variant: "destructive",
-                                            });
-                                          } finally {
-                                            setDeletingDocId(null);
-                                          }
-                                        }
+                                        setDocumentToDelete(doc);
                                       }}
+                                      disabled={deletingDocId === doc.id}
                                     >
                                       <Trash2 className="w-4 h-4 mr-2" />
-                                      Delete
+                                      {deletingDocId === doc.id ? 'Deleting...' : 'Delete'}
                                     </DropdownMenuItem>
                                   )}
                                 </DropdownMenuContent>
@@ -1102,6 +1059,78 @@ export default function UnitPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!documentToDelete} onOpenChange={(open) => !open && setDocumentToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete <span className="font-semibold">&quot;{documentToDelete?.title}&quot;</span>. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={!!deletingDocId}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={!!deletingDocId}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  if (!documentToDelete) return;
+                  
+                  setDeletingDocId(documentToDelete.id);
+                  try {
+                    const token = await AuthService.getAccessToken();
+                    if (!token) {
+                      await AuthService.logout();
+                      router.push('/');
+                      return;
+                    }
+                    const response = await fetch(`/api/documents/${documentToDelete.id}`, {
+                      method: 'DELETE',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      }
+                    });
+                    if (response.ok) {
+                      setDeletionSuccessMessage(`Document deleted successfully!`);
+                      setTimeout(() => setDeletionSuccessMessage(null), 3000);
+                      setDocumentToDelete(null);
+                      const refreshResponse = await fetch(`/api/documents?unit=${unitId}`, {
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json',
+                        }
+                      });
+                      if (refreshResponse.ok) {
+                        const data = await refreshResponse.json();
+                        setDocuments(data.documents || []);
+                      }
+                    } else {
+                      const errorData = await response.json();
+                      toast({
+                        title: response.status === 403 ? "Access Denied" : "Error",
+                        description: errorData.error || 'Failed to delete document',
+                        variant: "destructive",
+                      });
+                    }
+                  } catch (error) {
+                    toast({
+                      title: "Error",
+                      description: 'Failed to delete document',
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setDeletingDocId(null);
+                  }
+                }}
+              >
+                {deletingDocId ? 'Deleting...' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </ClientOnly>
  );

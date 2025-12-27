@@ -37,6 +37,42 @@ interface GenerationOptions {
   customPrompt?: string;
 }
 
+// Phrases that indicate the AI couldn't find relevant information in the documents
+const NO_INFORMATION_INDICATORS = [
+  'does not contain',
+  'no information',
+  'not found',
+  'no relevant',
+  'cannot find',
+  'unable to find',
+  'not mentioned',
+  'no data',
+  'no mention',
+  'don\'t have',
+  'do not have',
+  'doesn\'t contain',
+  'not present',
+  'not available',
+  'could not find',
+  'couldn\'t find',
+  'no details',
+  'no specific',
+  'not specifically',
+];
+
+/**
+ * Check if an AI response indicates that no relevant information was found
+ * @param response The AI-generated response text
+ * @returns true if the response indicates no information was found
+ */
+function isNoInformationResponse(response: string): boolean {
+  if (!response || typeof response !== 'string') return false;
+  const lowerResponse = response.toLowerCase();
+  
+  // Check if the response starts with or contains common "no info" patterns
+  return NO_INFORMATION_INDICATORS.some(indicator => lowerResponse.includes(indicator));
+}
+
 class QwenGenerationService {
   private openai: OpenAI;
   private config: QwenConfig;
@@ -55,7 +91,7 @@ class QwenGenerationService {
       baseURL: config?.baseURL || process.env.QWEN_BASE_URL || 'https://openrouter.ai/api/v1',
       generationConfig: config?.generationConfig || {
         temperature: 0.2,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 4096, // Reduced from 8192 to fit within credit limits
         topP: 0.95,
         topK: 40,
       },
@@ -460,6 +496,7 @@ ${isComprehensiveQuery ? `### SPECIAL INSTRUCTION FOR COMPREHENSIVE QUERIES: Whe
     summary: string;
     keyPoints: string[];
     sources: Array<{ title: string; documentId: string; confidence: number }>;
+    noRelevantDocuments?: boolean; // Flag to indicate if the documents don't contain relevant information
  }> {
     const startTime = Date.now();
     try {
@@ -518,22 +555,58 @@ ${isComprehensiveQuery ? `### SPECIAL INSTRUCTION FOR COMPREHENSIVE QUERIES: Whe
       multimodalContent.push({
         type: 'text',
         text: `
-You are an intelligent assistant capable of reading documents and extracting specific details.
-Your goal is to answer the user's question accurately based ONLY on the provided document images.
+You are an intelligent document assistant that extracts and presents information accurately from institutional documents.
+Your goal is to provide comprehensive, well-formatted answers based ONLY on the provided document content (text and images).
 
-### DATA EXTRACTION RULES:
-1. **Read the Visuals:** The documents may contain tables, lists, or spreadsheets. Scan them carefully row-by-row.
-2. **Be Thorough:** If the user asks for a list (e.g., "all faculty"), extract EVERY name you see in the document images. Do not summarize.
-3. ** OCR Handling:** If text is slightly blurry, use your best judgment to correct obvious spelling errors (e.g., interpret "M@rk" as "Mark").
+### CRITICAL INSTRUCTIONS:
+1. **READ EVERYTHING:** You MUST thoroughly examine ALL images and text provided. Look at every visible element in the images.
+2. **Visual Content Priority:** If an image is provided, extract ALL visible text, numbers, tables, and data from it - this is your PRIMARY source.
+3. **Relevance Check:** If the provided documents DO NOT contain information relevant to the user's query, you MUST say so clearly. Start your response with "The provided document(s) do not contain information about [topic]."
+4. **Accuracy First:** Only use information that is explicitly present in the documents. Never make assumptions or add external knowledge.
+5. **Be Comprehensive:** Extract ALL relevant information. If asked for a list, include every item you find.
+6. **Quote Evidence:** When possible, include direct quotes or specific data points from the documents.
+7. **Handle OCR Errors:** If text is slightly unclear, use context to make reasonable corrections (e.g., "M@rk" → "Mark").
 
-### OUTPUT FORMATTING:
-If the data involves multiple items (like names and trainings), you must use a **Nested Bullet List** format:
+### WHEN DOCUMENTS DON'T MATCH THE QUERY:
+If the documents provided are not relevant to the user's question (e.g., user asks about "graduation data" but document is about "OJT contracts"), you MUST:
+- Clearly state: "The provided document does not contain information about [what user asked for]."
+- Briefly describe what the document IS about (so the user knows what was searched).
+- Do NOT try to make up an answer or stretch irrelevant information to fit the query.
 
-* **Name of Person**
-  * Training Title A
-  * Training Title B
+### OUTPUT FORMATTING RULES:
 
-If the answer is simple text, use a natural paragraph.
+**For Quantitative Questions (numbers, statistics, counts):**
+- Start with the direct answer in bold: **[Answer]**
+- Follow with supporting evidence: "According to [document name], [relevant quote/context]."
+- Example: **There are 45 graduates in BS Information Technology.** This data is from the "2024 Graduates Report" which shows...
+
+**For List-Based Questions (names, trainings, events):**
+Use a structured bullet list format:
+* **Category/Name**
+  - Item 1 with details
+  - Item 2 with details
+  - Item 3 with details
+
+**For Descriptive Questions:**
+- Write clear, natural paragraphs
+- Start with the main answer
+- Support with specific details from the documents
+
+**For Complex Data (tables, charts):**
+- Extract systematically row-by-row or column-by-column
+- Preserve numerical accuracy
+- Indicate if any cells are unclear or empty
+
+### RESPONSE STRUCTURE:
+1. **Direct Answer** - Lead with the specific answer to the question (or state that info is not found)
+2. **Evidence** - Cite the source document and relevant details
+3. **Context** (if helpful) - Add brief clarifying information
+
+### IMPORTANT: 
+If the document contains images, you MUST describe what you see in them and extract ALL visible information.
+Do NOT say "no information provided" if images are present - read them carefully.
+
+Now analyze the documents below to answer this query: "${query}"
 -------------------------------------------------------
 `
       });
@@ -544,6 +617,14 @@ If the answer is simple text, use a natural paragraph.
         const hasText = result.extractedText && result.extractedText.trim().length > 0;
         const title = result.title || 'Untitled Document';
         const confidence = result.confidenceScore || 0;
+        
+        console.log(`📄 Processing document "${title}" for Qwen:`, {
+          hasVisuals,
+          visualCount: result.screenshots?.length || 0,
+          hasText,
+          textLength: result.extractedText?.length || 0,
+          confidence
+        });
         
         // Add document header
         multimodalContent.push({
@@ -567,7 +648,7 @@ If the answer is simple text, use a natural paragraph.
               }
           }
 
-          console.log(`Sending to Qwen as: ${realMimeType}`); // Debug log
+          console.log(`Sending to Qwen as: ${realMimeType}, Length: ${screenshot.length} chars`); // Debug log
 
           // Convert base64 image to data URL format
           const dataUrl = `data:${realMimeType};base64,${screenshot}`;
@@ -580,6 +661,10 @@ If the answer is simple text, use a natural paragraph.
           });
           }
           // Prompt for Visuals
+          multimodalContent.push({
+            type: 'text',
+            text: `\n[VISUAL CONTENT: The above image contains document information. Read EVERY visible element carefully and extract ALL data relevant to: "${query}"]\n`
+          });
           multimodalContent.push({
             type: 'text',
             text: `\n[VISUAL CONTENT: The above image contains document information. Extract data relevant to: "${query}"]\n`
@@ -679,6 +764,11 @@ Please format your response as JSON with the following structure:
         return fallbackResult;
       }
 
+      // Log summary of what we're sending to Qwen
+      const imageCount = multimodalContent.filter(c => c.type === 'image_url').length;
+      const textCount = multimodalContent.filter(c => c.type === 'text').length;
+      console.log(`🤖 Sending to Qwen: ${imageCount} images, ${textCount} text blocks for query "${query}"`);
+
       let completion;
       try {
         completion = await this.openai.chat.completions.create({
@@ -732,6 +822,12 @@ Please format your response as JSON with the following structure:
       try {
         const parsed = JSON.parse(text);
         
+        // Check if the AI response indicates no relevant information was found
+        const noRelevantDocuments = isNoInformationResponse(parsed.summary || '');
+        if (noRelevantDocuments) {
+          console.log(`🔍 AI detected no relevant information in documents for query: "${query}"`);
+        }
+        
         // Track the successful request
         this.monitoringService.trackGeneration(
           userId || 'unknown',
@@ -742,9 +838,13 @@ Please format your response as JSON with the following structure:
           this.config.model
         );
         
-        return parsed;
+        return { ...parsed, noRelevantDocuments };
       } catch (parseError) {
         console.error('Error parsing Qwen JSON response:', parseError);
+        
+        // Check if the raw text indicates no relevant information
+        const noRelevantDocuments = isNoInformationResponse(text);
+        
         // Fallback: return a basic structure
         const fallbackResult = {
           summary: text.substring(0, 500) + (text.length > 50 ? '...' : ''),
@@ -753,7 +853,8 @@ Please format your response as JSON with the following structure:
             title: result.title || 'Untitled Document',
             documentId: result.documentId || '',
             confidence: result.confidenceScore || 0
-          }))
+          })),
+          noRelevantDocuments
         };
         
         // Track the successful request with fallback

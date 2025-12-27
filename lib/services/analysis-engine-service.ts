@@ -7,6 +7,16 @@ import strategicPlan from '@/lib/data/strategic_plan.json';
 
 import { computeAggregatedAchievement, getInitiativeTargetMeta, normalizeKraId } from '@/lib/utils/qpro-aggregation';
 
+// Import KPI Type-Aware Analysis Logic
+import { 
+  getKpiTypeCategory, 
+  generateTypeSpecificLogicInstruction,
+  getGapInterpretation,
+  validatePrescriptiveAnalysis,
+  type KpiTypeCategory,
+  type RawKpiType
+} from '@/lib/utils/kpi-type-logic';
+
 // Keep these for section detection and summary extraction (useful preprocessing)
 import { documentSectionDetector } from './document-section-detector';
 import { summaryExtractor } from './summary-extractor';
@@ -265,6 +275,12 @@ CRITICAL EXTRACTION RULES:
    - Even if exact values aren't clear, estimate based on listed items
    - Count rows/entries if they represent individual accomplishments
 
+7. **KPI ID FORMAT (CRITICAL):**
+   - The kpi_id field MUST be in the format "KRAx-KPIy" (e.g., "KRA3-KPI5", "KRA1-KPI2")
+   - NEVER use just the KRA ID like "KRA 3" as kpi_id
+   - Pick the BEST matching KPI from the list above based on activity content
+   - If unsure, default to the first KPI: "${targetKRA.kra_id.replace(/\s+/g, '')}-KPI1"
+
 OUTPUT FORMAT (JSON):
 {
   "activities": [
@@ -414,6 +430,11 @@ async function generatePrescriptiveAnalysis(
     const achievement = Math.min(100, Math.max(0, aggregated.achievementPercent));
     const status = achievement >= 100 ? 'MET' : achievement >= 80 ? 'ON_TRACK' : 'MISSED';
 
+    // Get KPI type category for type-aware analysis
+    const rawKpiType = meta.targetType || acts[0]?.dataType || acts[0]?.data_type || 'count';
+    const kpiTypeCategory = getKpiTypeCategory(rawKpiType);
+    const gapInterpretation = getGapInterpretation(kpiTypeCategory);
+
     // Provide sample outputs (titles) but avoid repeating target/gap per item.
     const samples = acts
       .map((x) => String(x.name || '').trim())
@@ -423,6 +444,8 @@ async function generatePrescriptiveAnalysis(
     return {
       initiativeId,
       targetType: meta.targetType || acts[0]?.dataType || acts[0]?.data_type || 'count',
+      kpiTypeCategory,
+      gapInterpretation,
       totalReported: aggregated.totalReported,
       totalTarget: aggregated.totalTarget,
       achievementPercent: achievement,
@@ -453,11 +476,30 @@ async function generatePrescriptiveAnalysis(
     return `- ${k.initiativeId}: Outputs="${outputs}" | Outcomes="${outcomes}" | Target(${reportYear})=${yearTarget ?? 'N/A'} (${unit}) | Strategies="${strategiesText}"`;
   }).join('\n');
 
+  // Enhanced KPI summary with type category for type-aware analysis
   const kpiSummaryText = kpiSummaries.map((k) => {
     const reportedStr = typeof k.totalReported === 'number' ? k.totalReported.toFixed(k.targetType === 'percentage' ? 1 : 0) : String(k.totalReported);
     const targetStr = typeof k.totalTarget === 'number' ? k.totalTarget.toFixed(k.targetType === 'percentage' ? 1 : 0) : String(k.totalTarget);
     const sampleText = k.samples.length > 0 ? ` | Examples: ${k.samples.join('; ')}` : '';
-    return `- ${k.initiativeId}: ${reportedStr} vs ${targetStr} (${k.achievementPercent.toFixed(1)}%) [${k.status}]${sampleText}`;
+    const typeInfo = `Type: ${k.targetType} (${k.kpiTypeCategory})`;
+    return `- ${k.initiativeId}: ${reportedStr} vs ${targetStr} (${k.achievementPercent.toFixed(1)}%) [${k.status}] | ${typeInfo}${sampleText}`;
+  }).join('\n');
+
+  // Build type-specific logic rules for each unique KPI type in this analysis
+  const uniqueKpiTypes = [...new Set(kpiSummaries.map(k => k.kpiTypeCategory))];
+  const typeSpecificRules = uniqueKpiTypes.map(category => {
+    const interpretation = getGapInterpretation(category);
+    const relevantKpis = kpiSummaries.filter(k => k.kpiTypeCategory === category);
+    const kpiIds = relevantKpis.map(k => k.initiativeId).join(', ');
+    
+    let rule = `\n[RULE FOR ${category} METRICS (${kpiIds})]:\n`;
+    rule += `Gap Type: ${interpretation.gapType}\n`;
+    rule += `Focus Areas: ${interpretation.rootCauseFocus.slice(0, 3).join('; ')}\n`;
+    rule += `Action Archetype: ${interpretation.actionArchetype}\n`;
+    if (interpretation.antiPattern) {
+      rule += `⚠️ AVOID: ${interpretation.antiPattern}\n`;
+    }
+    return rule;
   }).join('\n');
 
   const prompt = `
@@ -481,16 +523,39 @@ SUMMARY:
 AUTHORIZED STRATEGIES FOR THIS KRA:
 ${strategies}
 
+================================================================================
+TYPE-AWARE ANALYSIS RULES (CRITICAL - FOLLOW STRICTLY)
+================================================================================
+Your prescriptive recommendations MUST be appropriate for the KPI TYPE.
+Different KPI types require DIFFERENT root cause analysis and action recommendations.
+${typeSpecificRules}
+
+KEY DISTINCTIONS:
+- VOLUME (count): Gap = "Not enough outputs produced" → Scale up activities, increase frequency, fix reporting lags
+- EFFICIENCY (rate/percentage): Gap = "Poor conversion/quality" → Improve curriculum, training, standards (NOT data collection!)
+- MILESTONE (boolean/status): Gap = "Project delayed" → Fast-track approvals, unblock dependencies
+- PERFORMANCE (score/value): Gap = "Low satisfaction" → Investigate user feedback, conduct surveys
+
+⚠️ CRITICAL ANTI-PATTERN TO AVOID:
+For EFFICIENCY metrics (rates/percentages like "Employment Rate", "Passing Rate"):
+- Do NOT suggest "reporting bottleneck", "batch collection", "data collection delays"
+- The data is correct - the ACTUAL PERFORMANCE is low
+- Focus on QUALITY improvement (curriculum, industry alignment, skills training)
+
+================================================================================
+
 TASK:
 1) Write a single Document Insight paragraph (2–4 sentences) grounded on the performance data and the strategic plan snapshot.
    - Must reference the overall achievement percentage.
    - Must identify the primary bottleneck KPI (lowest achievement) using the KPI ID and its reported vs target.
+   - Must correctly interpret the gap based on the KPI TYPE (see rules above).
 2) Produce Prescriptive Analysis as 2–3 items, each with:
    - title (short)
-   - issue (one sentence)
-   - action (specific, with timeframe when possible)
+   - issue (one sentence, type-aware interpretation)
+   - action (specific, using the correct action archetype for the KPI type)
    - nextStep (optional, immediate next action)
   RULE: Only include a "Sustain"/"high performers" item if at least one KPI has >80% achievement. If none are >80%, DO NOT generate that item.
+  RULE: Each recommendation MUST match the action archetype for its KPI type (see TYPE-AWARE RULES above).
 3) Also provide brief supporting fields (alignment/opportunities/gaps/recommendations) for backward compatibility.
 
 OUTPUT FORMAT (JSON):
@@ -508,6 +573,7 @@ OUTPUT FORMAT (JSON):
 IMPORTANT GUIDANCE:
 - Do NOT critique individual documents/files as if each one must meet the full institutional target.
 - For count-based KPIs (e.g., research outputs), interpret gaps as volume shortfalls at the KRA/KPI level ("need X more outputs"), not "improve Paper A by 149".
+- For rate-based KPIs (e.g., employment rate), interpret gaps as quality/conversion problems - focus on curriculum, training, industry partnerships.
 - Avoid repetitive per-item gap statements; synthesize patterns and provide 3-6 concise bullets.
 
 STRICT OUTPUT RULES:
@@ -548,9 +614,33 @@ STRICT OUTPUT RULES:
       : [];
 
     const shouldAllowSustain = maxAchievement > 80;
-    const prescriptiveItems = shouldAllowSustain
+    let prescriptiveItems = shouldAllowSustain
       ? rawItems
       : rawItems.filter((x: PrescriptiveItem) => !/\bsustain\b|high\s*perform(er|ers)|preserv(e|ing)\s+strong/i.test(`${x.title} ${x.issue} ${x.action}`));
+
+    // Post-process validation: Check for type-aware anti-patterns
+    // For efficiency metrics (rates/percentages), flag recommendations that suggest data collection fixes
+    const hasEfficiencyMetrics = kpiSummaries.some(k => k.kpiTypeCategory === 'EFFICIENCY');
+    if (hasEfficiencyMetrics) {
+      prescriptiveItems = prescriptiveItems.map(item => {
+        const combinedText = `${item.title} ${item.issue} ${item.action}`;
+        const validation = validatePrescriptiveAnalysis(combinedText, 'percentage');
+        if (!validation.isValid) {
+          console.warn(`[TYPE-AWARE] Anti-pattern detected in prescriptive item: ${validation.warnings.join('; ')}`);
+          // Fix the recommendation to focus on quality instead of reporting
+          return {
+            ...item,
+            action: item.action
+              .replace(/reporting\s+(bottleneck|backlog|delay|lag)/gi, 'quality improvement initiative')
+              .replace(/batch\s+(collection|processing|data)/gi, 'targeted intervention')
+              .replace(/collect\s+more\s+(data|lists|reports)/gi, 'improve program outcomes')
+              .replace(/scale\s+up\s+(data|collection|reporting)/gi, 'enhance quality standards')
+              .replace(/data\s+collection\s+(delay|issue|problem)/gi, 'outcome quality concern'),
+          };
+        }
+        return item;
+      });
+    }
 
     return {
       documentInsight: safeString(parsed.documentInsight) || 'Insight pending.',
@@ -585,13 +675,23 @@ STRICT OUTPUT RULES:
           : String(bottleneck.totalTarget ?? 'N/A'))
       : 'N/A';
 
+    // Get type-aware context for fallback recommendations
+    const bottleneckTypeCategory = bottleneck?.kpiTypeCategory || 'UNKNOWN';
+    const bottleneckInterpretation = bottleneck?.gapInterpretation || getGapInterpretation('UNKNOWN');
+
     const documentInsightParts: string[] = [];
     documentInsightParts.push(
       `Overall achievement is ${overallAchievement.toFixed(1)}% across ${kpiSummaries.length} KPI(s) for ${kraId}.`
     );
     if (bottleneck?.initiativeId) {
+      // Type-aware bottleneck description
+      const gapDescription = bottleneckTypeCategory === 'EFFICIENCY' 
+        ? `This indicates a ${bottleneckInterpretation.gapType.toLowerCase()} requiring quality-focused interventions.`
+        : bottleneckTypeCategory === 'MILESTONE'
+        ? `This indicates a ${bottleneckInterpretation.gapType.toLowerCase()} requiring administrative intervention.`
+        : `This represents a ${bottleneckInterpretation.gapType.toLowerCase()}.`;
       documentInsightParts.push(
-        `The primary bottleneck is ${bottleneck.initiativeId} at ${Number(bottleneck.achievementPercent || 0).toFixed(1)}% (reported ${bottleneckReported} vs target ${bottleneckTarget}).`
+        `The primary bottleneck is ${bottleneck.initiativeId} at ${Number(bottleneck.achievementPercent || 0).toFixed(1)}% (reported ${bottleneckReported} vs target ${bottleneckTarget}). ${gapDescription}`
       );
     }
     if (strongest?.initiativeId) {
@@ -600,17 +700,49 @@ STRICT OUTPUT RULES:
       );
     }
 
+    // Type-aware fallback recommendations
     const fallbackItems: Array<{ title: string; issue: string; action: string; nextStep?: string }> = [];
-    fallbackItems.push({
-      title: 'Address the primary performance gap',
-      issue: bottleneck?.initiativeId
-        ? `${bottleneck.initiativeId} is at ${Number(bottleneck.achievementPercent || 0).toFixed(1)}% (reported ${bottleneckReported} vs target ${bottleneckTarget}), limiting overall achievement.`
-        : 'At least one KPI remains below target, limiting overall achievement.',
-      action: 'Assign an owner to the lowest-performing KPI, confirm the data pipeline and evidence rules, and implement a corrective plan within the next reporting cycle (2–4 weeks).',
-      nextStep: bottleneck?.initiativeId
-        ? `Validate the latest reported/target values for ${bottleneck.initiativeId} within 7 days.`
-        : 'Validate the latest reported/target values within 7 days.',
-    });
+    
+    // Generate type-appropriate primary recommendation
+    if (bottleneck?.initiativeId) {
+      const actionArchetype = bottleneckInterpretation.actionArchetype;
+      let typeAwareAction = '';
+      let typeAwareNextStep = '';
+      
+      switch (bottleneckTypeCategory) {
+        case 'EFFICIENCY':
+          typeAwareAction = 'Review curriculum alignment with industry needs, strengthen industry partnerships for job placement, and enhance skills training programs. Focus on quality improvement rather than data collection.';
+          typeAwareNextStep = `Schedule curriculum review meeting with industry partners within 30 days for ${bottleneck.initiativeId}.`;
+          break;
+        case 'MILESTONE':
+          typeAwareAction = 'Identify specific blockers (approvals, resources, dependencies), escalate to appropriate authority, and create a fast-track action plan to unblock progress.';
+          typeAwareNextStep = `Conduct blocker analysis meeting within 7 days for ${bottleneck.initiativeId}.`;
+          break;
+        case 'PERFORMANCE':
+          typeAwareAction = 'Gather user feedback through surveys, analyze service delivery processes, and implement targeted improvements based on feedback data.';
+          typeAwareNextStep = `Review recent feedback data and plan focus groups within 14 days for ${bottleneck.initiativeId}.`;
+          break;
+        case 'VOLUME':
+        default:
+          typeAwareAction = 'Increase activity frequency, allocate additional resources, and address any reporting backlogs. Consider batch-processing pending submissions.';
+          typeAwareNextStep = `Validate the latest reported/target values for ${bottleneck.initiativeId} within 7 days.`;
+          break;
+      }
+      
+      fallbackItems.push({
+        title: `${actionArchetype}: Address ${bottleneckInterpretation.gapType}`,
+        issue: `${bottleneck.initiativeId} is at ${Number(bottleneck.achievementPercent || 0).toFixed(1)}% (reported ${bottleneckReported} vs target ${bottleneckTarget}), indicating a ${bottleneckInterpretation.gapType.toLowerCase()}.`,
+        action: typeAwareAction,
+        nextStep: typeAwareNextStep,
+      });
+    } else {
+      fallbackItems.push({
+        title: 'Address the primary performance gap',
+        issue: 'At least one KPI remains below target, limiting overall achievement.',
+        action: 'Assign an owner to the lowest-performing KPI and implement a corrective plan within the next reporting cycle (2–4 weeks).',
+        nextStep: 'Validate the latest reported/target values within 7 days.',
+      });
+    }
 
     if (strongest?.initiativeId) {
       fallbackItems.push({
@@ -635,7 +767,7 @@ STRICT OUTPUT RULES:
         ? `High-performing KPI observed: ${strongest.initiativeId} (${Number(strongest.achievementPercent || 0).toFixed(1)}%).`
         : 'No KPI exceeded the high-performer threshold (>80%).',
       gaps: bottleneck?.initiativeId
-        ? `Largest gap is ${bottleneck.initiativeId}: ${Number(bottleneck.achievementPercent || 0).toFixed(1)}% achieved (reported ${bottleneckReported} vs target ${bottleneckTarget}).`
+        ? `Largest gap is ${bottleneck.initiativeId}: ${Number(bottleneck.achievementPercent || 0).toFixed(1)}% achieved (reported ${bottleneckReported} vs target ${bottleneckTarget}). Gap type: ${bottleneckInterpretation.gapType}.`
         : `${missedCount} KPI(s) are below target.`,
       recommendations: 'Use the structured prescriptive items as the immediate action plan for the next reporting cycle.',
       overallAchievement: Math.round(overallAchievement * 100) / 100,

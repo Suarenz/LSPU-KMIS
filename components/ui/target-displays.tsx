@@ -25,15 +25,16 @@ export function PercentageProgress({
   showLabel = true,
   className,
 }: PercentageProgressProps) {
-  // For percentage, current IS the progress (not current/target ratio)
-  const progress = Math.min(100, Math.max(0, currentValue));
+  // For percentage targets, calculate achievement: (currentValue / targetValue) * 100
+  // E.g., if current employment rate is 48% and target is 73%, achievement is 48/73 = 65.75%
+  const achievement = targetValue > 0 ? Math.min(100, Math.max(0, (currentValue / targetValue) * 100)) : 0;
   const isComplete = currentValue >= targetValue;
 
   return (
     <div className={cn('flex items-center gap-3', className)}>
       <div className="flex-1 relative">
         <Progress
-          value={progress}
+          value={achievement}
           className="h-4 bg-gray-200 *:data-[slot=progress-indicator]:bg-blue-500"
         />
         {showLabel && (

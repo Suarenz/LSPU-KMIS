@@ -60,7 +60,38 @@ export default function StatsSection() {
         // Get the access token to ensure it's still valid
         const token = await AuthService.getAccessToken();
         if (!token) {
-          // If no token is available, don't make the API call
+          // If no token is available, set default stats and stop loading
+          setStats([
+            {
+              title: "Total Documents",
+              value: "0",
+              icon: FileText,
+              color: "#2B4385",
+              bgColor: "rgba(43, 67, 133, 0.1)",
+            },
+            {
+              title: "Total Users",
+              value: "0",
+              icon: Users,
+              color: "#2E8B57",
+              bgColor: "rgba(46, 139, 87, 0.1)",
+            },
+            {
+              title: "Total Downloads",
+              value: "0",
+              icon: Download,
+              color: "#C04E3A",
+              bgColor: "rgba(192, 78, 58, 0.1)",
+            },
+            {
+              title: "Total Views",
+              value: "0",
+              icon: Eye,
+              color: "#2B4385",
+              bgColor: "rgba(43, 67, 133, 0.1)",
+            },
+          ]);
+          setLoading(false);
           return;
         }
 

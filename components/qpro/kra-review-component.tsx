@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle,
-  BarChart3,
+  FileText,
+  FolderOpen,
 } from 'lucide-react';
 
 export interface KRAClassification {
@@ -13,6 +14,7 @@ export interface KRAClassification {
   count: number;
   achievementRate: number;
   strategicAlignment?: string;
+  kpiName?: string; // Optional: KPI name for display
 }
 
 interface KRAReviewProps {
@@ -46,19 +48,15 @@ function getKRATitle(kraId: string, fallbackTitle?: string): string {
   return KRA_TITLES[kraId] || fallbackTitle || kraId;
 }
 
+/**
+ * KRA Classification Review Component
+ * 
+ * PURPOSE: Document Inventory / Verification List
+ * Shows WHAT was captured by the AI, not performance metrics.
+ * 
+ * For performance metrics, see the KPI-Level Breakdown (Yellow Card).
+ */
 export default function KRAReviewComponent({ classifications, isApproved = false }: KRAReviewProps) {
-
-  const getAchievementColor = (rate: number) => {
-    if (rate >= 80) return 'text-green-600';
-    if (rate >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getAchievementBg = (rate: number) => {
-    if (rate >= 80) return 'bg-green-50';
-    if (rate >= 60) return 'bg-yellow-50';
-    return 'bg-red-50';
-  };
 
   // Map KRA ID to readable title
   const mappedClassifications = classifications.map(kra => ({
@@ -66,67 +64,69 @@ export default function KRAReviewComponent({ classifications, isApproved = false
     title: getKRATitle(kra.id, kra.title)
   }));
 
+  // Calculate total records found
+  const totalRecords = mappedClassifications.reduce((sum, kra) => sum + kra.count, 0);
+
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border rounded-lg bg-white">
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FolderOpen className="w-5 h-5 text-slate-600" />
             KRA Classification Review
           </CardTitle>
-          {isApproved && (
-            <Badge variant="outline" className="text-green-600 border-green-600">
-              <CheckCircle className="w-3 h-3 mr-1" />
-              Verified
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {totalRecords > 0 && (
+              <Badge variant="secondary" className="text-slate-600">
+                {totalRecords} Total Records
+              </Badge>
+            )}
+            {isApproved && (
+              <Badge variant="outline" className="text-green-600 border-green-600">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Verified
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {mappedClassifications.map((kra) => (
-          <div
-            key={kra.id}
-            className={`p-4 rounded-lg border transition-all ${getAchievementBg(kra.achievementRate)} border-slate-200`}
-          >
-            <div className="flex items-start justify-between gap-3 mb-2">
-              <div className="flex-1">
-                <h4 className="font-medium text-slate-900">{kra.title}</h4>
-                <p className="text-sm text-slate-600 mt-1">
-                  {kra.count} activities recorded
-                </p>
-              </div>
-              <span className={`text-lg font-bold ${getAchievementColor(kra.achievementRate)}`}>
-                {kra.achievementRate}%
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-600">
-                  Achievement Rate
-                </span>
-                <span
-                  className={`text-sm font-bold ${getAchievementColor(kra.achievementRate)}`}
-                >
-                  {kra.achievementRate}%
-                </span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full transition-all ${
-                    kra.achievementRate >= 80
-                      ? 'bg-green-600'
-                      : kra.achievementRate >= 60
-                        ? 'bg-yellow-600'
-                        : 'bg-red-600'
-                  }`}
-                  style={{ width: `${kra.achievementRate}%` }}
-                />
-              </div>
-            </div>
-
+      <CardContent className="space-y-2">
+        {mappedClassifications.length === 0 ? (
+          <div className="text-center py-6 text-slate-500">
+            <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No KRA classifications found</p>
           </div>
-        ))}
+        ) : (
+          mappedClassifications.map((kra) => (
+            <div
+              key={kra.id}
+              className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors"
+            >
+              {/* Left: KRA Name */}
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-slate-600" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-medium text-sm text-slate-800">{kra.title}</span>
+                  {kra.kpiName && (
+                    <span className="text-xs text-slate-500">{kra.kpiName}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: Data Inventory Count */}
+              <div className="text-right">
+                <span className="block text-lg font-bold text-slate-900">
+                  {kra.count}
+                </span>
+                <span className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider">
+                  {kra.count === 1 ? 'Record Found' : 'Records Found'}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </CardContent>
     </Card>
   );

@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
         fileName: fileName,
         fileType: file.type,
         fileSize: file.size,
+        blobName: blobName, // Store the blob path for file operations
         unitId: unitId || user.unitId || null,
       }
     });

@@ -127,6 +127,7 @@ class DocumentService {
           ...doc,
           tags: Array.isArray(doc.tags) ? doc.tags as string[] : (typeof doc.tags === 'object' && doc.tags !== null ? Object.values(doc.tags) : []),
           unitId: doc.unitId ?? undefined,
+          blobName: doc.blobName ?? undefined, // Azure Blob Storage blob name (UUID.ext)
           versionNotes: doc.versionNotes ?? undefined,
           downloadsCount: doc.downloadsCount ?? 0,
           viewsCount: doc.viewsCount ?? 0,
@@ -204,6 +205,7 @@ class DocumentService {
         year: document.year ?? undefined,
         quarter: document.quarter ?? undefined,
         unitId: document.unitId || undefined, // Convert null to undefined
+        blobName: document.blobName ?? undefined, // Azure Blob Storage blob name (UUID.ext)
         versionNotes: document.versionNotes || undefined, // Convert null to undefined
         downloadsCount: document.downloadsCount || 0, // Convert null to 0
         viewsCount: document.viewsCount || 0, // Convert null to 0
@@ -1208,6 +1210,7 @@ class DocumentService {
         uploadedById: dbDocument.uploadedById,
         uploadedAt: new Date(dbDocument.uploadedAt),
         fileUrl: dbDocument.fileUrl,
+        blobName: dbDocument.blobName ?? undefined, // Azure Blob Storage blob name (UUID.ext)
         fileName: dbDocument.fileName,
         fileType: dbDocument.fileType,
         fileSize: dbDocument.fileSize,

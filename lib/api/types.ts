@@ -10,6 +10,7 @@ export interface Document {
   uploadedById: string;
   uploadedAt: Date;
   fileUrl: string;
+  blobName?: string; // Azure Blob Storage blob name (UUID.ext)
   fileName: string;
   fileType: string;
   fileSize: number;

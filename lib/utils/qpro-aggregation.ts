@@ -205,7 +205,17 @@ export function computeAggregatedAchievement(args: {
 
   // Financial and counts: additive
   if (normalizedType === 'financial' || normalizedType === 'count') {
-    const sumReported = sumNumbers(activities.map((a) => toNumberOrNull(a.reported)));
+    // For COUNT types, if reported values are all 0/null/undefined, 
+    // assume each activity represents 1 item (e.g., 1 research output)
+    const reportedValues = activities.map((a) => toNumberOrNull(a.reported));
+    let sumReported = sumNumbers(reportedValues);
+    
+    // If sum is 0 but we have activities, count each activity as 1 item
+    // This handles cases where activities don't have explicit reported values
+    if (sumReported === 0 && activities.length > 0 && normalizedType === 'count') {
+      sumReported = activities.length;
+    }
+    
     const achievementPercent = effectiveTarget > 0 ? (sumReported / effectiveTarget) * 100 : 0;
     return { totalReported: sumReported, totalTarget: effectiveTarget, achievementPercent };
   }
@@ -222,8 +232,15 @@ export function computeAggregatedAchievement(args: {
     return { totalReported: anyReported ? 1 : 0, totalTarget: 1, achievementPercent };
   }
 
-  // Default: treat as additive numeric
-  const sumReported = sumNumbers(activities.map((a) => toNumberOrNull(a.reported)));
+  // Default: treat as additive numeric (count-like behavior)
+  const reportedValues = activities.map((a) => toNumberOrNull(a.reported));
+  let sumReported = sumNumbers(reportedValues);
+  
+  // If sum is 0 but we have activities, count each activity as 1 item
+  if (sumReported === 0 && activities.length > 0) {
+    sumReported = activities.length;
+  }
+  
   const achievementPercent = effectiveTarget > 0 ? (sumReported / effectiveTarget) * 100 : 0;
   return { totalReported: sumReported, totalTarget: effectiveTarget, achievementPercent };
 }

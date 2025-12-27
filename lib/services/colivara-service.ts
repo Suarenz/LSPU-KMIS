@@ -430,6 +430,8 @@ class ColivaraService {
       }
       const processingTime = Date.now() - startTime;
 
+      console.log('[Colivara Search] Raw response structure:', JSON.stringify(response.results[0], null, 2).substring(0, 500));
+
       // Format results to match our expected structure
       const results: SearchResult[] = response.results.map((item: any) => {
         // Extract the original document ID from multiple possible locations
@@ -450,28 +452,54 @@ class ColivaraService {
         
         // If still not found, try to extract from the document name (which contains the document ID)
         if (!originalDocumentId && item.document?.document_name) {
-          // Extract document ID from document_name which is in format "docId_originalName.ext"
+          // Extract document ID from document_name which is in format "docId_blobId_filename.ext"
+          // We need to extract just the first part (before the first underscore)
           const nameParts = item.document.document_name.split('_');
-          if (nameParts.length >= 1) {
-            originalDocumentId = nameParts[0];
+          if (nameParts.length >= 1 && nameParts[0]) {
+            // Validate it's a proper CUID format (alphanumeric, 20-30 chars)
+            const potentialId = nameParts[0];
+            if (/^[a-z0-9]+$/i.test(potentialId) && potentialId.length >= 20 && potentialId.length <= 30) {
+              originalDocumentId = potentialId;
+            } else {
+              console.warn(`[Colivara] Invalid document ID extracted from name: ${potentialId}`);
+            }
           }
         }
                                   
-        // Extract score - prioritize similarity/prob over confidence since those are more likely to be the actual relevance scores
-        const score = item.score || item.similarity || item.prob || item.confidence || 0;
+        // Extract score - prioritize raw_score/normalized_score from Colivara API
+        const score = item.normalized_score || item.raw_score || item.score || item.similarity || item.prob || item.confidence || 0;
+        
+        // Extract content from various possible fields in Colivara response
+        // Colivara is a multimodal search that returns page images (img_base64), not extracted text
+        // The text content needs to be extracted from the images by the LLM
+        const extractedContent = item.chunk || item.content || item.text || item.page_content || 
+                                 item.metadata?.content || item.metadata?.text || 
+                                 item.document?.content || item.document?.text || '';
+        
+        // Extract page image (this is what Colivara actually returns for visual search)
+        const pageImage = item.img_base64 || item.image || item.image_data || item.base64_image;
+        
+        // Log what we found for debugging
+        if (!extractedContent || extractedContent.trim().length === 0) {
+          console.log('[Colivara Search] Document uses visual content (page images):', originalDocumentId, {
+            hasPageImage: !!pageImage,
+            pageNumber: item.page_number,
+            score: score
+          });
+        }
                                   
         return {
           documentId: originalDocumentId,
-          title: item.metadata?.title || item.title || item.metadata?.originalName || item.name || 'Untitled Document',
-          content: item.content || item.text || item.metadata?.content || '',
+          title: item.metadata?.title || item.title || item.metadata?.originalName || item.name || item.document_metadata?.title || 'Untitled Document',
+          content: extractedContent || (pageImage ? 'Visual content available - text will be extracted by AI' : ''),
           score: score,
-          pageNumbers: item.page_numbers || item.pageNumbers || item.pages || [item.document?.page_number] || [],
+          pageNumbers: [item.page_number].filter(Boolean) || item.page_numbers || item.pageNumbers || item.pages || [],
           documentSection: item.section || item.documentSection || item.metadata?.section || '',
           confidenceScore: score, // Use the same score value for consistency
-          snippet: item.snippet || item.content?.substring(0, 200) + '...' || item.text?.substring(0, 200) + '...' || item.metadata?.content?.substring(0, 200) + '...' || '',
+          snippet: extractedContent ? extractedContent.substring(0, 300) : (pageImage ? 'Visual content - AI will extract text from page image' : ''),
           document: item.document || item.metadata?.document || item || {} as Document,
-          visualContent: item.visualContent || item.image || item.image_data || undefined,
-          extractedText: item.extractedText || item.text || item.content || undefined,
+          visualContent: pageImage, // This is the actual page image from Colivara
+          extractedText: extractedContent, // Text if available
         };
       });
 
@@ -609,7 +637,10 @@ class ColivaraService {
 
   async indexDocument(documentId: string, base64Content?: string): Promise<boolean> {
     try {
+      console.log(`[Colivara] indexDocument called for ${documentId}, base64Content provided: ${!!base64Content}`);
+      
       if (!this.isInitialized) {
+        console.log(`[Colivara] Initializing Colivara service...`);
         await this.initialize();
       }
 
@@ -626,12 +657,16 @@ class ColivaraService {
         throw new ColivaraProcessingError(`Document not found: ${documentId}`, documentId);
       }
 
+      console.log(`[Colivara] Document found: ${document.title}, fileType: ${document.fileType}, fileSize: ${document.fileSize}`);
+
       // Update document status to PROCESSING using raw SQL
       await prisma.$executeRaw`
         UPDATE documents
         SET "colivaraProcessingStatus" = 'PROCESSING'
         WHERE id = ${documentId}
       `;
+
+      console.log(`[Colivara] Updated document status to PROCESSING`);
 
       // Upload document to Colivara for processing
       const colivaraDocId = await this.uploadDocument(
@@ -649,14 +684,17 @@ class ColivaraService {
         base64Content // Pass the base64 content if provided
       );
 
-      console.log('Upload result from upsertDocument:', { colivaraDocId, documentId });
+      console.log(`[Colivara] Document uploaded to Colivara with ID: ${colivaraDocId}`);
+
+      console.log('[Colivara] Upload result from upsertDocument:', { colivaraDocId, documentId });
 
       // Start background processing without blocking
+      console.log(`[Colivara] Starting background processing for document ${documentId}`);
       this.waitForProcessingAndComplete(documentId, colivaraDocId);
       
       return true;
     } catch (error) {
-      console.error(`Failed to index document ${documentId}:`, error);
+      console.error(`[Colivara] Failed to index document ${documentId}:`, error);
       
       // Update document status to FAILED using raw SQL
       await prisma.$executeRaw`
@@ -671,10 +709,14 @@ class ColivaraService {
 
   private async waitForProcessingAndComplete(documentId: string, colivaraDocId: string): Promise<void> {
     try {
+      console.log(`[Colivara] Waiting for processing to complete for document ${documentId} (${colivaraDocId})`);
+      
       // Wait for processing to complete
       const completed = await this.waitForProcessing(colivaraDocId, this.config.processingTimeout);
 
       if (completed) {
+        console.log(`[Colivara] Processing completed for document ${documentId}`);
+        
         // Update document with Colivara results using raw SQL
         await prisma.$executeRaw`
           UPDATE documents
@@ -684,9 +726,13 @@ class ColivaraService {
           WHERE id = ${documentId}
         `;
 
+        console.log(`[Colivara] Updated document ${documentId} status to COMPLETED`);
+
         // Extract and store the processed content in ColivaraIndex
         await this.storeProcessedContent(documentId, colivaraDocId);
       } else {
+        console.error(`[Colivara] Processing failed or timed out for document ${documentId}`);
+        
         // Handle timeout or failure
         await prisma.$executeRaw`
           UPDATE documents
@@ -695,7 +741,7 @@ class ColivaraService {
         `;
       }
     } catch (error) {
-      console.error(`Error completing processing for document ${documentId}:`, error);
+      console.error(`[Colivara] Error completing processing for document ${documentId}:`, error);
       
       // Update document status to FAILED using raw SQL
       await prisma.$executeRaw`
@@ -831,17 +877,45 @@ class ColivaraService {
     // This method processes a newly uploaded document
     // It will be called after a document is successfully uploaded to the system
     // Processing happens in the background without blocking the upload response
-    this.processNewDocumentAsync(document, fileUrl, base64Content);
+    console.log(`[Colivara] Processing new document: ${document.id} (${document.title})`);
+    console.log(`[Colivara] Has base64Content: ${!!base64Content}, Length: ${base64Content?.length || 0}`);
+    console.log(`[Colivara] File URL: ${fileUrl}`);
+    this.processNewDocumentAsync(document, fileUrl, base64Content).catch((error) => {
+      console.error(`[Colivara] Failed to process document ${document.id}:`, error);
+    });
   }
 
   private async processNewDocumentAsync(document: Document, fileUrl: string, base64Content?: string): Promise<void> {
     try {
+      console.log(`[Colivara] Starting async processing for document ${document.id}`);
+      
+      if (!base64Content) {
+        console.warn(`[Colivara] No base64Content provided for document ${document.id}, skipping Colivara indexing`);
+        return;
+      }
+
       // The document should already be in the database with PENDING status
       // We just need to trigger the Colivara processing
-      // Processing happens in the background without waiting for completion
-      this.indexDocument(document.id, base64Content);
+      // Wait for indexing to complete so we can catch and log errors
+      const success = await this.indexDocument(document.id, base64Content);
+      
+      if (success) {
+        console.log(`[Colivara] Successfully indexed document ${document.id}`);
+      } else {
+        console.error(`[Colivara] Failed to index document ${document.id} - indexDocument returned false`);
+      }
     } catch (error) {
-      console.error(`Error starting processing for new document ${document.id}:`, error);
+      console.error(`[Colivara] Error processing new document ${document.id}:`, error);
+      // Update status to FAILED so we know it didn't work
+      try {
+        await prisma.$executeRaw`
+          UPDATE documents
+          SET "colivaraProcessingStatus" = 'FAILED'
+          WHERE id = ${document.id}
+        `;
+      } catch (dbError) {
+        console.error(`[Colivara] Failed to update document status for ${document.id}:`, dbError);
+      }
     }
  }
 

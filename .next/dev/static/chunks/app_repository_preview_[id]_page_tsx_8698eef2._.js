@@ -6,7 +6,7 @@
   "static/chunks/node_modules_react-doc-viewer_build_c0ad3a54._.js",
   "static/chunks/b5d8d_pdfjs-dist_build_pdf_mjs_6271cdc3._.js",
   "static/chunks/node_modules_react-pdf_dist_esm_31b8cc03._.js",
-  "static/chunks/node_modules_6b1e4168._.js"
+  "static/chunks/node_modules_4f7a088e._.js"
 ],
     source: "dynamic"
 });

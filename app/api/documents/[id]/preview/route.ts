@@ -64,8 +64,13 @@ export async function GET(
     }
 
     // For Azure Storage, we need to generate a signed URL for secure access
-    // First, extract the filename from the stored URL
-    const fileName = document.fileUrl.split('/').pop();
+    // Use blobName if available (stored for QPRO and repository uploads), otherwise extract from URL
+    let fileName = document.blobName;
+    if (!fileName) {
+      // Fallback: extract the filename from the stored URL (remove query params first)
+      const urlWithoutParams = document.fileUrl.split('?')[0];
+      fileName = urlWithoutParams.split('/').pop();
+    }
     if (!fileName) {
       return NextResponse.json(
         { error: 'Invalid file URL' },
@@ -73,9 +78,21 @@ export async function GET(
       );
     }
     
+    // Determine the correct container based on document type
+    const containerName = document.isQproDocument || document.category === 'QPRO' 
+      ? 'qpro-files' 
+      : 'repository-files';
+    
     try {
-      // Use the file storage service to get the signed URL
-      const previewUrl = await fileStorageService.getFileUrl(fileName);
+      console.log('Getting file URL for:', {
+        fileName,
+        containerName
+      });
+      
+      // Use the file storage service to get the signed URL with correct container
+      const previewUrl = await fileStorageService.getFileUrl(fileName, containerName);
+      
+      console.log('Preview URL generated successfully');
       
       // Return document info with direct Azure Storage URL
       return NextResponse.json({
@@ -93,9 +110,20 @@ export async function GET(
         views: document.viewsCount,
       });
     } catch (error) {
-      console.error('Error getting file URL:', error);
+      console.error('❌ Error getting file URL:', error);
+      console.error('Error details:', {
+        fileName,
+        containerName,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
+      
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate preview URL';
       return NextResponse.json(
-        { error: 'Failed to generate preview URL' },
+        { 
+          error: 'Failed to generate preview URL',
+          details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+        },
         { status: 500 }
       );
     }

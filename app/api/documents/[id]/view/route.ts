@@ -51,16 +51,13 @@ export async function GET(
     // Record the view
     await documentService.recordView(document.id, userId);
 
-    // Get the blob name (UUID filename) or fallback to extracting from URL
-    let fileName: string;
-    const docWithBlob = document as any; // Type assertion to access Prisma fields
+    // Use blobName if available (stored for QPRO and repository uploads), otherwise extract from URL
+    let fileName: string | undefined = document.blobName;
     
-    if (docWithBlob.blobName) {
-      fileName = docWithBlob.blobName;
-      console.log('[View] Using blobName:', fileName);
-    } else {
+    if (!fileName) {
       // Fallback for older documents without blobName
-      const extractedName = document.fileUrl.split('/').pop();
+      const urlWithoutParams = document.fileUrl.split('?')[0];
+      const extractedName = urlWithoutParams.split('/').pop();
       if (!extractedName) {
         console.error('[View] No blobName and could not extract filename from URL:', document.fileUrl);
         return NextResponse.json(
@@ -70,11 +67,18 @@ export async function GET(
       }
       fileName = extractedName;
       console.log('[View] Using extracted filename:', fileName);
+    } else {
+      console.log('[View] Using blobName:', fileName);
     }
 
     try {
+      // Determine the correct container based on document type
+      const containerName = document.isQproDocument || document.category === 'QPRO' 
+        ? 'qpro-files' 
+        : 'repository-files';
+      
       // Get the file from Azure Blob Storage
-      const fileUrl = await fileStorageService.getFileUrl(fileName, 'repository-files');
+      const fileUrl = await fileStorageService.getFileUrl(fileName, containerName);
       console.log('[View] Generated SAS URL for file:', fileName);
       
       // Fetch the file from Azure
@@ -125,8 +129,7 @@ export async function GET(
         stack: error instanceof Error ? error.stack : undefined,
         fileName,
         documentId: document.id,
-        fileUrl: document.fileUrl,
-        blobName: docWithBlob.blobName
+        fileUrl: document.fileUrl
       });
       return NextResponse.json(
         { 

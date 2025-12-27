@@ -21,12 +21,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    console.log('[Approve API] POST request received');
+    
     // Authenticate user
     const authResult = await requireAuth(request);
     if ('status' in authResult) return authResult;
 
     const { user } = authResult;
     const { id: analysisId } = await params;
+    
+    console.log(`[Approve API] Approving analysis ${analysisId} by user ${user.email} (${user.role})`);
 
     // Check permissions - only ADMIN and FACULTY can approve
     if (!['ADMIN', 'FACULTY'].includes(user.role)) {
@@ -149,14 +153,36 @@ export async function POST(
       });
 
       // 2. Process each unique KRA+initiative pair and update aggregation
+      console.log(`[Approve API] Processing ${kraInitiativePairs.size} unique KRA+Initiative pairs`);
+      
       for (const [, pair] of kraInitiativePairs) {
         const { kraId, initiativeId } = pair;
 
         const normalizedKraId = normalizeKraId(kraId);
+        
+        console.log(`[Approve API] Processing pair: KRA=${kraId} (normalized: ${normalizedKraId}), Initiative=${initiativeId}`);
 
-        // Get target metadata from strategic plan
+        // Phase 3: Query KPITarget table for target_type (database-backed targets)
+        // Fall back to strategic plan if no database target exists
+        const reportYear = analysis.year || 2025;
+        const reportQuarter = analysis.quarter || 1;
+        
+        const dbTarget = await tx.kPITarget.findFirst({
+          where: {
+            kra_id: normalizedKraId,
+            initiative_id: initiativeId,
+            year: reportYear,
+            quarter: reportQuarter
+          }
+        });
+
+        // Get target metadata from strategic plan (fallback)
         const target = await strategicPlanService.getInitiative(normalizedKraId, initiativeId);
-        const targetType = (target?.targets?.type || 'count').toLowerCase();
+        
+        // Use database target_type if available, otherwise fall back to strategic plan
+        const targetType = dbTarget 
+          ? dbTarget.target_type.toLowerCase() 
+          : (target?.targets?.type || 'count').toLowerCase();
 
         // Calculate reported value for this initiative from STAGED aggregation activities (source of truth)
         const stagedForInitiative = stagedActivities.filter(
@@ -182,9 +208,6 @@ export async function POST(
           return numericReportedValues.reduce((sum, v) => sum + v, 0);
         })();
 
-        const reportYear = analysis.year || 2025;
-        const reportQuarter = analysis.quarter || 1;
-
         const existingAggregation = await tx.kRAggregation.findUnique({
           where: {
             unique_aggregation: {
@@ -208,26 +231,42 @@ export async function POST(
         })();
 
         const newTotalReported = (() => {
-          // For percentage KPIs, aggregate as an average across submissions for the quarter.
-          if (targetType === 'percentage') {
-            if (previousCount > 0) {
-              return Math.round(((previousTotal * previousCount) + reportedDelta) / (previousCount + 1));
-            }
-            return reportedDelta;
+          // Phase 3: Updated aggregation logic for new target types
+          
+          // SNAPSHOT: Latest value only (faculty count, student population)
+          // Don't sum - just take the most recent value
+          if (targetType === 'snapshot') {
+            return reportedDelta; // Always use latest value, ignore previous
           }
 
-          // For count/financial (and other numeric) KPIs, aggregate as a sum.
+          // For ALL other types (COUNT, RATE, PERCENTAGE, FINANCIAL):
+          // Store the cumulative SUM of all contributions
+          // The kpi-progress API will calculate average for rate/percentage when displaying
           return previousTotal + reportedDelta;
         })();
 
-        const targetValue =
-          target?.targets?.timeline_data?.find((t: any) => t.year === reportYear)?.target_value || 1;
+        const targetValue = dbTarget
+          ? dbTarget.target_value.toNumber() // Use database target if available
+          : (target?.targets?.timeline_data?.find((t: any) => t.year === reportYear)?.target_value || 1);
+
+        // For RATE/PERCENTAGE types, calculate the AVERAGE to pass to aggregation calculation
+        // This is because calculatePercentageAggregation expects a value 0-100, not cumulative sum
+        const newSubmissionCount = (existingAggregation?.submission_count ?? 0) + 1;
+        const valueForCalculation = (() => {
+          const type = targetType.toLowerCase();
+          if (type === 'rate' || type === 'percentage') {
+            // Pass average value for rate/percentage types
+            return newTotalReported / newSubmissionCount;
+          }
+          // For all other types, pass the cumulative value
+          return newTotalReported;
+        })();
 
         const metrics = await targetAggregationService.calculateAggregation(
           normalizedKraId,
           initiativeId,
           reportYear,
-          newTotalReported,
+          valueForCalculation,
           targetType
         );
 
@@ -249,6 +288,7 @@ export async function POST(
                 initiative_id: initiativeId,
                 total_reported: newTotalReported,
                 target_value: targetValue,
+                target_type: targetType.toUpperCase() as any, // Store the target type
                 achievement_percent: metrics.achievementPercent,
                 submission_count: 1,
                 participating_units: participatingUnits,
@@ -263,6 +303,7 @@ export async function POST(
             data: {
               total_reported: newTotalReported,
               submission_count: { increment: 1 },
+              target_type: targetType.toUpperCase() as any, // Update target type in case it changed
               achievement_percent: metrics.achievementPercent,
               status: metrics.status as any,
               last_updated: new Date(),
@@ -287,7 +328,24 @@ export async function POST(
 
         // 4. Create KPIContribution record to track this document's contribution
         // This enables accurate deduction when a document is deleted (solving "memory loss")
-        await tx.kPIContribution.upsert({
+        
+        // DEFENSIVE VALIDATION: Ensure target_type is always set and valid
+        // This prevents the aggregation bug where target_type wasn't being read correctly
+        if (!targetType || typeof targetType !== 'string') {
+          console.error(`[Approve API] ⚠️  CRITICAL: Invalid target_type for ${initiativeId}. Got: ${targetType} (type: ${typeof targetType})`);
+          throw new Error(`Invalid target_type for ${initiativeId}: expected string, got ${typeof targetType}`);
+        }
+        
+        const normalizedTargetType = targetType.toLowerCase().trim();
+        const validTypes = ['count', 'snapshot', 'rate', 'percentage', 'milestone', 'boolean', 'financial', 'text_condition'];
+        
+        if (!validTypes.includes(normalizedTargetType)) {
+          console.warn(`[Approve API] ⚠️  Unusual target_type "${normalizedTargetType}" for ${initiativeId}, defaulting to "count"`);
+        }
+        
+        console.log(`[Approve API] ✓ Validated target_type for ${initiativeId}: "${normalizedTargetType}" (source: ${dbTarget ? 'database' : 'strategic plan'})`);
+        
+        const contribution = await tx.kPIContribution.upsert({
           where: {
             unique_contribution_per_analysis_kpi: {
               analysis_id: analysisId,
@@ -303,14 +361,16 @@ export async function POST(
             value: reportedDelta,
             year: reportYear,
             quarter: reportQuarter,
-            target_type: targetType,
+            target_type: normalizedTargetType,
             created_by: user.id,
           },
           update: {
             value: reportedDelta,
-            target_type: targetType,
+            target_type: normalizedTargetType,
           },
         });
+        
+        console.log(`[Approve API] ✓ Created/Updated KPIContribution: analysis=${analysisId}, unit=${analysis.unitId}, kpi=${initiativeId}, Q${reportQuarter} ${reportYear}, value=${reportedDelta}, target_type="${normalizedTargetType}", id=${contribution.id}`);
       }
     });
 

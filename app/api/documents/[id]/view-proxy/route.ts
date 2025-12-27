@@ -56,11 +56,17 @@ export async function GET(
       title: document.title,
       fileName: document.fileName,
       fileType: document.fileType,
-      fileUrl: document.fileUrl
+      fileUrl: document.fileUrl,
+      blobName: document.blobName
     });
 
-    // Extract filename from URL
-    const fileName = document.fileUrl.split('/').pop();
+    // Use blobName if available (stored for QPRO and repository uploads), otherwise extract from URL
+    let fileName = document.blobName;
+    if (!fileName) {
+      // Fallback: extract filename from URL (remove query params first)
+      const urlWithoutParams = document.fileUrl.split('?')[0];
+      fileName = urlWithoutParams.split('/').pop();
+    }
     if (!fileName) {
       console.error('[View-Proxy] Invalid file URL:', document.fileUrl);
       return NextResponse.json(
@@ -69,7 +75,7 @@ export async function GET(
       );
     }
 
-    console.log('[View-Proxy] Extracted fileName:', fileName);
+    console.log('[View-Proxy] Using fileName:', fileName);
 
     // Get signed URL
     const signedUrl = await fileStorageService.getFileUrl(fileName);

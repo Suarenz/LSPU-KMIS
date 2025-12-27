@@ -15,6 +15,8 @@ interface Source {
   title: string;
   documentId: string;
   confidence: number;
+  isQproDocument?: boolean;
+  qproAnalysisId?: string;
 }
 
 // Helper function to generate consistent cache keys
@@ -31,7 +33,14 @@ function generateCacheKey(query: string, unitId?: string, category?: string, fil
   ].join('|')).replace(/[^a-zA-Z0-9]/g, '_');
 }
 
-const qwenService = new QwenGenerationService({ model: process.env.QWEN_MODEL || 'qwen/qwen-2.5-vl-72b-instruct' });
+// Lazy initialization to avoid build-time errors when env vars are missing
+let qwenService: QwenGenerationService | null = null;
+function getQwenService() {
+  if (!qwenService && process.env.QWEN_API_KEY) {
+    qwenService = new QwenGenerationService({ model: process.env.QWEN_MODEL || 'qwen/qwen-2.5-vl-72b-instruct' });
+  }
+  return qwenService;
+}
 
 const colivaraService = new ColivaraService();
 
@@ -106,12 +115,26 @@ async function mapColivaraResultsToDocuments(colivaraResults: any[]) {
   const allIds = colivaraResults
     .map((result: any) => {
       // Try multiple possible locations for the document ID
-      return result.documentId ||
+      let extractedId = result.documentId ||
              result.id ||
              (result.document && result.document.id) ||
              (result.metadata && result.metadata.documentId) || // Check in metadata for the original document ID
              (result.document && result.document.metadata && result.document.metadata.documentId) || // Nested check
              undefined;
+      
+      // If ID contains underscores, it might be the compound format "docId_blobId_filename"
+      // Extract just the document ID (first part before underscore)
+      if (extractedId && typeof extractedId === 'string' && extractedId.includes('_')) {
+        const parts = extractedId.split('_');
+        const firstPart = parts[0];
+        // Validate it's a proper CUID format (alphanumeric, 20-30 chars)
+        if (/^[a-z0-9]+$/i.test(firstPart) && firstPart.length >= 20 && firstPart.length <= 30) {
+          console.log(`[Search] Extracted document ID from compound: ${firstPart} (was: ${extractedId})`);
+          extractedId = firstPart;
+        }
+      }
+      
+      return extractedId;
     });
   
   // Log problematic IDs for debugging
@@ -149,6 +172,10 @@ async function mapColivaraResultsToDocuments(colivaraResults: any[]) {
       include: {
         uploadedByUser: true,
         documentUnit: true,
+        qproAnalyses: {
+          select: { id: true },
+          take: 1,
+        },
       }
     });
     
@@ -217,14 +244,19 @@ async function mapColivaraResultsToDocuments(colivaraResults: any[]) {
           })(),
           // For snippet, try Colivara result first, then fallback to database description
           snippet: (() => {
-            // Robust Text Fallback - check if content exists and is a string with length
-            const rawContent = result.content || result.text || result.extractedText || dbDoc.description || '';
-            const hasRealText = typeof rawContent === 'string' && rawContent.trim().length > 0;
+            // Try to get actual extracted text from Colivara result
+            const extractedText = result.extractedText || result.content || result.text;
+            const hasRealText = typeof extractedText === 'string' && extractedText.trim().length > 10;
             
             if (hasRealText) {
-              return rawContent.substring(0, 200) + '...';
+              // Return meaningful content, not just the title
+              const cleanText = extractedText.trim();
+              return cleanText.substring(0, 300) + (cleanText.length > 300 ? '...' : '');
+            } else if (dbDoc.description && dbDoc.description.trim().length > 10) {
+              // Use database description if available and not too short
+              return dbDoc.description.substring(0, 300) + (dbDoc.description.length > 300 ? '...' : '');
             } else {
-              return dbDoc.description || 'Visual Document (Chart/Table/Image)'; // Use database description if available
+              return 'Document matched your search query. Click to view full content.'; // Improved message for visual-only content
             }
           })(),
           // Add search-specific fields
@@ -240,6 +272,13 @@ async function mapColivaraResultsToDocuments(colivaraResults: any[]) {
           })(),
           visualContent: result.visualContent, // Add visual content if available
           extractedText: result.extractedText, // Add extracted text if available
+          // QPRO document information
+          isQproDocument: dbDoc.isQproDocument || false,
+          qproAnalysisId: dbDoc.qproAnalyses && dbDoc.qproAnalyses.length > 0 ? dbDoc.qproAnalyses[0].id : undefined,
+          // Document URL for preview - handle QPRO documents differently
+          documentUrl: dbDoc.isQproDocument && dbDoc.qproAnalyses && dbDoc.qproAnalyses.length > 0
+            ? `/qpro/analysis/${dbDoc.qproAnalyses[0].id}`
+            : `/repository/preview/${dbDoc.id}`,
         });
       } else {
         // If no database document exists (shouldn't happen after zombie filtering), log a warning
@@ -265,12 +304,21 @@ async function filterZombieDocuments(results: any[]): Promise<any[]> {
  // Extract document IDs from the Colivara results - the ID should come from the metadata of the Colivara document
  const allIds = results.map((result: any) => {
     // Try multiple possible locations for the document ID
-    return result.documentId ||
+    const extractedId = result.documentId ||
            result.id ||
            (result.document && result.document.id) ||
            (result.metadata && result.metadata.documentId) || // Check in metadata for the original document ID
            (result.document && result.document.metadata && result.document.metadata.documentId) || // Nested check
            undefined;
+    
+    // Log what we extracted for debugging
+    if (extractedId && extractedId.includes('_')) {
+      console.warn(`⚠️ Invalid document ID extracted (contains underscore): ${extractedId}`);
+      console.warn('   Metadata:', result.metadata);
+      console.warn('   Document:', result.document?.document_name);
+    }
+    
+    return extractedId;
   });
   
   // Log problematic IDs for debugging
@@ -328,31 +376,29 @@ async function filterZombieDocuments(results: any[]): Promise<any[]> {
 
 // Function to enhance results with visual content for multimodal processing
 async function enhanceResultsWithVisualContent(results: any[], query: string, userId: string): Promise<any[]> {
-  // For each result, try to add visual content if it's missing but available from Colivara
+  // For each result, ensure visual content from Colivara is formatted as screenshots for the LLM
   const enhancedResults = [];
   
   for (const result of results) {
-    // If the result already has visual content, return as is
-    if (result.screenshots && result.screenshots.length > 0) {
-      enhancedResults.push(result);
-      continue;
-    }
-    
-    // Otherwise, try to fetch visual content from Colivara for this specific document
     try {
-      // Try to get visual content for this document from Colivara if available
-      // This is a simplified approach - in reality, you'd need to call Colivara to get the visual content
       const enhancedResult = { ...result };
       
-      // Add any missing visual content fields that might be needed for multimodal processing
-      if (!enhancedResult.screenshots) {
+      // Convert visualContent (img_base64 from Colivara) into screenshots array format for LLM
+      if (result.visualContent && !enhancedResult.screenshots) {
+        // Colivara returns page images as base64 - convert to array format
+        enhancedResult.screenshots = [result.visualContent];
+        console.log(`[Search] Added visual content as screenshot for document ${result.documentId}, page ${result.pageNumbers?.[0] || 1}`);
+      } else if (result.screenshots && result.screenshots.length > 0) {
+        // Already has screenshots
+        console.log(`[Search] Document ${result.documentId} already has ${result.screenshots.length} screenshots`);
+      } else {
+        // No visual content available
         enhancedResult.screenshots = [];
       }
-      if (!enhancedResult.visualContent) {
-        enhancedResult.visualContent = result.visualContent || null;
-      }
+      
+      // Ensure extractedText field exists (even if empty)
       if (!enhancedResult.extractedText) {
-        enhancedResult.extractedText = result.extractedText || '';
+        enhancedResult.extractedText = result.content || result.text || '';
       }
       
       enhancedResults.push(enhancedResult);
@@ -426,7 +472,10 @@ export async function GET(request: NextRequest) {
       // because the generated content might not be cached or might have expired
       if (generateResponse) {
         try {
-          const qwenService = new QwenGenerationService({ model: process.env.QWEN_MODEL || 'qwen/qwen-2.5-vl-72b-instruct' });
+          const service = getQwenService();
+          if (!service) {
+            throw new Error('Qwen service not configured');
+          }
           
           // For comprehensive queries (like "what trainings/seminars did..."), use more results
           const isComprehensiveQuery = query.toLowerCase().includes('list') ||
@@ -448,7 +497,7 @@ export async function GET(request: NextRequest) {
             enhancedCachedResult.results.slice(0, Math.min(6, enhancedCachedResult.results.length)) : // Use up to 6 results for comprehensive queries
             enhancedCachedResult.results.slice(0, 1);  // Use only top result for specific queries
           
-          const qwenResult = await qwenService.generateInsights(
+          const qwenResult = await service.generateInsights(
             query,
             resultsForGeneration,
             userId
@@ -478,6 +527,28 @@ export async function GET(request: NextRequest) {
           return NextResponse.json(responseWithGeneration);
         } catch (generationError) {
           console.error('Qwen generation failed:', generationError);
+          
+          // Provide a fallback response when AI generation fails
+          const errorMessage = generationError instanceof Error ? generationError.message : String(generationError);
+          
+          // Check if it's an OpenRouter configuration error
+          if (errorMessage.includes('data policy') || errorMessage.includes('404') || errorMessage.includes('No endpoints found')) {
+            console.error('⚠️ OpenRouter API configuration issue. Please check: https://openrouter.ai/settings/privacy');
+            
+            // Provide basic fallback response with cached results
+            const fallbackResponse = {
+              ...enhancedCachedResult,
+              generatedResponse: `Found relevant documents for your query. Click on the documents below to view the full content.\n\n**Note:** AI-powered insights are temporarily unavailable due to API configuration.`,
+              generationType: 'fallback',
+              sources: enhancedCachedResult.results.slice(0, Math.min(3, enhancedCachedResult.results.length)).map((result: any) => ({
+                title: result.title || 'Untitled Document',
+                documentId: result.documentId,
+                confidence: result.score || result.confidenceScore || 0.85,
+              })),
+            };
+            return NextResponse.json(fallbackResponse);
+          }
+          
           // Return cached results even if generation fails
           return NextResponse.json(enhancedCachedResult);
         }
@@ -587,22 +658,38 @@ export async function GET(request: NextRequest) {
             .map((mapping: any) => mapping.colivaraDocumentId);
             
           let colivaraToDbMap = new Map(); // Initialize as empty map
+          let qproDocMap = new Map(); // Map to store QPRO document info
           
           if (colivaraIdsToMap.length > 0) {
             try {
               // Query the database to find documents that have these colivaraDocumentIds
+              // Include description for better evidence display
               const dbDocuments = await prisma.document.findMany({
                 where: {
                   colivaraDocumentId: { in: colivaraIdsToMap }
                 },
                 select: {
                   id: true,
-                  colivaraDocumentId: true
+                  colivaraDocumentId: true,
+                  isQproDocument: true,
+                  description: true, // Include description for fallback evidence
+                  title: true, // Include title for better display
+                  qproAnalyses: {
+                    select: { id: true },
+                    take: 1,
+                  },
                 }
               });
               
               // Create a map from Colivara ID to database ID
               colivaraToDbMap = new Map(dbDocuments.map(doc => [doc.colivaraDocumentId, doc.id]));
+              // Create a map for QPRO document info and description
+              qproDocMap = new Map(dbDocuments.map(doc => [doc.id, {
+                isQproDocument: doc.isQproDocument,
+                qproAnalysisId: doc.qproAnalyses && doc.qproAnalyses.length > 0 ? doc.qproAnalyses[0].id : undefined,
+                description: doc.description,
+                title: doc.title,
+              }]));
             } catch (error) {
               console.error('Error querying database for colivara document IDs:', error);
             }
@@ -689,17 +776,40 @@ export async function GET(request: NextRequest) {
                 finalDocumentId = colivaraToDbMap.get(documentId);
               }
               
+              // Get QPRO document info if available
+              const qproInfo = finalDocumentId ? qproDocMap.get(finalDocumentId) : undefined;
+              const isQproDocument = qproInfo?.isQproDocument || false;
+              const qproAnalysisId = qproInfo?.qproAnalysisId;
+              const dbDescription = qproInfo?.description || '';
+              const dbTitle = qproInfo?.title || '';
+              
               // Use the final document ID (database ID) for the URL, fallback to Colivara ID if not found
               const previewDocumentId = finalDocumentId || (isValidDocumentId ? documentId : undefined);
+              
+              // Determine the correct document URL based on whether it's a QPRO document
+              const documentUrl = finalDocumentId
+                ? (isQproDocument && qproAnalysisId
+                    ? `/qpro/analysis/${qproAnalysisId}`
+                    : `/repository/preview/${finalDocumentId}`)
+                : undefined;
               
               return {
                 documentId: isValidDocumentId ? documentId : "",
                 originalDocumentId: finalDocumentId, // Store the database document ID if available
-                title: cleanDocumentTitle(metadata.originalName || metadata.title || docData.document_name || (docData.title && cleanDocumentTitle(docData.title)) || (item.title && cleanDocumentTitle(item.title)) || "Untitled"),
-                content: txt || "Visual content only", // Required field for SearchResult
+                title: cleanDocumentTitle(metadata.originalName || metadata.title || dbTitle || docData.document_name || (docData.title && cleanDocumentTitle(docData.title)) || (item.title && cleanDocumentTitle(item.title)) || "Untitled"),
+                content: txt || dbDescription || "Visual content only", // Required field for SearchResult
                 
-                // UI Snippet: Show what we actually found
-                snippet: txt ? txt.substring(0, 150) + "..." : "Visual Document (Table/Chart/Scan)",
+                // UI Snippet: Show what we actually found - enhanced for better evidence display
+                // Use extracted text first, then database description, then a helpful message
+                snippet: (() => {
+                  if (txt && txt.trim().length > 20) {
+                    return txt.substring(0, 300) + (txt.length > 300 ? "..." : "");
+                  } else if (dbDescription && dbDescription.trim().length > 20) {
+                    return dbDescription.substring(0, 300) + (dbDescription.length > 300 ? "..." : "");
+                  } else {
+                    return "Document matched your search query. Click to view full content.";
+                  }
+                })(),
                 
                 score: score,
                 pageNumbers: [], // Required field for SearchResult
@@ -707,8 +817,11 @@ export async function GET(request: NextRequest) {
                 screenshots: rawImage ? [rawImage] : [],
                 mimeType: mimeType, // Pass the TRUE type
                 extractedText: txt,
-                // Include document URL for redirect functionality - use the database document ID if available
-                documentUrl: finalDocumentId ? `/repository/preview/${finalDocumentId}` : undefined
+                // Include document URL for redirect functionality
+                documentUrl: documentUrl,
+                // QPRO document information
+                isQproDocument: isQproDocument,
+                qproAnalysisId: qproAnalysisId,
               };
             });
 
@@ -747,7 +860,11 @@ export async function GET(request: NextRequest) {
               cleanResults.slice(0, Math.min(6, cleanResults.length)) : // Use up to 6 results for comprehensive queries
               cleanResults.slice(0, 1);  // Use only top result for specific queries
             
-            const qwenResult = await qwenService.generateInsights(
+            const service = getQwenService();
+            if (!service) {
+              throw new Error('Qwen service not configured');
+            }
+            const qwenResult = await service.generateInsights(
               query,
               resultsForGeneration
             );
@@ -755,22 +872,65 @@ export async function GET(request: NextRequest) {
             response.generatedResponse = qwenResult.summary;
             response.generationType = generationType;
             
+            // Check if the AI indicated that the documents don't contain relevant information
+            if (qwenResult.noRelevantDocuments) {
+              console.log(`🔍 No relevant documents found for query: "${query}"`);
+              response.noRelevantDocuments = true;
+              // Provide a user-friendly message
+              response.generatedResponse = `**No relevant documents found for your query.**\n\nThe documents in the system do not contain information about "${query}". Please try:\n- Using different search terms\n- Uploading documents that contain this information\n- Checking if the document has been indexed properly`;
+            }
+            
             // Include all relevant sources for comprehensive queries, otherwise just the top one
-            // Clean the title in the source and ensure we have the database document ID
+            // Clean the title in the source and ensure we have the database document ID and QPRO info
             const cleanedSources = qwenResult.sources && qwenResult.sources.length > 0 ?
-              qwenResult.sources.map(source => {
-                // Try to get the database document ID from the resultsForGeneration
-                const originalResult = resultsForGeneration.find(result =>
-                  result.documentId === source.documentId || result.originalDocumentId === source.documentId
-                );
+              qwenResult.sources.map((source, idx) => {
+                // Try to match by title first (more reliable when Qwen returns title as documentId)
+                let originalResult = resultsForGeneration.find(result => {
+                  const resultTitle = cleanDocumentTitle(result.title || '');
+                  const sourceTitle = cleanDocumentTitle(source.title || '');
+                  const sourceDocId = source.documentId || '';
+                  
+                  return resultTitle === sourceTitle || 
+                         result.documentId === sourceDocId || 
+                         result.originalDocumentId === sourceDocId;
+                });
                 
-                // Use the database document ID if available, otherwise fallback to the source.documentId
-                const databaseDocumentId = originalResult?.originalDocumentId || source.documentId;
+                // If no match found, use the result at the same index
+                if (!originalResult && idx < resultsForGeneration.length) {
+                  originalResult = resultsForGeneration[idx];
+                  console.log(`⚠️ Source matching by index fallback for "${source.title}"`);
+                }
+                
+                // Use the database document ID if available, with proper validation
+                let databaseDocumentId = originalResult?.originalDocumentId || originalResult?.documentId || source.documentId;
+                
+                // Validate that it's actually a valid CUID, not a title
+                const isValidCuid = databaseDocumentId && 
+                                    typeof databaseDocumentId === 'string' && 
+                                    /^[a-z0-9]+$/i.test(databaseDocumentId) && 
+                                    databaseDocumentId.length >= 20 && 
+                                    databaseDocumentId.length <= 30;
+                
+                if (!isValidCuid) {
+                  console.warn(`⚠️ Invalid document ID for source "${source.title}": ${databaseDocumentId}`);
+                  // Try to find by title if the ID is invalid
+                  if (originalResult?.originalDocumentId) {
+                    databaseDocumentId = originalResult.originalDocumentId;
+                  }
+                }
+                
+                // Ensure confidence is a valid number (fallback to result's score if Qwen returns 0)
+                const confidence = (source.confidence && source.confidence > 0) 
+                  ? source.confidence 
+                  : (originalResult?.score || 0.85);
                 
                 return {
                   ...source,
                   title: cleanDocumentTitle(source.title),
-                  documentId: databaseDocumentId // Use the database document ID for clicking
+                  documentId: databaseDocumentId, // Use the database document ID for clicking
+                  confidence: confidence, // Ensure valid confidence score
+                  isQproDocument: originalResult?.isQproDocument || false,
+                  qproAnalysisId: originalResult?.qproAnalysisId || undefined,
                 };
               }) : [];
             
@@ -875,8 +1035,11 @@ export async function GET(request: NextRequest) {
               groupedResults.slice(0, 1);  // Use only top result for specific queries
             
             // Use generateInsights to get both the response and the sources used
-            const qwenService = new QwenGenerationService({ model: process.env.QWEN_MODEL || 'qwen/qwen-2.5-vl-72b-instruct' });
-            const qwenResult = await qwenService.generateInsights(
+            const service = getQwenService();
+            if (!service) {
+              throw new Error('Qwen service not configured');
+            }
+            const qwenResult = await service.generateInsights(
               query,
               resultsForGeneration,
               userId
@@ -886,15 +1049,39 @@ export async function GET(request: NextRequest) {
             response.generationType = generationType;
             
             // Include all relevant sources for comprehensive queries, otherwise just the top one
+            // Ensure confidence is a valid number
             const cleanedSources = qwenResult.sources && qwenResult.sources.length > 0 ?
               qwenResult.sources.map(source => ({
                 ...source,
-                title: cleanDocumentTitle(source.title)
+                title: cleanDocumentTitle(source.title),
+                confidence: (source.confidence && source.confidence > 0) ? source.confidence : 0.85
               })) : [];
             
             response.sources = cleanedSources;
           } catch (generationError) {
             console.error('Qwen generation failed:', generationError);
+            
+            // Provide a fallback response when AI generation fails
+            const errorMessage = generationError instanceof Error ? generationError.message : String(generationError);
+            
+            // Check if it's an OpenRouter configuration error
+            if (errorMessage.includes('data policy') || errorMessage.includes('404') || errorMessage.includes('No endpoints found')) {
+              console.error('⚠️ OpenRouter API configuration issue. Please check: https://openrouter.ai/settings/privacy');
+              
+              // Provide basic fallback response
+              response.generatedResponse = `Found relevant documents for your query. Click on the documents below to view the full content.\n\n**Note:** AI-powered insights are temporarily unavailable due to API configuration.`;
+              response.generationType = 'fallback';
+              
+              // Create basic sources from search results if not already set
+              if (!response.sources || response.sources.length === 0) {
+                response.sources = groupedResults.slice(0, Math.min(3, groupedResults.length)).map((result: any) => ({
+                  title: result.title || 'Untitled Document',
+                  documentId: result.documentId,
+                  confidence: result.score || result.confidenceScore || 0.85,
+                }));
+              }
+            }
+            
             // Don't fail the entire request if generation fails, just return search results
           }
         }
@@ -969,8 +1156,11 @@ export async function GET(request: NextRequest) {
             groupedResults.slice(0, 1);  // Use only top result for specific queries
         
           // Use generateInsights to get both the response and the sources used
-          const qwenService = new QwenGenerationService({ model: process.env.QWEN_MODEL || 'qwen/qwen-2.5-vl-72b-instruct' });
-          const qwenResult = await qwenService.generateInsights(
+          const service = getQwenService();
+          if (!service) {
+            throw new Error('Qwen service not configured');
+          }
+          const qwenResult = await service.generateInsights(
             query,
             resultsForGeneration,
             userId
@@ -980,16 +1170,38 @@ export async function GET(request: NextRequest) {
           response.generationType = generationType;
           
           // Include all relevant sources for comprehensive queries, otherwise just the top one
+          // Ensure confidence is a valid number
           const cleanedSources = qwenResult.sources && qwenResult.sources.length > 0 ?
             qwenResult.sources.map(source => ({
               ...source,
-              title: cleanDocumentTitle(source.title)
+              title: cleanDocumentTitle(source.title),
+              confidence: (source.confidence && source.confidence > 0) ? source.confidence : 0.85
             })) : [];
         
           response.sources = cleanedSources;
         } catch (generationError) {
           console.error('Qwen generation failed:', generationError);
-          // Don't fail the entire request if generation fails, just return search results
+          
+          // Provide a fallback response when AI generation fails
+          const errorMessage = generationError instanceof Error ? generationError.message : String(generationError);
+          
+          // Check if it's an OpenRouter configuration error
+          if (errorMessage.includes('data policy') || errorMessage.includes('404') || errorMessage.includes('No endpoints found')) {
+            console.error('⚠️ OpenRouter API configuration issue. Please check: https://openrouter.ai/settings/privacy');
+            
+            // Provide basic fallback response
+            response.generatedResponse = `Found relevant documents for your query. Click on the documents below to view the full content.\n\n**Note:** AI-powered insights are temporarily unavailable due to API configuration.`;
+            response.generationType = 'fallback';
+            
+            // Create basic sources from search results
+            response.sources = groupedResults.slice(0, Math.min(3, groupedResults.length)).map(result => ({
+              title: result.title || 'Untitled Document',
+              documentId: result.documentId,
+              confidence: result.score || result.confidenceScore || 0.85,
+            }));
+          }
+          
+          // Don't fail the entire request if generation fails, just return search results with fallback message
         }
       }
 
@@ -1058,7 +1270,10 @@ export async function POST(request: NextRequest) {
       // because the generated content might not be cached or might have expired
       if (generateResponse) {
         try {
-          const qwenService = new QwenGenerationService({ model: process.env.QWEN_MODEL || 'qwen/qwen-2.5-vl-72b-instruct' });
+          const service = getQwenService();
+          if (!service) {
+            throw new Error('Qwen service not configured');
+          }
           
           // For comprehensive queries (like "what trainings/seminars did..."), use more results
           const isComprehensiveQuery = query.toLowerCase().includes('list') ||
@@ -1080,7 +1295,7 @@ export async function POST(request: NextRequest) {
             enhancedCachedResult.results.slice(0, Math.min(6, enhancedCachedResult.results.length)) : // Use up to 6 results for comprehensive queries
             enhancedCachedResult.results.slice(0, 1);  // Use only top result for specific queries
           
-          const qwenResult = await qwenService.generateInsights(
+          const qwenResult = await service.generateInsights(
             query,
             resultsForGeneration,
             userId
@@ -1110,6 +1325,28 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(responseWithGeneration);
         } catch (generationError) {
           console.error('Qwen generation failed:', generationError);
+          
+          // Provide a fallback response when AI generation fails
+          const errorMessage = generationError instanceof Error ? generationError.message : String(generationError);
+          
+          // Check if it's an OpenRouter configuration error
+          if (errorMessage.includes('data policy') || errorMessage.includes('404') || errorMessage.includes('No endpoints found')) {
+            console.error('⚠️ OpenRouter API configuration issue. Please check: https://openrouter.ai/settings/privacy');
+            
+            // Provide basic fallback response with cached results
+            const fallbackResponse = {
+              ...enhancedCachedResult,
+              generatedResponse: `Found relevant documents for your query. Click on the documents below to view the full content.\n\n**Note:** AI-powered insights are temporarily unavailable due to API configuration.`,
+              generationType: 'fallback',
+              sources: enhancedCachedResult.results.slice(0, Math.min(3, enhancedCachedResult.results.length)).map((result: any) => ({
+                title: result.title || 'Untitled Document',
+                documentId: result.documentId,
+                confidence: result.score || result.confidenceScore || 0.85,
+              })),
+            };
+            return NextResponse.json(fallbackResponse);
+          }
+          
           // Return cached results even if generation fails
           return NextResponse.json(enhancedCachedResult);
         }
@@ -1211,18 +1448,25 @@ export async function POST(request: NextRequest) {
         if (colivaraIdsToMap.length > 0) {
           try {
             // Query the database to find documents that have these colivaraDocumentIds
+            // Include description for better evidence display
             const dbDocuments = await prisma.document.findMany({
               where: {
                 colivaraDocumentId: { in: colivaraIdsToMap }
               },
               select: {
                 id: true,
-                colivaraDocumentId: true
+                colivaraDocumentId: true,
+                description: true, // Include description for fallback evidence
+                title: true, // Include title for better display
               }
             });
             
-            // Create a map from Colivara ID to database ID
-            colivaraToDbMap = new Map(dbDocuments.map(doc => [doc.colivaraDocumentId, doc.id]));
+            // Create a map from Colivara ID to database info
+            colivaraToDbMap = new Map(dbDocuments.map(doc => [doc.colivaraDocumentId, {
+              id: doc.id,
+              description: doc.description,
+              title: doc.title,
+            }]));
           } catch (error) {
             console.error('Error querying database for colivara document IDs:', error);
           }
@@ -1313,12 +1557,18 @@ export async function POST(request: NextRequest) {
             const originalDocumentId = metadata.documentId || (docData.metadata && docData.metadata.documentId) || item.metadata?.documentId;
             const hasValidOriginalId = originalDocumentId && typeof originalDocumentId === 'string' && /^[a-z0-9]+$/i.test(originalDocumentId) && originalDocumentId.length >= 20 && originalDocumentId.length <= 30;
             
-            // Try to get the database document ID by looking up the Colivara ID in our map
+            // Try to get the database document info by looking up the Colivara ID in our map
             let finalDocumentId = hasValidOriginalId ? originalDocumentId : undefined;
+            let dbInfo = null;
             
             if (!finalDocumentId && isValidDocumentId && colivaraToDbMap.has(documentId)) {
-              finalDocumentId = colivaraToDbMap.get(documentId);
+              dbInfo = colivaraToDbMap.get(documentId);
+              finalDocumentId = dbInfo?.id;
             }
+            
+            // Get database description for fallback
+            const dbDescription = dbInfo?.description || '';
+            const dbTitle = dbInfo?.title || '';
             
             // Use the final document ID (database ID) for the URL, fallback to Colivara ID if not found
             const previewDocumentId = finalDocumentId || (isValidDocumentId ? documentId : undefined);
@@ -1326,11 +1576,19 @@ export async function POST(request: NextRequest) {
             return {
               documentId: isValidDocumentId ? documentId : "",
               originalDocumentId: finalDocumentId, // Store the database document ID if available
-              title: cleanDocumentTitle(metadata.originalName || metadata.title || docData.document_name || (docData.title && cleanDocumentTitle(docData.title)) || (item.title && cleanDocumentTitle(item.title)) || "Untitled"),
-              content: txt || "Visual content only", // Required field for SearchResult
+              title: cleanDocumentTitle(metadata.originalName || metadata.title || dbTitle || docData.document_name || (docData.title && cleanDocumentTitle(docData.title)) || (item.title && cleanDocumentTitle(item.title)) || "Untitled"),
+              content: txt || dbDescription || "Visual content only", // Required field for SearchResult
               
-              // UI Snippet: Show what we actually found
-              snippet: txt ? txt.substring(0, 150) + "..." : "Visual Document (Table/Chart/Scan)",
+              // UI Snippet: Show what we actually found - use extracted text, then db description, then helpful message
+              snippet: (() => {
+                if (txt && txt.trim().length > 20) {
+                  return txt.substring(0, 300) + (txt.length > 300 ? "..." : "");
+                } else if (dbDescription && dbDescription.trim().length > 20) {
+                  return dbDescription.substring(0, 300) + (dbDescription.length > 300 ? "..." : "");
+                } else {
+                  return "Document matched your search query. Click to view full content.";
+                }
+              })(),
               
               score: score,
               pageNumbers: [], // Required field for SearchResult
@@ -1470,8 +1728,11 @@ export async function POST(request: NextRequest) {
           searchResults.slice(0, 1);  // Use only top result for specific queries
           
         // Use generateInsights to get both the response and the sources used
-        const qwenService = new QwenGenerationService({ model: process.env.QWEN_MODEL || 'qwen/qwen-2.5-vl-72b-instruct' });
-        const qwenResult = await qwenService.generateInsights(
+        const service = getQwenService();
+        if (!service) {
+          throw new Error('Qwen service not configured');
+        }
+        const qwenResult = await service.generateInsights(
           query,
           resultsForGeneration,
           userId
@@ -1480,21 +1741,57 @@ export async function POST(request: NextRequest) {
         generatedResponse = qwenResult.summary;
         
         // Include all relevant sources for comprehensive queries, otherwise just the top one
-        // Clean the title in the source and ensure we have the database document ID
+        // Clean the title in the source and ensure we have the database document ID and QPRO info
+        // Ensure confidence is a valid number
         const cleanedSources = qwenResult.sources && qwenResult.sources.length > 0 ?
-          qwenResult.sources.map(source => {
-            // Try to get the database document ID from the resultsForGeneration
-            const originalResult = resultsForGeneration.find(result =>
-              result.documentId === source.documentId || result.originalDocumentId === source.documentId
-            );
+          qwenResult.sources.map((source, idx) => {
+            // Try to match by title first (more reliable when Qwen returns title as documentId)
+            let originalResult = resultsForGeneration.find(result => {
+              const resultTitle = cleanDocumentTitle(result.title || '');
+              const sourceTitle = cleanDocumentTitle(source.title || '');
+              const sourceDocId = source.documentId || '';
+              
+              return resultTitle === sourceTitle || 
+                     result.documentId === sourceDocId || 
+                     result.originalDocumentId === sourceDocId;
+            });
             
-            // Use the database document ID if available, otherwise fallback to the source.documentId
-            const databaseDocumentId = originalResult?.originalDocumentId || source.documentId;
+            // If no match found, use the result at the same index
+            if (!originalResult && idx < resultsForGeneration.length) {
+              originalResult = resultsForGeneration[idx];
+              console.log(`⚠️ Source matching by index fallback for "${source.title}"`);
+            }
+            
+            // Use the database document ID if available, with proper validation
+            let databaseDocumentId = originalResult?.originalDocumentId || originalResult?.documentId || source.documentId;
+            
+            // Validate that it's actually a valid CUID, not a title
+            const isValidCuid = databaseDocumentId && 
+                                typeof databaseDocumentId === 'string' && 
+                                /^[a-z0-9]+$/i.test(databaseDocumentId) && 
+                                databaseDocumentId.length >= 20 && 
+                                databaseDocumentId.length <= 30;
+            
+            if (!isValidCuid) {
+              console.warn(`⚠️ Invalid document ID for source "${source.title}": ${databaseDocumentId}`);
+              // Try to find by title if the ID is invalid
+              if (originalResult?.originalDocumentId) {
+                databaseDocumentId = originalResult.originalDocumentId;
+              }
+            }
+            
+            // Ensure confidence is a valid number (fallback to result's score if Qwen returns 0)
+            const confidence = (source.confidence && source.confidence > 0) 
+              ? source.confidence 
+              : (originalResult?.score || originalResult?.confidenceScore || 0.85);
             
             return {
               ...source,
               title: cleanDocumentTitle(source.title),
-              documentId: databaseDocumentId // Use the database document ID for clicking
+              documentId: databaseDocumentId, // Use the database document ID for clicking
+              confidence: confidence, // Ensure valid confidence score
+              isQproDocument: originalResult?.isQproDocument || false,
+              qproAnalysisId: originalResult?.qproAnalysisId || undefined,
             };
           }) : [];
             
@@ -1516,8 +1813,29 @@ export async function POST(request: NextRequest) {
         }
       } catch (generationError) {
         console.error('Qwen generation failed:', generationError);
-        // Don't fail the entire request if generation fails, just return search results
-        generatedResponse = null;
+        
+        // Provide a fallback response when AI generation fails
+        const errorMessage = generationError instanceof Error ? generationError.message : String(generationError);
+        
+        // Check if it's an OpenRouter configuration error
+        if (errorMessage.includes('data policy') || errorMessage.includes('404') || errorMessage.includes('No endpoints found')) {
+          console.error('⚠️ OpenRouter API configuration issue. Please check: https://openrouter.ai/settings/privacy');
+          
+          // Provide basic fallback response
+          generatedResponse = `Found ${searchResults.length} relevant document${searchResults.length !== 1 ? 's' : ''} for your query. Click on the document${searchResults.length !== 1 ? 's' : ''} below to view the full content.\n\n**Note:** AI-powered insights are temporarily unavailable due to API configuration. Please check your OpenRouter settings at https://openrouter.ai/settings/privacy`;
+          
+          // Create basic sources from search results
+          sources = searchResults.slice(0, Math.min(3, searchResults.length)).map(result => ({
+            title: result.title || 'Untitled Document',
+            documentId: result.originalDocumentId || result.documentId,
+            confidence: result.score || result.confidenceScore || 0.85,
+            isQproDocument: result.isQproDocument || false,
+            qproAnalysisId: result.qproAnalysisId,
+          }));
+        } else {
+          // For other errors, don't provide a generated response
+          generatedResponse = null;
+        }
       }
     }
 

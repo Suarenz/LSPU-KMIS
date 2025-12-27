@@ -14,7 +14,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "setup": "npm install && prisma generate && prisma db push"
+    "setup": "npm install && prisma generate && prisma db push",
+    "health-check": "npx tsx scripts/system-health-check.ts"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.29.1",

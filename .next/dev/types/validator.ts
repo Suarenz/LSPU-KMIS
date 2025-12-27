@@ -47,37 +47,10 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 }
 
 
-// Validate ../../../app/analytics/page.tsx
-{
-  type __IsExpected<Specific extends AppPageConfig<"/analytics">> = Specific
-  const handler = {} as typeof import("../../../app/analytics/page.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
 // Validate ../../../app/dashboard/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/dashboard">> = Specific
   const handler = {} as typeof import("../../../app/dashboard/page.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
-// Validate ../../../app/demo/toggle-demo/page.tsx
-{
-  type __IsExpected<Specific extends AppPageConfig<"/demo/toggle-demo">> = Specific
-  const handler = {} as typeof import("../../../app/demo/toggle-demo/page.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
-// Validate ../../../app/landing/page.tsx
-{
-  type __IsExpected<Specific extends AppPageConfig<"/landing">> = Specific
-  const handler = {} as typeof import("../../../app/landing/page.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
@@ -371,6 +344,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../../app/api/health/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/health">> = Specific
+  const handler = {} as typeof import("../../../app/api/health/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../../app/api/kpi-contributions/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/kpi-contributions">> = Specific
@@ -384,6 +366,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/kpi-progress">> = Specific
   const handler = {} as typeof import("../../../app/api/kpi-progress/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../../app/api/kpi-targets/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/kpi-targets">> = Specific
+  const handler = {} as typeof import("../../../app/api/kpi-targets/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

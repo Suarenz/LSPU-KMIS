@@ -1,0 +1,98 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: lspu-kmis-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-kmis_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_password_change_me}
+      POSTGRES_DB: ${DB_NAME:-lspu_kmis}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-kmis_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lspu-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: lspu-kmis-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lspu-network
+
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lspu-kmis-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${DB_USER:-kmis_user}:${DB_PASSWORD:-secure_password_change_me}@postgres:5432/${DB_NAME:-lspu_kmis}
+      DIRECT_URL: postgresql://${DB_USER:-kmis_user}:${DB_PASSWORD:-secure_password_change_me}@postgres:5432/${DB_NAME:-lspu_kmis}
+      
+      # Redis
+      REDIS_URL: redis://redis:6379
+      
+      # Application
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+      
+      # External Services (loaded from .env.local)
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_ACCOUNT_NAME: ${AZURE_STORAGE_ACCOUNT_NAME:-}
+      AZURE_STORAGE_CONTAINER_NAME: ${AZURE_STORAGE_CONTAINER_NAME:-}
+      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      COLIVARA_API_KEY: ${COLIVARA_API_KEY:-}
+      COLIVARA_API_ENDPOINT: ${COLIVARA_API_ENDPOINT:-}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
+      UPSTASH_VECTOR_REST_URL: ${UPSTASH_VECTOR_REST_URL:-}
+      UPSTASH_VECTOR_REST_TOKEN: ${UPSTASH_VECTOR_REST_TOKEN:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      
+      # Optional: External Services (add your own keys)
+      # COLIVARA_API_KEY: ${COLIVARA_API_KEY}
+      # GEMINI_API_KEY: ${GEMINI_API_KEY}
+      # SUPABASE_URL: ${SUPABASE_URL}
+      # SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+    ports:
+      - "3000:3000"
+    networks:
+      - lspu-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  lspu-network:
+    driver: bridge

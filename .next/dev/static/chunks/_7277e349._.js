@@ -472,11 +472,11 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$avatar$2
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$menu$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Menu$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/menu.js [app-client] (ecmascript) <export default as Menu>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$x$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__X$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/x.js [app-client] (ecmascript) <export default as X>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$search$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Search$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/search.js [app-client] (ecmascript) <export default as Search>");
-var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chart$2d$column$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__BarChart3$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/chart-column.js [app-client] (ecmascript) <export default as BarChart3>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$log$2d$out$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__LogOut$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/log-out.js [app-client] (ecmascript) <export default as LogOut>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$user$2d$round$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__UserRound$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/user-round.js [app-client] (ecmascript) <export default as UserRound>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$file$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__File$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/file.js [app-client] (ecmascript) <export default as File>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clipboard$2d$check$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ClipboardCheck$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/clipboard-check.js [app-client] (ecmascript) <export default as ClipboardCheck>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$house$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Home$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/house.js [app-client] (ecmascript) <export default as Home>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/image.js [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature();
@@ -664,6 +664,11 @@ function Navbar() {
     }
     const navigation = [
         {
+            name: "Dashboard",
+            href: "/dashboard",
+            icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$house$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Home$3e$__["Home"]
+        },
+        {
             name: "Repository",
             href: "/repository",
             icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$file$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__File$3e$__["File"]
@@ -678,11 +683,6 @@ function Navbar() {
                 name: "QPRO",
                 href: "/qpro",
                 icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clipboard$2d$check$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ClipboardCheck$3e$__["ClipboardCheck"]
-            },
-            {
-                name: "Analytics",
-                href: "/analytics",
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chart$2d$column$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__BarChart3$3e$__["BarChart3"]
             }
         ] : []
     ];
@@ -917,22 +917,6 @@ function Navbar() {
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
-                                            children: [
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$user$2d$round$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__UserRound$3e$__["UserRound"], {
-                                                    className: "w-4 h-4 mr-2"
-                                                }, void 0, false, {
-                                                    fileName: "[project]/components/navbar.tsx",
-                                                    lineNumber: 171,
-                                                    columnNumber: 17
-                                                }, this),
-                                                "Profile"
-                                            ]
-                                        }, void 0, true, {
-                                            fileName: "[project]/components/navbar.tsx",
-                                            lineNumber: 170,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
                                             onClick: async ()=>{
                                                 await logout();
                                             },
@@ -942,14 +926,14 @@ function Navbar() {
                                                     className: "w-4 h-4 mr-2"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/navbar.tsx",
-                                                    lineNumber: 180,
+                                                    lineNumber: 176,
                                                     columnNumber: 17
                                                 }, this),
                                                 "Logout"
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/navbar.tsx",
-                                            lineNumber: 174,
+                                            lineNumber: 170,
                                             columnNumber: 15
                                         }, this)
                                     ]
@@ -973,18 +957,18 @@ function Navbar() {
                                 className: "w-5 h-5"
                             }, void 0, false, {
                                 fileName: "[project]/components/navbar.tsx",
-                                lineNumber: 193,
+                                lineNumber: 189,
                                 columnNumber: 31
                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$menu$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Menu$3e$__["Menu"], {
                                 className: "w-5 h-5"
                             }, void 0, false, {
                                 fileName: "[project]/components/navbar.tsx",
-                                lineNumber: 193,
+                                lineNumber: 189,
                                 columnNumber: 59
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/components/navbar.tsx",
-                            lineNumber: 187,
+                            lineNumber: 183,
                             columnNumber: 11
                         }, this)
                     ]
@@ -1015,30 +999,30 @@ function Navbar() {
                                             className: "w-4 h-4"
                                         }, void 0, false, {
                                             fileName: "[project]/components/navbar.tsx",
-                                            lineNumber: 211,
+                                            lineNumber: 207,
                                             columnNumber: 23
                                         }, this),
                                         item.name
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/navbar.tsx",
-                                    lineNumber: 206,
+                                    lineNumber: 202,
                                     columnNumber: 21
                                 }, this)
                             }, item.name, false, {
                                 fileName: "[project]/components/navbar.tsx",
-                                lineNumber: 205,
+                                lineNumber: 201,
                                 columnNumber: 19
                             }, this);
                         })
                     }, void 0, false, {
                         fileName: "[project]/components/navbar.tsx",
-                        lineNumber: 200,
+                        lineNumber: 196,
                         columnNumber: 13
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/components/navbar.tsx",
-                    lineNumber: 199,
+                    lineNumber: 195,
                     columnNumber: 11
                 }, this)
             ]
@@ -1715,6 +1699,7 @@ __turbopack_context__.s([
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/ui/card.tsx [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/ui/badge.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$lightbulb$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__LightbulbIcon$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/lightbulb.js [app-client] (ecmascript) <export default as LightbulbIcon>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$file$2d$text$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__FileText$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/file-text.js [app-client] (ecmascript) <export default as FileText>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$external$2d$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ExternalLink$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/external-link.js [app-client] (ecmascript) <export default as ExternalLink>");
@@ -1725,7 +1710,19 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$document$2d$
 ;
 ;
 ;
-const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoading, error, relevantDocumentUrl// Added to props
+;
+// Helper function to get the correct document URL based on document type
+const getDocumentUrl = (source)=>{
+    if (source.isQproDocument && source.qproAnalysisId) {
+        return `/qpro/analysis/${source.qproAnalysisId}`;
+    }
+    return `/repository/preview/${source.documentId}`;
+};
+// Helper function to check if document ID is valid
+const isValidDocumentId = (documentId)=>{
+    return documentId && documentId !== 'undefined' && !documentId.includes('undefined') && !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(documentId);
+};
+const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoading, error, relevantDocumentUrl, noRelevantDocuments// Added to props
  })=>{
     if (isLoading) {
         return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -1739,19 +1736,19 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                 className: "w-5 h-5"
                             }, void 0, false, {
                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                lineNumber: 30,
+                                lineNumber: 56,
                                 columnNumber: 13
                             }, ("TURBOPACK compile-time value", void 0)),
                             "Generating Insights"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/qwen-response-display.tsx",
-                        lineNumber: 29,
+                        lineNumber: 55,
                         columnNumber: 11
                     }, ("TURBOPACK compile-time value", void 0))
                 }, void 0, false, {
                     fileName: "[project]/components/qwen-response-display.tsx",
-                    lineNumber: 28,
+                    lineNumber: 54,
                     columnNumber: 9
                 }, ("TURBOPACK compile-time value", void 0)),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -1762,21 +1759,21 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                 className: "h-4 bg-gray-20 rounded w-3/4"
                             }, void 0, false, {
                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                lineNumber: 36,
+                                lineNumber: 62,
                                 columnNumber: 13
                             }, ("TURBOPACK compile-time value", void 0)),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "h-4 bg-gray-200 rounded"
                             }, void 0, false, {
                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                lineNumber: 37,
+                                lineNumber: 63,
                                 columnNumber: 13
                             }, ("TURBOPACK compile-time value", void 0)),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "h-4 bg-gray-200 rounded w-5/6"
                             }, void 0, false, {
                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                lineNumber: 38,
+                                lineNumber: 64,
                                 columnNumber: 13
                             }, ("TURBOPACK compile-time value", void 0)),
                             sources && sources.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1789,14 +1786,14 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                                 className: "w-4 h-4"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                                lineNumber: 42,
+                                                lineNumber: 68,
                                                 columnNumber: 19
                                             }, ("TURBOPACK compile-time value", void 0)),
                                             "Source Documents"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                        lineNumber: 41,
+                                        lineNumber: 67,
                                         columnNumber: 17
                                     }, ("TURBOPACK compile-time value", void 0)),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
@@ -1809,31 +1806,49 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                                         children: index + 1
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                                        lineNumber: 48,
+                                                        lineNumber: 74,
                                                         columnNumber: 23
                                                     }, ("TURBOPACK compile-time value", void 0)),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                         className: "flex-1",
                                                         children: [
-                                                            source.documentId && source.documentId !== 'undefined' && !source.documentId.includes('undefined') && !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(source.documentId) ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                                                                href: `/repository/preview/${source.documentId}`,
-                                                                target: "_blank",
-                                                                rel: "noopener noreferrer",
-                                                                className: "font-medium text-blue-600 hover:text-blue-800 transition-colors",
-                                                                children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$document$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cleanDocumentTitle"])(source.title)
-                                                            }, void 0, false, {
+                                                            isValidDocumentId(source.documentId) ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                                className: "flex items-center gap-2",
+                                                                children: [
+                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                                                                        href: getDocumentUrl(source),
+                                                                        target: "_blank",
+                                                                        rel: "noopener noreferrer",
+                                                                        className: "font-medium text-blue-600 hover:text-blue-800 transition-colors",
+                                                                        children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$document$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cleanDocumentTitle"])(source.title)
+                                                                    }, void 0, false, {
+                                                                        fileName: "[project]/components/qwen-response-display.tsx",
+                                                                        lineNumber: 80,
+                                                                        columnNumber: 29
+                                                                    }, ("TURBOPACK compile-time value", void 0)),
+                                                                    source.isQproDocument && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
+                                                                        variant: "default",
+                                                                        className: "bg-blue-600 hover:bg-blue-700 text-xs",
+                                                                        children: "QPRO"
+                                                                    }, void 0, false, {
+                                                                        fileName: "[project]/components/qwen-response-display.tsx",
+                                                                        lineNumber: 84,
+                                                                        columnNumber: 31
+                                                                    }, ("TURBOPACK compile-time value", void 0))
+                                                                ]
+                                                            }, void 0, true, {
                                                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                                                lineNumber: 53,
+                                                                lineNumber: 79,
                                                                 columnNumber: 27
                                                             }, ("TURBOPACK compile-time value", void 0)) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                 className: "font-medium",
                                                                 children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$document$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cleanDocumentTitle"])(source.title)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                                                lineNumber: 57,
+                                                                lineNumber: 88,
                                                                 columnNumber: 27
                                                             }, ("TURBOPACK compile-time value", void 0)),
-                                                            source.confidence && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                            typeof source.confidence === 'number' && source.confidence > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                 className: "text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded mt-1 inline-block",
                                                                 children: [
                                                                     (source.confidence * 100).toFixed(1),
@@ -1841,17 +1856,17 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                                                lineNumber: 60,
+                                                                lineNumber: 91,
                                                                 columnNumber: 27
                                                             }, ("TURBOPACK compile-time value", void 0))
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                                        lineNumber: 51,
+                                                        lineNumber: 77,
                                                         columnNumber: 23
                                                     }, ("TURBOPACK compile-time value", void 0)),
-                                                    source.documentId && source.documentId !== 'undefined' && !source.documentId.includes('undefined') && !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(source.documentId) ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                                                        href: `/repository/preview/${source.documentId}`,
+                                                    isValidDocumentId(source.documentId) ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                                                        href: getDocumentUrl(source),
                                                         target: "_blank",
                                                         rel: "noopener noreferrer",
                                                         className: "text-blue-600 hover:text-blue-800 transition-colors",
@@ -1860,7 +1875,7 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                                                 className: "w-4 h-4"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                                                lineNumber: 68,
+                                                                lineNumber: 99,
                                                                 columnNumber: 27
                                                             }, ("TURBOPACK compile-time value", void 0)),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1868,53 +1883,53 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                                                 children: "View Document"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                                                lineNumber: 69,
+                                                                lineNumber: 100,
                                                                 columnNumber: 27
                                                             }, ("TURBOPACK compile-time value", void 0))
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                                        lineNumber: 67,
+                                                        lineNumber: 98,
                                                         columnNumber: 25
                                                     }, ("TURBOPACK compile-time value", void 0)) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$external$2d$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ExternalLink$3e$__["ExternalLink"], {
                                                         className: "w-4 h-4 text-gray-400"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                                        lineNumber: 72,
+                                                        lineNumber: 103,
                                                         columnNumber: 25
                                                     }, ("TURBOPACK compile-time value", void 0))
                                                 ]
                                             }, index, true, {
                                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                                lineNumber: 47,
+                                                lineNumber: 73,
                                                 columnNumber: 21
                                             }, ("TURBOPACK compile-time value", void 0)))
                                     }, void 0, false, {
                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                        lineNumber: 45,
+                                        lineNumber: 71,
                                         columnNumber: 17
                                     }, ("TURBOPACK compile-time value", void 0))
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                lineNumber: 40,
+                                lineNumber: 66,
                                 columnNumber: 15
                             }, ("TURBOPACK compile-time value", void 0))
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/qwen-response-display.tsx",
-                        lineNumber: 35,
+                        lineNumber: 61,
                         columnNumber: 11
                     }, ("TURBOPACK compile-time value", void 0))
                 }, void 0, false, {
                     fileName: "[project]/components/qwen-response-display.tsx",
-                    lineNumber: 34,
+                    lineNumber: 60,
                     columnNumber: 9
                 }, ("TURBOPACK compile-time value", void 0))
             ]
         }, void 0, true, {
             fileName: "[project]/components/qwen-response-display.tsx",
-            lineNumber: 27,
+            lineNumber: 53,
             columnNumber: 7
         }, ("TURBOPACK compile-time value", void 0));
     }
@@ -1930,19 +1945,19 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                 className: "w-5 h-5"
                             }, void 0, false, {
                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                lineNumber: 90,
+                                lineNumber: 121,
                                 columnNumber: 13
                             }, ("TURBOPACK compile-time value", void 0)),
                             "Generated Insights Error"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/qwen-response-display.tsx",
-                        lineNumber: 89,
+                        lineNumber: 120,
                         columnNumber: 11
                     }, ("TURBOPACK compile-time value", void 0))
                 }, void 0, false, {
                     fileName: "[project]/components/qwen-response-display.tsx",
-                    lineNumber: 88,
+                    lineNumber: 119,
                     columnNumber: 9
                 }, ("TURBOPACK compile-time value", void 0)),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -1951,23 +1966,133 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                         children: error
                     }, void 0, false, {
                         fileName: "[project]/components/qwen-response-display.tsx",
-                        lineNumber: 95,
+                        lineNumber: 126,
                         columnNumber: 11
                     }, ("TURBOPACK compile-time value", void 0))
                 }, void 0, false, {
                     fileName: "[project]/components/qwen-response-display.tsx",
-                    lineNumber: 94,
+                    lineNumber: 125,
                     columnNumber: 9
                 }, ("TURBOPACK compile-time value", void 0))
             ]
         }, void 0, true, {
             fileName: "[project]/components/qwen-response-display.tsx",
-            lineNumber: 87,
+            lineNumber: 118,
             columnNumber: 7
         }, ("TURBOPACK compile-time value", void 0));
     }
     if (!generatedResponse) {
         return null;
+    }
+    // Special handling for when no relevant documents were found
+    if (noRelevantDocuments) {
+        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
+            className: "mb-6 border-amber-200 bg-amber-50",
+            children: [
+                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardHeader"], {
+                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardTitle"], {
+                        className: "flex items-center gap-2 text-amber-700",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$lightbulb$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__LightbulbIcon$3e$__["LightbulbIcon"], {
+                                className: "w-5 h-5"
+                            }, void 0, false, {
+                                fileName: "[project]/components/qwen-response-display.tsx",
+                                lineNumber: 142,
+                                columnNumber: 13
+                            }, ("TURBOPACK compile-time value", void 0)),
+                            "No Relevant Documents Found"
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/components/qwen-response-display.tsx",
+                        lineNumber: 141,
+                        columnNumber: 11
+                    }, ("TURBOPACK compile-time value", void 0))
+                }, void 0, false, {
+                    fileName: "[project]/components/qwen-response-display.tsx",
+                    lineNumber: 140,
+                    columnNumber: 9
+                }, ("TURBOPACK compile-time value", void 0)),
+                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
+                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "prose prose-amber max-w-none",
+                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                            className: "whitespace-pre-wrap text-amber-800",
+                            children: [
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                    className: "mb-3",
+                                    children: "The documents in the system do not contain information that matches your query."
+                                }, void 0, false, {
+                                    fileName: "[project]/components/qwen-response-display.tsx",
+                                    lineNumber: 149,
+                                    columnNumber: 15
+                                }, ("TURBOPACK compile-time value", void 0)),
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                    className: "font-medium mb-2",
+                                    children: "Suggestions:"
+                                }, void 0, false, {
+                                    fileName: "[project]/components/qwen-response-display.tsx",
+                                    lineNumber: 150,
+                                    columnNumber: 15
+                                }, ("TURBOPACK compile-time value", void 0)),
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
+                                    className: "list-disc ml-6 space-y-1",
+                                    children: [
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
+                                            children: "Try using different search terms or keywords"
+                                        }, void 0, false, {
+                                            fileName: "[project]/components/qwen-response-display.tsx",
+                                            lineNumber: 152,
+                                            columnNumber: 17
+                                        }, ("TURBOPACK compile-time value", void 0)),
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
+                                            children: "Make sure the document you're looking for has been uploaded to the system"
+                                        }, void 0, false, {
+                                            fileName: "[project]/components/qwen-response-display.tsx",
+                                            lineNumber: 153,
+                                            columnNumber: 17
+                                        }, ("TURBOPACK compile-time value", void 0)),
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
+                                            children: "Check if the document is still being processed (this can take a few minutes after upload)"
+                                        }, void 0, false, {
+                                            fileName: "[project]/components/qwen-response-display.tsx",
+                                            lineNumber: 154,
+                                            columnNumber: 17
+                                        }, ("TURBOPACK compile-time value", void 0)),
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
+                                            children: "Contact your administrator if you believe the document should exist"
+                                        }, void 0, false, {
+                                            fileName: "[project]/components/qwen-response-display.tsx",
+                                            lineNumber: 155,
+                                            columnNumber: 17
+                                        }, ("TURBOPACK compile-time value", void 0))
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "[project]/components/qwen-response-display.tsx",
+                                    lineNumber: 151,
+                                    columnNumber: 15
+                                }, ("TURBOPACK compile-time value", void 0))
+                            ]
+                        }, void 0, true, {
+                            fileName: "[project]/components/qwen-response-display.tsx",
+                            lineNumber: 148,
+                            columnNumber: 13
+                        }, ("TURBOPACK compile-time value", void 0))
+                    }, void 0, false, {
+                        fileName: "[project]/components/qwen-response-display.tsx",
+                        lineNumber: 147,
+                        columnNumber: 11
+                    }, ("TURBOPACK compile-time value", void 0))
+                }, void 0, false, {
+                    fileName: "[project]/components/qwen-response-display.tsx",
+                    lineNumber: 146,
+                    columnNumber: 9
+                }, ("TURBOPACK compile-time value", void 0))
+            ]
+        }, void 0, true, {
+            fileName: "[project]/components/qwen-response-display.tsx",
+            lineNumber: 139,
+            columnNumber: 7
+        }, ("TURBOPACK compile-time value", void 0));
     }
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
         className: "mb-6 border-blue-20",
@@ -1980,19 +2105,19 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                             className: "w-5 h-5 text-blue-600"
                         }, void 0, false, {
                             fileName: "[project]/components/qwen-response-display.tsx",
-                            lineNumber: 109,
+                            lineNumber: 168,
                             columnNumber: 11
                         }, ("TURBOPACK compile-time value", void 0)),
                         "Generated Insights"
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/qwen-response-display.tsx",
-                    lineNumber: 108,
+                    lineNumber: 167,
                     columnNumber: 9
                 }, ("TURBOPACK compile-time value", void 0))
             }, void 0, false, {
                 fileName: "[project]/components/qwen-response-display.tsx",
-                lineNumber: 107,
+                lineNumber: 166,
                 columnNumber: 7
             }, ("TURBOPACK compile-time value", void 0)),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -2019,20 +2144,20 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/qwen-response-display.tsx",
-                                                    lineNumber: 125,
+                                                    lineNumber: 184,
                                                     columnNumber: 23
                                                 }, ("TURBOPACK compile-time value", void 0)),
                                                 match[2] && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                     children: match[2]
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/qwen-response-display.tsx",
-                                                    lineNumber: 126,
+                                                    lineNumber: 185,
                                                     columnNumber: 36
                                                 }, ("TURBOPACK compile-time value", void 0))
                                             ]
                                         }, i, true, {
                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                            lineNumber: 124,
+                                            lineNumber: 183,
                                             columnNumber: 21
                                         }, ("TURBOPACK compile-time value", void 0));
                                     }
@@ -2044,7 +2169,7 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                         ]
                                     }, i, true, {
                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                        lineNumber: 130,
+                                        lineNumber: 189,
                                         columnNumber: 24
                                     }, ("TURBOPACK compile-time value", void 0));
                                 } else if (/^\s*\d+\.\s/.test(trimmedLine)) {
@@ -2054,7 +2179,7 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                         children: trimmedLine
                                     }, i, false, {
                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                        lineNumber: 133,
+                                        lineNumber: 192,
                                         columnNumber: 24
                                     }, ("TURBOPACK compile-time value", void 0));
                                 } else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
@@ -2064,7 +2189,7 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                         children: trimmedLine.slice(2, -2)
                                     }, i, false, {
                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                        lineNumber: 136,
+                                        lineNumber: 195,
                                         columnNumber: 24
                                     }, ("TURBOPACK compile-time value", void 0));
                                 } else if (trimmedLine === '') {
@@ -2073,7 +2198,7 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                         className: "my-2"
                                     }, i, false, {
                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                        lineNumber: 139,
+                                        lineNumber: 198,
                                         columnNumber: 24
                                     }, ("TURBOPACK compile-time value", void 0));
                                 } else {
@@ -2083,14 +2208,14 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                         children: line
                                     }, i, false, {
                                         fileName: "[project]/components/qwen-response-display.tsx",
-                                        lineNumber: 142,
+                                        lineNumber: 201,
                                         columnNumber: 24
                                     }, ("TURBOPACK compile-time value", void 0));
                                 }
                             })
                         }, void 0, false, {
                             fileName: "[project]/components/qwen-response-display.tsx",
-                            lineNumber: 115,
+                            lineNumber: 174,
                             columnNumber: 11
                         }, ("TURBOPACK compile-time value", void 0)),
                         sources && sources.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2103,14 +2228,14 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                             className: "w-4 h-4"
                                         }, void 0, false, {
                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                            lineNumber: 150,
+                                            lineNumber: 209,
                                             columnNumber: 17
                                         }, ("TURBOPACK compile-time value", void 0)),
                                         "Source Documents"
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/qwen-response-display.tsx",
-                                    lineNumber: 149,
+                                    lineNumber: 208,
                                     columnNumber: 15
                                 }, ("TURBOPACK compile-time value", void 0)),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
@@ -2123,31 +2248,49 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                                     children: index + 1
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/qwen-response-display.tsx",
-                                                    lineNumber: 156,
+                                                    lineNumber: 215,
                                                     columnNumber: 21
                                                 }, ("TURBOPACK compile-time value", void 0)),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     className: "flex-1",
                                                     children: [
-                                                        source.documentId && source.documentId !== 'undefined' && !source.documentId.includes('undefined') && !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(source.documentId) ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                                                            href: `/repository/preview/${source.documentId}`,
-                                                            target: "_blank",
-                                                            rel: "noopener noreferrer",
-                                                            className: "font-medium text-blue-600 hover:text-blue-800 transition-colors",
-                                                            children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$document$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cleanDocumentTitle"])(source.title)
-                                                        }, void 0, false, {
+                                                        isValidDocumentId(source.documentId) ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                            className: "flex items-center gap-2",
+                                                            children: [
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                                                                    href: getDocumentUrl(source),
+                                                                    target: "_blank",
+                                                                    rel: "noopener noreferrer",
+                                                                    className: "font-medium text-blue-600 hover:text-blue-800 transition-colors",
+                                                                    children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$document$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cleanDocumentTitle"])(source.title)
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/components/qwen-response-display.tsx",
+                                                                    lineNumber: 221,
+                                                                    columnNumber: 27
+                                                                }, ("TURBOPACK compile-time value", void 0)),
+                                                                source.isQproDocument && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
+                                                                    variant: "default",
+                                                                    className: "bg-blue-600 hover:bg-blue-700 text-xs",
+                                                                    children: "QPRO"
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/components/qwen-response-display.tsx",
+                                                                    lineNumber: 225,
+                                                                    columnNumber: 29
+                                                                }, ("TURBOPACK compile-time value", void 0))
+                                                            ]
+                                                        }, void 0, true, {
                                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                                            lineNumber: 161,
+                                                            lineNumber: 220,
                                                             columnNumber: 25
                                                         }, ("TURBOPACK compile-time value", void 0)) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                             className: "font-medium",
                                                             children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$document$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cleanDocumentTitle"])(source.title)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                                            lineNumber: 165,
+                                                            lineNumber: 229,
                                                             columnNumber: 25
                                                         }, ("TURBOPACK compile-time value", void 0)),
-                                                        source.confidence && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                        typeof source.confidence === 'number' && source.confidence > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                             className: "text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded mt-1 inline-block",
                                                             children: [
                                                                 (source.confidence * 100).toFixed(1),
@@ -2155,17 +2298,17 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                                            lineNumber: 168,
+                                                            lineNumber: 232,
                                                             columnNumber: 25
                                                         }, ("TURBOPACK compile-time value", void 0))
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/qwen-response-display.tsx",
-                                                    lineNumber: 159,
+                                                    lineNumber: 218,
                                                     columnNumber: 21
                                                 }, ("TURBOPACK compile-time value", void 0)),
-                                                source.documentId && source.documentId !== 'undefined' && !source.documentId.includes('undefined') && !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(source.documentId) ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                                                    href: `/repository/preview/${source.documentId}`,
+                                                isValidDocumentId(source.documentId) ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                                                    href: getDocumentUrl(source),
                                                     target: "_blank",
                                                     rel: "noopener noreferrer",
                                                     className: "text-blue-600 hover:text-blue-800 transition-colors",
@@ -2174,7 +2317,7 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                                             className: "w-4 h-4"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                                            lineNumber: 176,
+                                                            lineNumber: 240,
                                                             columnNumber: 25
                                                         }, ("TURBOPACK compile-time value", void 0)),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2182,36 +2325,36 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                                             children: "View Document"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                                            lineNumber: 177,
+                                                            lineNumber: 241,
                                                             columnNumber: 25
                                                         }, ("TURBOPACK compile-time value", void 0))
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/qwen-response-display.tsx",
-                                                    lineNumber: 175,
+                                                    lineNumber: 239,
                                                     columnNumber: 23
                                                 }, ("TURBOPACK compile-time value", void 0)) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$external$2d$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ExternalLink$3e$__["ExternalLink"], {
                                                     className: "w-4 h-4 text-gray-400"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/qwen-response-display.tsx",
-                                                    lineNumber: 180,
+                                                    lineNumber: 244,
                                                     columnNumber: 23
                                                 }, ("TURBOPACK compile-time value", void 0))
                                             ]
                                         }, index, true, {
                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                            lineNumber: 155,
+                                            lineNumber: 214,
                                             columnNumber: 19
                                         }, ("TURBOPACK compile-time value", void 0)))
                                 }, void 0, false, {
                                     fileName: "[project]/components/qwen-response-display.tsx",
-                                    lineNumber: 153,
+                                    lineNumber: 212,
                                     columnNumber: 15
                                 }, ("TURBOPACK compile-time value", void 0))
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/qwen-response-display.tsx",
-                            lineNumber: 148,
+                            lineNumber: 207,
                             columnNumber: 13
                         }, ("TURBOPACK compile-time value", void 0)),
                         relevantDocumentUrl && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2228,54 +2371,54 @@ const QwenResponseDisplay = ({ generatedResponse, generationType, sources, isLoa
                                             className: "w-5 h-5"
                                         }, void 0, false, {
                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                            lineNumber: 192,
+                                            lineNumber: 256,
                                             columnNumber: 19
                                         }, ("TURBOPACK compile-time value", void 0)),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                            children: "View Source Document in Repository"
+                                            children: "View Source Document"
                                         }, void 0, false, {
                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                            lineNumber: 193,
+                                            lineNumber: 257,
                                             columnNumber: 19
                                         }, ("TURBOPACK compile-time value", void 0)),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$external$2d$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ExternalLink$3e$__["ExternalLink"], {
                                             className: "w-5 h-5"
                                         }, void 0, false, {
                                             fileName: "[project]/components/qwen-response-display.tsx",
-                                            lineNumber: 194,
+                                            lineNumber: 258,
                                             columnNumber: 19
                                         }, ("TURBOPACK compile-time value", void 0))
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/qwen-response-display.tsx",
-                                    lineNumber: 191,
+                                    lineNumber: 255,
                                     columnNumber: 17
                                 }, ("TURBOPACK compile-time value", void 0))
                             }, void 0, false, {
                                 fileName: "[project]/components/qwen-response-display.tsx",
-                                lineNumber: 190,
+                                lineNumber: 254,
                                 columnNumber: 15
                             }, ("TURBOPACK compile-time value", void 0))
                         }, void 0, false, {
                             fileName: "[project]/components/qwen-response-display.tsx",
-                            lineNumber: 189,
+                            lineNumber: 253,
                             columnNumber: 13
                         }, ("TURBOPACK compile-time value", void 0))
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/qwen-response-display.tsx",
-                    lineNumber: 114,
+                    lineNumber: 173,
                     columnNumber: 9
                 }, ("TURBOPACK compile-time value", void 0))
             }, void 0, false, {
                 fileName: "[project]/components/qwen-response-display.tsx",
-                lineNumber: 113,
+                lineNumber: 172,
                 columnNumber: 7
             }, ("TURBOPACK compile-time value", void 0))
         ]
     }, void 0, true, {
         fileName: "[project]/components/qwen-response-display.tsx",
-        lineNumber: 106,
+        lineNumber: 165,
         columnNumber: 5
     }, ("TURBOPACK compile-time value", void 0));
 };
@@ -2305,6 +2448,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e
 var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/ui/badge.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$search$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__SearchIcon$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/search.js [app-client] (ecmascript) <export default as SearchIcon>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$file$2d$text$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__FileText$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/file-text.js [app-client] (ecmascript) <export default as FileText>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$trending$2d$up$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__TrendingUp$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/trending-up.js [app-client] (ecmascript) <export default as TrendingUp>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$eye$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Eye$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/eye.js [app-client] (ecmascript) <export default as Eye>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tabs$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/ui/tabs.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/image.js [app-client] (ecmascript)");
@@ -2345,6 +2489,7 @@ function SearchPage() {
     const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
     const [sources, setSources] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]); // State to store the sources used in the AI response
     const [relevantDocumentUrl, setRelevantDocumentUrl] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(undefined); // State to store the relevant document URL
+    const [noRelevantDocuments, setNoRelevantDocuments] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false); // State to track if no relevant documents were found
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "SearchPage.useEffect": ()=>{
             if (!isLoading && !isAuthenticated) {
@@ -2417,10 +2562,12 @@ function SearchPage() {
                     setGenerationType(data.generationType || 'semantic'); // Default to semantic
                     setSources(data.sources || []); // Set the sources used in the AI response
                     setRelevantDocumentUrl(data.relevantDocumentUrl || undefined); // Set the relevant document URL
+                    setNoRelevantDocuments(data.noRelevantDocuments || false); // Set the no relevant documents flag
                 } else {
                     setGeneratedResponse(null);
                     setSources([]); // Clear sources when there's no generated response
                     setRelevantDocumentUrl(undefined); // Clear the document URL as well
+                    setNoRelevantDocuments(false); // Clear the flag
                 }
                 setSearchResults({
                     documents: documents || []
@@ -2433,6 +2580,7 @@ function SearchPage() {
                 setGeneratedResponse(null);
                 setSources([]); // Clear sources on error as well
                 setRelevantDocumentUrl(undefined); // Clear document URL on error as well
+                setNoRelevantDocuments(false); // Clear the flag on error
             } finally{
                 setLoading(false);
                 setIsGenerating(false);
@@ -2445,6 +2593,7 @@ function SearchPage() {
             setHasPerformedSearch(false);
             setSources([]); // Clear sources when there's no search query
             setRelevantDocumentUrl(undefined); // Clear document URL when there's no search query
+            setNoRelevantDocuments(false); // Clear the flag when there's no search query
         }
     };
     if (isLoading) {
@@ -2463,12 +2612,12 @@ function SearchPage() {
                             className: "object-contain animate-spin"
                         }, void 0, false, {
                             fileName: "[project]/app/search/page.tsx",
-                            lineNumber: 141,
+                            lineNumber: 146,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 140,
+                        lineNumber: 145,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2476,109 +2625,23 @@ function SearchPage() {
                         children: "Loading search..."
                     }, void 0, false, {
                         fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 149,
+                        lineNumber: 154,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/search/page.tsx",
-                lineNumber: 139,
+                lineNumber: 144,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/app/search/page.tsx",
-            lineNumber: 138,
+            lineNumber: 143,
             columnNumber: 7
         }, this);
     }
     if (!isAuthenticated) {
-        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-            className: "min-h-screen bg-background flex items-center justify-center",
-            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "text-center",
-                children: [
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "w-16 h-16 flex items-center justify-center mx-auto mb-4 overflow-hidden",
-                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                            src: "/LSPULogo.png",
-                            alt: "LSPU Logo",
-                            width: 64,
-                            height: 64,
-                            className: "object-contain animate-spin"
-                        }, void 0, false, {
-                            fileName: "[project]/app/search/page.tsx",
-                            lineNumber: 160,
-                            columnNumber: 13
-                        }, this)
-                    }, void 0, false, {
-                        fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 159,
-                        columnNumber: 11
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                        className: "text-lg text-muted-foreground",
-                        children: "Redirecting to login..."
-                    }, void 0, false, {
-                        fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 168,
-                        columnNumber: 11
-                    }, this)
-                ]
-            }, void 0, true, {
-                fileName: "[project]/app/search/page.tsx",
-                lineNumber: 158,
-                columnNumber: 9
-            }, this)
-        }, void 0, false, {
-            fileName: "[project]/app/search/page.tsx",
-            lineNumber: 157,
-            columnNumber: 7
-        }, this);
-    }
-    // Don't render if user is null but authentication is loading
-    if (!user) {
-        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-            className: "min-h-screen bg-background flex items-center justify-center",
-            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "text-center",
-                children: [
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "w-16 h-16 flex items-center justify-center mx-auto mb-4 overflow-hidden",
-                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                            src: "/LSPULogo.png",
-                            alt: "LSPU Logo",
-                            width: 64,
-                            height: 64,
-                            className: "object-contain animate-spin"
-                        }, void 0, false, {
-                            fileName: "[project]/app/search/page.tsx",
-                            lineNumber: 180,
-                            columnNumber: 13
-                        }, this)
-                    }, void 0, false, {
-                        fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 179,
-                        columnNumber: 11
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                        className: "text-lg text-muted-foreground",
-                        children: "Loading user data..."
-                    }, void 0, false, {
-                        fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 188,
-                        columnNumber: 11
-                    }, this)
-                ]
-            }, void 0, true, {
-                fileName: "[project]/app/search/page.tsx",
-                lineNumber: 178,
-                columnNumber: 9
-            }, this)
-        }, void 0, false, {
-            fileName: "[project]/app/search/page.tsx",
-            lineNumber: 177,
-            columnNumber: 7
-        }, this);
+        return null;
     }
     const totalResults = searchResults.documents.length;
     const popularSearches = [
@@ -2593,7 +2656,7 @@ function SearchPage() {
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$navbar$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Navbar"], {}, void 0, false, {
                 fileName: "[project]/app/search/page.tsx",
-                lineNumber: 200,
+                lineNumber: 170,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
@@ -2607,7 +2670,7 @@ function SearchPage() {
                                 children: "AI-Powered Search"
                             }, void 0, false, {
                                 fileName: "[project]/app/search/page.tsx",
-                                lineNumber: 204,
+                                lineNumber: 174,
                                 columnNumber: 10
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2615,13 +2678,13 @@ function SearchPage() {
                                 children: "Find documents and resources across the system"
                             }, void 0, false, {
                                 fileName: "[project]/app/search/page.tsx",
-                                lineNumber: 205,
+                                lineNumber: 175,
                                 columnNumber: 10
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 203,
+                        lineNumber: 173,
                         columnNumber: 8
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -2638,7 +2701,7 @@ function SearchPage() {
                                         }
                                     }, void 0, false, {
                                         fileName: "[project]/app/search/page.tsx",
-                                        lineNumber: 212,
+                                        lineNumber: 182,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -2653,7 +2716,7 @@ function SearchPage() {
                                         className: "pl-12 h-14 text-lg"
                                     }, void 0, false, {
                                         fileName: "[project]/app/search/page.tsx",
-                                        lineNumber: 213,
+                                        lineNumber: 183,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -2663,23 +2726,23 @@ function SearchPage() {
                                         children: "S"
                                     }, void 0, false, {
                                         fileName: "[project]/app/search/page.tsx",
-                                        lineNumber: 224,
+                                        lineNumber: 194,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/search/page.tsx",
-                                lineNumber: 211,
+                                lineNumber: 181,
                                 columnNumber: 13
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/app/search/page.tsx",
-                            lineNumber: 210,
+                            lineNumber: 180,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 209,
+                        lineNumber: 179,
                         columnNumber: 9
                     }, this),
                     searchQuery && hasPerformedSearch && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2693,7 +2756,7 @@ function SearchPage() {
                                         children: loading ? 'Searching...' : `${searchResults.documents.length} ${searchResults.documents.length === 1 ? "result" : "results"} found for "${searchQuery}"`
                                     }, void 0, false, {
                                         fileName: "[project]/app/search/page.tsx",
-                                        lineNumber: 240,
+                                        lineNumber: 210,
                                         columnNumber: 15
                                     }, this),
                                     generatedResponse && searchResults.documents.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2701,13 +2764,13 @@ function SearchPage() {
                                         children: "Showing the most relevant document for your query"
                                     }, void 0, false, {
                                         fileName: "[project]/app/search/page.tsx",
-                                        lineNumber: 244,
+                                        lineNumber: 214,
                                         columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/search/page.tsx",
-                                lineNumber: 239,
+                                lineNumber: 209,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$qwen$2d$response$2d$display$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -2715,13 +2778,14 @@ function SearchPage() {
                                 generationType: generationType,
                                 sources: sources,
                                 relevantDocumentUrl: relevantDocumentUrl,
-                                isLoading: isGenerating
+                                isLoading: isGenerating,
+                                noRelevantDocuments: noRelevantDocuments
                             }, void 0, false, {
                                 fileName: "[project]/app/search/page.tsx",
-                                lineNumber: 251,
+                                lineNumber: 221,
                                 columnNumber: 13
                             }, this),
-                            !generatedResponse ? searchResults.documents.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tabs$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Tabs"], {
+                            !generatedResponse && !isGenerating ? searchResults.documents.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tabs$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Tabs"], {
                                 defaultValue: "documents",
                                 className: "w-full",
                                 children: [
@@ -2732,12 +2796,12 @@ function SearchPage() {
                                             children: "Documents"
                                         }, void 0, false, {
                                             fileName: "[project]/app/search/page.tsx",
-                                            lineNumber: 264,
+                                            lineNumber: 235,
                                             columnNumber: 21
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/search/page.tsx",
-                                        lineNumber: 263,
+                                        lineNumber: 234,
                                         columnNumber: 19
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tabs$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TabsContent"], {
@@ -2749,39 +2813,56 @@ function SearchPage() {
                                                 className: "w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/search/page.tsx",
-                                                lineNumber: 270,
+                                                lineNumber: 241,
                                                 columnNumber: 25
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/app/search/page.tsx",
-                                            lineNumber: 269,
+                                            lineNumber: 240,
                                             columnNumber: 23
                                         }, this) : searchResults.documents.map((doc, index)=>{
                                             // Check if this document is from enhanced search (has additional properties)
                                             const enhancedResult = Array.isArray(searchResults.documents) && searchResults.documents.length > 0 && 'documentId' in searchResults.documents[0];
                                             const enhancedDoc = enhancedResult ? searchResults.documents[index] : null;
+                                            // Helper function to get the correct navigation URL
+                                            const getDocumentUrl = ()=>{
+                                                const resultWithUrl = doc;
+                                                // Check for QPRO document first - redirect to analysis page
+                                                if (resultWithUrl.isQproDocument && resultWithUrl.qproAnalysisId) {
+                                                    return `/qpro/analysis/${resultWithUrl.qproAnalysisId}`;
+                                                }
+                                                if (enhancedDoc?.isQproDocument && enhancedDoc?.qproAnalysisId) {
+                                                    return `/qpro/analysis/${enhancedDoc.qproAnalysisId}`;
+                                                }
+                                                // Check for direct documentUrl
+                                                if (resultWithUrl.documentUrl && resultWithUrl.documentUrl !== `/repository/preview/undefined` && !resultWithUrl.documentUrl.includes('/repository/preview/undefined')) {
+                                                    return resultWithUrl.documentUrl;
+                                                }
+                                                if (enhancedDoc?.documentUrl && enhancedDoc.documentUrl !== `/repository/preview/undefined` && !enhancedDoc.documentUrl.includes('/repository/preview/undefined')) {
+                                                    return enhancedDoc.documentUrl;
+                                                }
+                                                // Check for originalDocumentId
+                                                if (enhancedDoc?.originalDocumentId) {
+                                                    return `/repository/preview/${enhancedDoc.originalDocumentId}`;
+                                                }
+                                                // Check for colivaraDocumentId
+                                                if (doc.colivaraDocumentId) {
+                                                    return `/repository/preview/${doc.colivaraDocumentId}`;
+                                                }
+                                                // Fallback to document ID
+                                                return `/repository/preview/${doc.id}`;
+                                            };
                                             return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
                                                 className: "hover:shadow-lg transition-shadow cursor-pointer",
                                                 onClick: ()=>{
-                                                    // Navigate to the document preview page
-                                                    // Check multiple possible locations for the document ID or URL
-                                                    // First, check if the result has a direct documentUrl field (using type assertion to any)
-                                                    const resultWithUrl = doc;
-                                                    if (resultWithUrl.documentUrl && resultWithUrl.documentUrl !== `/repository/preview/undefined` && !resultWithUrl.documentUrl.includes('/repository/preview/undefined')) {
-                                                        router.push(resultWithUrl.documentUrl);
-                                                    } else if (enhancedDoc?.originalDocumentId) {
-                                                        // Use the original database document ID for preview
-                                                        router.push(`/repository/preview/${enhancedDoc.originalDocumentId}`);
-                                                    } else if (enhancedDoc?.documentUrl && enhancedDoc.documentUrl !== `/repository/preview/undefined` && !enhancedDoc.documentUrl.includes('/repository/preview/undefined')) {
-                                                        // Use the document URL if available
-                                                        router.push(enhancedDoc.documentUrl);
-                                                    } else if (doc.colivaraDocumentId) {
-                                                        // If we have a Colivara document ID, navigate to the preview page with it
-                                                        // The preview API will handle mapping Colivara ID to database ID
-                                                        router.push(`/repository/preview/${doc.colivaraDocumentId}`);
-                                                    } else {
-                                                        router.push(`/repository/preview/${doc.id}`);
-                                                    }
+                                                    const url = getDocumentUrl();
+                                                    console.log('[Search] Navigating to:', url, {
+                                                        docId: doc.id,
+                                                        isQpro: doc.isQproDocument || enhancedDoc?.isQproDocument,
+                                                        qproAnalysisId: doc.qproAnalysisId || enhancedDoc?.qproAnalysisId,
+                                                        documentUrl: doc.documentUrl || enhancedDoc?.documentUrl
+                                                    });
+                                                    router.push(url);
                                                 },
                                                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardHeader"], {
                                                     children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2793,12 +2874,12 @@ function SearchPage() {
                                                                     className: "w-5 h-5 text-primary"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/search/page.tsx",
-                                                                    lineNumber: 312,
+                                                                    lineNumber: 292,
                                                                     columnNumber: 35
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/search/page.tsx",
-                                                                lineNumber: 311,
+                                                                lineNumber: 291,
                                                                 columnNumber: 33
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2807,12 +2888,30 @@ function SearchPage() {
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                         className: "flex items-start justify-between gap-2",
                                                                         children: [
-                                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardTitle"], {
-                                                                                className: "text-lg",
-                                                                                children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$document$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cleanDocumentTitle"])(__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$super$2d$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].getFieldValue(doc, 'title') || doc.title || doc.document && __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$super$2d$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].getFieldValue(doc.document, 'title') || doc.originalName || "Untitled Document")
-                                                                            }, void 0, false, {
+                                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                                                className: "flex items-center gap-2",
+                                                                                children: [
+                                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardTitle"], {
+                                                                                        className: "text-lg",
+                                                                                        children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$document$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cleanDocumentTitle"])(__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$super$2d$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].getFieldValue(doc, 'title') || doc.title || doc.document && __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$super$2d$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].getFieldValue(doc.document, 'title') || doc.originalName || "Untitled Document")
+                                                                                    }, void 0, false, {
+                                                                                        fileName: "[project]/app/search/page.tsx",
+                                                                                        lineNumber: 297,
+                                                                                        columnNumber: 39
+                                                                                    }, this),
+                                                                                    (doc.isQproDocument || enhancedDoc?.isQproDocument) && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
+                                                                                        variant: "default",
+                                                                                        className: "bg-blue-600 hover:bg-blue-700",
+                                                                                        children: "QPRO"
+                                                                                    }, void 0, false, {
+                                                                                        fileName: "[project]/app/search/page.tsx",
+                                                                                        lineNumber: 300,
+                                                                                        columnNumber: 41
+                                                                                    }, this)
+                                                                                ]
+                                                                            }, void 0, true, {
                                                                                 fileName: "[project]/app/search/page.tsx",
-                                                                                lineNumber: 316,
+                                                                                lineNumber: 296,
                                                                                 columnNumber: 37
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
@@ -2820,103 +2919,148 @@ function SearchPage() {
                                                                                 children: __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2f$super$2d$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].getFieldValue(doc, 'category') || doc.category || doc.type || "Uncategorized"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/app/search/page.tsx",
-                                                                                lineNumber: 317,
+                                                                                lineNumber: 303,
                                                                                 columnNumber: 37
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/search/page.tsx",
-                                                                        lineNumber: 315,
+                                                                        lineNumber: 295,
                                                                         columnNumber: 35
                                                                     }, this),
-                                                                    enhancedDoc?.snippet ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardDescription"], {
-                                                                        className: "mt-1",
-                                                                        dangerouslySetInnerHTML: {
-                                                                            __html: enhancedDoc.snippet
-                                                                        }
-                                                                    }, void 0, false, {
+                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                                        className: "mt-3 p-3 bg-muted/50 rounded-lg border-l-4 border-primary/30",
+                                                                        children: [
+                                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                                                className: "text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1",
+                                                                                children: [
+                                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$trending$2d$up$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__TrendingUp$3e$__["TrendingUp"], {
+                                                                                        className: "w-3 h-3"
+                                                                                    }, void 0, false, {
+                                                                                        fileName: "[project]/app/search/page.tsx",
+                                                                                        lineNumber: 309,
+                                                                                        columnNumber: 39
+                                                                                    }, this),
+                                                                                    "💬 Evidence from document:"
+                                                                                ]
+                                                                            }, void 0, true, {
+                                                                                fileName: "[project]/app/search/page.tsx",
+                                                                                lineNumber: 308,
+                                                                                columnNumber: 37
+                                                                            }, this),
+                                                                            (()=>{
+                                                                                // Try to get meaningful snippet in order of preference
+                                                                                const snippet = enhancedDoc?.snippet || doc.snippet;
+                                                                                const extractedText = enhancedDoc?.extractedText || doc.extractedText;
+                                                                                const content = doc.content;
+                                                                                const description = doc.description || doc.document?.description;
+                                                                                // Prefer snippet, then extractedText, then content, then description
+                                                                                const evidence = snippet || extractedText || content || description;
+                                                                                // Check if the evidence is meaningful or just a placeholder
+                                                                                const isMeaningfulText = evidence && evidence.trim().length > 20 && !evidence.toLowerCase().includes('visual content') && !evidence.toLowerCase().includes('visual document') && !evidence.toLowerCase().includes('ai will extract') && !evidence.toLowerCase().includes('click to preview');
+                                                                                if (isMeaningfulText) {
+                                                                                    // Show actual content with quotes
+                                                                                    const displayText = evidence.length > 300 ? evidence.substring(0, 300) + '...' : evidence;
+                                                                                    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardDescription"], {
+                                                                                        className: "mt-1 text-sm italic leading-relaxed",
+                                                                                        children: [
+                                                                                            '"',
+                                                                                            displayText,
+                                                                                            '"'
+                                                                                        ]
+                                                                                    }, void 0, true, {
+                                                                                        fileName: "[project]/app/search/page.tsx",
+                                                                                        lineNumber: 334,
+                                                                                        columnNumber: 43
+                                                                                    }, this);
+                                                                                } else {
+                                                                                    // Show document description or prompt to view
+                                                                                    const docDescription = doc.description || doc.document?.description;
+                                                                                    if (docDescription && docDescription.trim().length > 10) {
+                                                                                        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardDescription"], {
+                                                                                            className: "mt-1 text-sm italic leading-relaxed",
+                                                                                            children: [
+                                                                                                '"',
+                                                                                                docDescription.substring(0, 200),
+                                                                                                docDescription.length > 200 ? '...' : '',
+                                                                                                '"'
+                                                                                            ]
+                                                                                        }, void 0, true, {
+                                                                                            fileName: "[project]/app/search/page.tsx",
+                                                                                            lineNumber: 343,
+                                                                                            columnNumber: 45
+                                                                                        }, this);
+                                                                                    }
+                                                                                    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardDescription"], {
+                                                                                        className: "mt-1 text-sm text-muted-foreground",
+                                                                                        children: "📄 Document matched your search query. Click to view full content."
+                                                                                    }, void 0, false, {
+                                                                                        fileName: "[project]/app/search/page.tsx",
+                                                                                        lineNumber: 349,
+                                                                                        columnNumber: 43
+                                                                                    }, this);
+                                                                                }
+                                                                            })()
+                                                                        ]
+                                                                    }, void 0, true, {
                                                                         fileName: "[project]/app/search/page.tsx",
-                                                                        lineNumber: 321,
-                                                                        columnNumber: 37
-                                                                    }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardDescription"], {
-                                                                        className: "mt-1",
-                                                                        children: doc.snippet || doc.content || doc.text || doc.description || doc.document?.description || doc.summary || "No preview available"
-                                                                    }, void 0, false, {
-                                                                        fileName: "[project]/app/search/page.tsx",
-                                                                        lineNumber: 323,
-                                                                        columnNumber: 37
+                                                                        lineNumber: 307,
+                                                                        columnNumber: 35
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                         className: "flex flex-wrap gap-1 mt-2",
-                                                                        children: (doc.tags || doc.keywords || []).map((tag, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
+                                                                        children: (doc.tags || doc.keywords || []).map((tag, tagIndex)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
                                                                                 variant: "outline",
                                                                                 className: "text-xs",
                                                                                 children: tag
-                                                                            }, index, false, {
+                                                                            }, tagIndex, false, {
                                                                                 fileName: "[project]/app/search/page.tsx",
-                                                                                lineNumber: 327,
+                                                                                lineNumber: 359,
                                                                                 columnNumber: 39
                                                                             }, this))
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/search/page.tsx",
-                                                                        lineNumber: 325,
+                                                                        lineNumber: 357,
                                                                         columnNumber: 35
                                                                     }, this),
-                                                                    enhancedDoc?.confidenceScore && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                                        className: "mt-2 text-xs text-muted-foreground flex items-center gap-2",
+                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                                        className: "mt-2 flex items-center gap-3",
                                                                         children: [
-                                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                                                children: [
-                                                                                    "Relevance: ",
-                                                                                    (enhancedDoc.confidenceScore * 100).toFixed(0),
-                                                                                    "%"
-                                                                                ]
-                                                                            }, void 0, true, {
+                                                                            enhancedDoc?.confidenceScore || doc.confidenceScore || doc.score ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                                                className: "inline-flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-md",
+                                                                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                                                    className: "text-xs font-medium text-primary",
+                                                                                    children: [
+                                                                                        "Relevance: ",
+                                                                                        ((enhancedDoc?.confidenceScore || doc.confidenceScore || doc.score || 0.85) * 100).toFixed(0),
+                                                                                        "%"
+                                                                                    ]
+                                                                                }, void 0, true, {
+                                                                                    fileName: "[project]/app/search/page.tsx",
+                                                                                    lineNumber: 368,
+                                                                                    columnNumber: 41
+                                                                                }, this)
+                                                                            }, void 0, false, {
                                                                                 fileName: "[project]/app/search/page.tsx",
-                                                                                lineNumber: 335,
+                                                                                lineNumber: 367,
                                                                                 columnNumber: 39
-                                                                            }, this),
-                                                                            enhancedDoc.pageNumbers && enhancedDoc.pageNumbers.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                                            }, this) : null,
+                                                                            (enhancedDoc?.pageNumbers?.length > 0 || doc.pageNumbers?.length > 0) && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                                                className: "text-xs text-muted-foreground",
                                                                                 children: [
                                                                                     "Pages: ",
-                                                                                    enhancedDoc.pageNumbers.join(', ')
+                                                                                    (enhancedDoc?.pageNumbers || doc.pageNumbers).join(', ')
                                                                                 ]
                                                                             }, void 0, true, {
                                                                                 fileName: "[project]/app/search/page.tsx",
-                                                                                lineNumber: 337,
-                                                                                columnNumber: 41
-                                                                            }, this)
-                                                                        ]
-                                                                    }, void 0, true, {
-                                                                        fileName: "[project]/app/search/page.tsx",
-                                                                        lineNumber: 334,
-                                                                        columnNumber: 37
-                                                                    }, this),
-                                                                    enhancedDoc?.visualContent && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                                        className: "mt-2",
-                                                                        children: [
-                                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                                                className: "text-xs font-medium text-muted-foreground mb-1",
-                                                                                children: "Evidence Image:"
-                                                                            }, void 0, false, {
-                                                                                fileName: "[project]/app/search/page.tsx",
-                                                                                lineNumber: 344,
-                                                                                columnNumber: 39
-                                                                            }, this),
-                                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("img", {
-                                                                                src: `data:image/png;base64,${enhancedDoc.visualContent}`,
-                                                                                alt: "Evidence from document",
-                                                                                className: "max-w-xs max-h-32 object-contain border rounded"
-                                                                            }, void 0, false, {
-                                                                                fileName: "[project]/app/search/page.tsx",
-                                                                                lineNumber: 345,
+                                                                                lineNumber: 374,
                                                                                 columnNumber: 39
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/search/page.tsx",
-                                                                        lineNumber: 343,
-                                                                        columnNumber: 37
+                                                                        lineNumber: 365,
+                                                                        columnNumber: 35
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                         className: "mt-3 flex justify-end",
@@ -2925,61 +3069,43 @@ function SearchPage() {
                                                                             size: "sm",
                                                                             onClick: (e)=>{
                                                                                 e.stopPropagation(); // Prevent card click from triggering
-                                                                                // Navigate to the document preview page
-                                                                                // Check multiple possible locations for the document ID or URL
-                                                                                // First, check if the result has a direct documentUrl field (using type assertion to any)
-                                                                                const resultWithUrl = doc;
-                                                                                if (resultWithUrl.documentUrl && resultWithUrl.documentUrl !== `/repository/preview/undefined` && !resultWithUrl.documentUrl.includes('/repository/preview/undefined')) {
-                                                                                    router.push(resultWithUrl.documentUrl);
-                                                                                } else if (enhancedDoc?.originalDocumentId) {
-                                                                                    // Use the original database document ID for preview
-                                                                                    router.push(`/repository/preview/${enhancedDoc.originalDocumentId}`);
-                                                                                } else if (enhancedDoc?.documentUrl && enhancedDoc.documentUrl !== `/repository/preview/undefined` && !enhancedDoc.documentUrl.includes('/repository/preview/undefined')) {
-                                                                                    // Use the document URL if available
-                                                                                    router.push(enhancedDoc.documentUrl);
-                                                                                } else if (doc.colivaraDocumentId) {
-                                                                                    // If we have a Colivara document ID, navigate to the preview page with it
-                                                                                    // The preview API will handle mapping Colivara ID to database ID
-                                                                                    router.push(`/repository/preview/${doc.colivaraDocumentId}`);
-                                                                                } else {
-                                                                                    router.push(`/repository/preview/${doc.id}`);
-                                                                                }
+                                                                                router.push(getDocumentUrl());
                                                                             },
                                                                             children: [
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$eye$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Eye$3e$__["Eye"], {
                                                                                     className: "w-4 h-4 mr-1"
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/app/search/page.tsx",
-                                                                                    lineNumber: 385,
+                                                                                    lineNumber: 383,
                                                                                     columnNumber: 39
                                                                                 }, this),
-                                                                                "Preview"
+                                                                                doc.isQproDocument || enhancedDoc?.isQproDocument ? 'View Analysis' : 'Preview'
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/app/search/page.tsx",
-                                                                            lineNumber: 354,
+                                                                            lineNumber: 379,
                                                                             columnNumber: 37
                                                                         }, this)
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/search/page.tsx",
-                                                                        lineNumber: 353,
+                                                                        lineNumber: 378,
                                                                         columnNumber: 35
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/search/page.tsx",
-                                                                lineNumber: 314,
+                                                                lineNumber: 294,
                                                                 columnNumber: 33
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/search/page.tsx",
-                                                        lineNumber: 310,
+                                                        lineNumber: 290,
                                                         columnNumber: 31
                                                     }, this)
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/search/page.tsx",
-                                                    lineNumber: 309,
+                                                    lineNumber: 289,
                                                     columnNumber: 29
                                                 }, this)
                                             }, `${doc.id}-${index}`, false, {
@@ -2990,13 +3116,13 @@ function SearchPage() {
                                         })
                                     }, void 0, false, {
                                         fileName: "[project]/app/search/page.tsx",
-                                        lineNumber: 267,
+                                        lineNumber: 238,
                                         columnNumber: 19
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/search/page.tsx",
-                                lineNumber: 262,
+                                lineNumber: 233,
                                 columnNumber: 17
                             }, this) : null,
                             !loading && searchResults.documents.length === 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -3010,7 +3136,7 @@ function SearchPage() {
                                             }
                                         }, void 0, false, {
                                             fileName: "[project]/app/search/page.tsx",
-                                            lineNumber: 404,
+                                            lineNumber: 402,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -3018,7 +3144,7 @@ function SearchPage() {
                                             children: "No results found"
                                         }, void 0, false, {
                                             fileName: "[project]/app/search/page.tsx",
-                                            lineNumber: 405,
+                                            lineNumber: 403,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3026,47 +3152,47 @@ function SearchPage() {
                                             children: "Try different keywords or browse the repository"
                                         }, void 0, false, {
                                             fileName: "[project]/app/search/page.tsx",
-                                            lineNumber: 406,
+                                            lineNumber: 404,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/search/page.tsx",
-                                    lineNumber: 403,
+                                    lineNumber: 401,
                                     columnNumber: 17
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/app/search/page.tsx",
-                                lineNumber: 402,
+                                lineNumber: 400,
                                 columnNumber: 15
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 238,
+                        lineNumber: 208,
                         columnNumber: 11
                     }, this),
                     !searchQuery && !hasPerformedSearch && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in"
                     }, void 0, false, {
                         fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 415,
+                        lineNumber: 413,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/search/page.tsx",
-                lineNumber: 201,
+                lineNumber: 171,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/app/search/page.tsx",
-        lineNumber: 199,
+        lineNumber: 169,
         columnNumber: 5
     }, this);
 }
-_s(SearchPage, "ImCM4dxdiGdKgF82d5TGJWYuVN4=", false, function() {
+_s(SearchPage, "FZe8eTAi8pR1Z/LltKJLAkRYAnw=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$auth$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useAuth"],
         __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRouter"]

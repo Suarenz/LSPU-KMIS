@@ -707,22 +707,23 @@ Now analyze the documents below to answer this query: "${query}"
         text: `\n\n${isComprehensiveQuery ? `### SPECIAL INSTRUCTION FOR COMPREHENSIVE QUERIES: When the user asks for a list of items (such as faculty and their trainings/seminars), you MUST provide ALL the information found in the documents. Do not summarize or abbreviate. If multiple documents contain relevant information, combine and present ALL the data from all documents. Use a clear format like bullet points or structured lists to make the information easy to read. CRITICAL: If you state that you are providing a list, you MUST actually provide the complete list content. Do not just say "Here is the list..." without providing the actual items in the list. READ EVERY DOCUMENT CAREFULLY and extract ALL relevant information BEFORE forming your response. Do not stop at the first few items you find - continue reading through all documents to ensure you have collected all relevant information.` : ''}\n\nBased on the above documents, provide a clear, direct answer to "${query}". Format your response as JSON with the following structure: { "summary": "Direct answer to the user's query based on document content", "keyPoints": ["Concise points that directly address the query", "Relevant information from documents"], "sources": [ { "title": "Document title", "documentId": "Document ID if available", "confidence": "Confidence score between 0 and 1" } ] }`
       });
 
-      const prompt = `Based on the following documents, please provide a summary, key points, and sources related to the query: ${query}
+      const prompt = `Based on the following documents, please provide a summary, key points, sources, and direct evidence (quoted passage or excerpt) that supports your answer for the query: ${query}
 
 Documents:
 [MULTIMODAL CONTENT PROVIDED IN THE REQUEST]
 
 Please format your response as JSON with the following structure:
 {
- "summary": "Brief summary of the documents in relation to the query",
- "keyPoints": ["List of key points from the documents", "Each point should be concise and informative"],
+ "summary": "Direct answer to the user's query based on document content",
+ "keyPoints": ["Concise points that directly address the query", "Relevant information from documents"],
  "sources": [
    {
      "title": "Document title",
      "documentId": "Document ID if available",
      "confidence": "Confidence score between 0 and 1"
    }
- ]
+ ],
+ "evidence": "Direct quote or passage from the document that supports the answer (required, do not leave blank)"
 }`;
 
       // Check if the model supports image inputs by checking the model name
@@ -821,13 +822,11 @@ Please format your response as JSON with the following structure:
       // Parse the JSON response
       try {
         const parsed = JSON.parse(text);
-        
         // Check if the AI response indicates no relevant information was found
         const noRelevantDocuments = isNoInformationResponse(parsed.summary || '');
         if (noRelevantDocuments) {
           console.log(`🔍 AI detected no relevant information in documents for query: "${query}"`);
         }
-        
         // Track the successful request
         this.monitoringService.trackGeneration(
           userId || 'unknown',
@@ -837,14 +836,12 @@ Please format your response as JSON with the following structure:
           undefined,
           this.config.model
         );
-        
+        // Return parsed response, including evidence field
         return { ...parsed, noRelevantDocuments };
       } catch (parseError) {
         console.error('Error parsing Qwen JSON response:', parseError);
-        
         // Check if the raw text indicates no relevant information
         const noRelevantDocuments = isNoInformationResponse(text);
-        
         // Fallback: return a basic structure
         const fallbackResult = {
           summary: text.substring(0, 500) + (text.length > 50 ? '...' : ''),
@@ -854,9 +851,9 @@ Please format your response as JSON with the following structure:
             documentId: result.documentId || '',
             confidence: result.confidenceScore || 0
           })),
+          evidence: '', // Fallback: no evidence available
           noRelevantDocuments
         };
-        
         // Track the successful request with fallback
         this.monitoringService.trackGeneration(
           userId || 'unknown',
@@ -866,7 +863,6 @@ Please format your response as JSON with the following structure:
           'Fallback due to JSON parsing error',
           this.config.model
         );
-        
         return fallbackResult;
       }
     } catch (error) {

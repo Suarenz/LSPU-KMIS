@@ -1,4 +1,4 @@
-import prisma from '../lib/prisma';
+import prisma from '../lib/prisma'; // Ensure this path is correct for direct execution
 
 const units = [
   { code: 'CAS', name: 'College of Arts and Sciences' },

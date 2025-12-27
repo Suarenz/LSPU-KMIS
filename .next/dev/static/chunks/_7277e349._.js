@@ -2949,17 +2949,11 @@ function SearchPage() {
                                                                                 columnNumber: 37
                                                                             }, this),
                                                                             (()=>{
-                                                                                // Try to get meaningful snippet in order of preference
-                                                                                const snippet = enhancedDoc?.snippet || doc.snippet;
-                                                                                const extractedText = enhancedDoc?.extractedText || doc.extractedText;
-                                                                                const content = doc.content;
-                                                                                const description = doc.description || doc.document?.description;
-                                                                                // Prefer snippet, then extractedText, then content, then description
-                                                                                const evidence = snippet || extractedText || content || description;
-                                                                                // Check if the evidence is meaningful or just a placeholder
+                                                                                // Prefer evidence from API response if present
+                                                                                const evidenceFromApi = ("TURBOPACK compile-time value", "object") !== 'undefined' && window.__SEARCH_EVIDENCE__ ? window.__SEARCH_EVIDENCE__ : undefined;
+                                                                                const evidence = evidenceFromApi || enhancedDoc?.evidence || doc.evidence || enhancedDoc?.snippet || doc.snippet || enhancedDoc?.extractedText || doc.extractedText || doc.content || doc.description || doc.document?.description;
                                                                                 const isMeaningfulText = evidence && evidence.trim().length > 20 && !evidence.toLowerCase().includes('visual content') && !evidence.toLowerCase().includes('visual document') && !evidence.toLowerCase().includes('ai will extract') && !evidence.toLowerCase().includes('click to preview');
                                                                                 if (isMeaningfulText) {
-                                                                                    // Show actual content with quotes
                                                                                     const displayText = evidence.length > 300 ? evidence.substring(0, 300) + '...' : evidence;
                                                                                     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardDescription"], {
                                                                                         className: "mt-1 text-sm italic leading-relaxed",
@@ -2970,11 +2964,10 @@ function SearchPage() {
                                                                                         ]
                                                                                     }, void 0, true, {
                                                                                         fileName: "[project]/app/search/page.tsx",
-                                                                                        lineNumber: 334,
+                                                                                        lineNumber: 325,
                                                                                         columnNumber: 43
                                                                                     }, this);
                                                                                 } else {
-                                                                                    // Show document description or prompt to view
                                                                                     const docDescription = doc.description || doc.document?.description;
                                                                                     if (docDescription && docDescription.trim().length > 10) {
                                                                                         return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardDescription"], {
@@ -2987,7 +2980,7 @@ function SearchPage() {
                                                                                             ]
                                                                                         }, void 0, true, {
                                                                                             fileName: "[project]/app/search/page.tsx",
-                                                                                            lineNumber: 343,
+                                                                                            lineNumber: 333,
                                                                                             columnNumber: 45
                                                                                         }, this);
                                                                                     }
@@ -2996,7 +2989,7 @@ function SearchPage() {
                                                                                         children: "📄 Document matched your search query. Click to view full content."
                                                                                     }, void 0, false, {
                                                                                         fileName: "[project]/app/search/page.tsx",
-                                                                                        lineNumber: 349,
+                                                                                        lineNumber: 339,
                                                                                         columnNumber: 43
                                                                                     }, this);
                                                                                 }
@@ -3015,12 +3008,12 @@ function SearchPage() {
                                                                                 children: tag
                                                                             }, tagIndex, false, {
                                                                                 fileName: "[project]/app/search/page.tsx",
-                                                                                lineNumber: 359,
+                                                                                lineNumber: 349,
                                                                                 columnNumber: 39
                                                                             }, this))
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/search/page.tsx",
-                                                                        lineNumber: 357,
+                                                                        lineNumber: 347,
                                                                         columnNumber: 35
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3037,12 +3030,12 @@ function SearchPage() {
                                                                                     ]
                                                                                 }, void 0, true, {
                                                                                     fileName: "[project]/app/search/page.tsx",
-                                                                                    lineNumber: 368,
+                                                                                    lineNumber: 358,
                                                                                     columnNumber: 41
                                                                                 }, this)
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/app/search/page.tsx",
-                                                                                lineNumber: 367,
+                                                                                lineNumber: 357,
                                                                                 columnNumber: 39
                                                                             }, this) : null,
                                                                             (enhancedDoc?.pageNumbers?.length > 0 || doc.pageNumbers?.length > 0) && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3053,13 +3046,13 @@ function SearchPage() {
                                                                                 ]
                                                                             }, void 0, true, {
                                                                                 fileName: "[project]/app/search/page.tsx",
-                                                                                lineNumber: 374,
+                                                                                lineNumber: 364,
                                                                                 columnNumber: 39
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/search/page.tsx",
-                                                                        lineNumber: 365,
+                                                                        lineNumber: 355,
                                                                         columnNumber: 35
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3076,19 +3069,19 @@ function SearchPage() {
                                                                                     className: "w-4 h-4 mr-1"
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/app/search/page.tsx",
-                                                                                    lineNumber: 383,
+                                                                                    lineNumber: 373,
                                                                                     columnNumber: 39
                                                                                 }, this),
                                                                                 doc.isQproDocument || enhancedDoc?.isQproDocument ? 'View Analysis' : 'Preview'
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/app/search/page.tsx",
-                                                                            lineNumber: 379,
+                                                                            lineNumber: 369,
                                                                             columnNumber: 37
                                                                         }, this)
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/search/page.tsx",
-                                                                        lineNumber: 378,
+                                                                        lineNumber: 368,
                                                                         columnNumber: 35
                                                                     }, this)
                                                                 ]
@@ -3136,7 +3129,7 @@ function SearchPage() {
                                             }
                                         }, void 0, false, {
                                             fileName: "[project]/app/search/page.tsx",
-                                            lineNumber: 402,
+                                            lineNumber: 392,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -3144,7 +3137,7 @@ function SearchPage() {
                                             children: "No results found"
                                         }, void 0, false, {
                                             fileName: "[project]/app/search/page.tsx",
-                                            lineNumber: 403,
+                                            lineNumber: 393,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3152,18 +3145,18 @@ function SearchPage() {
                                             children: "Try different keywords or browse the repository"
                                         }, void 0, false, {
                                             fileName: "[project]/app/search/page.tsx",
-                                            lineNumber: 404,
+                                            lineNumber: 394,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/search/page.tsx",
-                                    lineNumber: 401,
+                                    lineNumber: 391,
                                     columnNumber: 17
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/app/search/page.tsx",
-                                lineNumber: 400,
+                                lineNumber: 390,
                                 columnNumber: 15
                             }, this)
                         ]
@@ -3176,7 +3169,7 @@ function SearchPage() {
                         className: "grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in"
                     }, void 0, false, {
                         fileName: "[project]/app/search/page.tsx",
-                        lineNumber: 413,
+                        lineNumber: 403,
                         columnNumber: 11
                     }, this)
                 ]

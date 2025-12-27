@@ -552,98 +552,120 @@ class DatabaseAuthService {
             if (!token) {
                 return null;
             }
-            // Check if we're in the browser environment
-            if ("TURBOPACK compile-time truthy", 1) {
-                // In browser, check if token is expired without full verification
-                const isExpired = __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$services$2f$jwt$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].isTokenExpired(token);
-                if (isExpired) {
-                    // Try to refresh the token
-                    const refreshed = await this.refreshToken();
-                    if (refreshed) {
-                        // Get the new token after refresh
-                        const refreshedToken = this.getAccessTokenFromStorage();
-                        if (refreshedToken) {
-                            // Fetch user data from the API route with the refreshed token
-                            const response = await fetch('/api/auth/me', {
-                                headers: {
-                                    'Authorization': `Bearer ${refreshedToken}`,
-                                    'Content-Type': 'application/json'
+            // Add timeout to prevent hanging
+            const controller = new AbortController();
+            const timeoutId = setTimeout(()=>controller.abort(), 5000); // 5 second timeout
+            try {
+                // Check if we're in the browser environment
+                if ("TURBOPACK compile-time truthy", 1) {
+                    // In browser, check if token is expired without full verification
+                    const isExpired = __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$services$2f$jwt$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].isTokenExpired(token);
+                    if (isExpired) {
+                        // Try to refresh the token
+                        const refreshed = await this.refreshToken();
+                        if (refreshed) {
+                            clearTimeout(timeoutId);
+                            // Get the new token after refresh
+                            const refreshedToken = this.getAccessTokenFromStorage();
+                            if (refreshedToken) {
+                                // Fetch user data from the API route with the refreshed token
+                                const response = await fetch('/api/auth/me', {
+                                    headers: {
+                                        'Authorization': `Bearer ${refreshedToken}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    signal: controller.signal
+                                });
+                                if (!response.ok) {
+                                    return null;
                                 }
-                            });
-                            if (!response.ok) {
-                                return null;
-                            }
-                            const data = await response.json();
-                            if (data.user) {
-                                return {
-                                    id: data.user.id,
-                                    email: data.user.email,
-                                    name: data.user.name,
-                                    role: data.user.role,
-                                    unitId: data.user.unitId || undefined
-                                };
+                                const data = await response.json();
+                                if (data.user) {
+                                    return {
+                                        id: data.user.id,
+                                        email: data.user.email,
+                                        name: data.user.name,
+                                        role: data.user.role,
+                                        unitId: data.user.unitId || undefined
+                                    };
+                                } else {
+                                    return null;
+                                }
                             } else {
-                                return null;
+                                return null; // If no new token after refresh, return null
                             }
                         } else {
-                            return null; // If no new token after refresh, return null
+                            clearTimeout(timeoutId);
+                            return null; // If refresh failed, return null
                         }
-                    } else {
-                        return null; // If refresh failed, return null
                     }
-                }
-            } else //TURBOPACK unreachable
-            ;
-            // Fetch user data from the API route
-            const response = await fetch('/api/auth/me', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            if (!response.ok) {
-                // If the response is 401 (unauthorized), try to refresh the token
-                if (response.status === 401) {
-                    const refreshed = await this.refreshToken();
-                    if (refreshed) {
-                        // If token was refreshed, try the request again
-                        const newToken = this.getAccessTokenFromStorage();
-                        if (newToken) {
-                            const retryResponse = await fetch('/api/auth/me', {
-                                headers: {
-                                    'Authorization': `Bearer ${newToken}`,
-                                    'Content-Type': 'application/json'
+                } else //TURBOPACK unreachable
+                ;
+                // Fetch user data from the API route
+                const response = await fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    // If the response is 401 (unauthorized), try to refresh the token
+                    if (response.status === 401) {
+                        const refreshed = await this.refreshToken();
+                        if (refreshed) {
+                            // If token was refreshed, try the request again
+                            const newToken = this.getAccessTokenFromStorage();
+                            if (newToken) {
+                                const retryController = new AbortController();
+                                const retryTimeoutId = setTimeout(()=>retryController.abort(), 5000);
+                                const retryResponse = await fetch('/api/auth/me', {
+                                    headers: {
+                                        'Authorization': `Bearer ${newToken}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    signal: retryController.signal
+                                });
+                                clearTimeout(retryTimeoutId);
+                                if (!retryResponse.ok) {
+                                    return null;
                                 }
-                            });
-                            if (!retryResponse.ok) {
-                                return null;
-                            }
-                            const retryData = await retryResponse.json();
-                            if (retryData.user) {
-                                return {
-                                    id: retryData.user.id,
-                                    email: retryData.user.email,
-                                    name: retryData.user.name,
-                                    role: retryData.user.role,
-                                    unitId: retryData.user.unitId || undefined
-                                };
+                                const retryData = await retryResponse.json();
+                                if (retryData.user) {
+                                    return {
+                                        id: retryData.user.id,
+                                        email: retryData.user.email,
+                                        name: retryData.user.name,
+                                        role: retryData.user.role,
+                                        unitId: retryData.user.unitId || undefined
+                                    };
+                                }
                             }
                         }
                     }
+                    return null;
                 }
-                return null;
-            }
-            const data = await response.json();
-            if (data.user) {
-                return {
-                    id: data.user.id,
-                    email: data.user.email,
-                    name: data.user.name,
-                    role: data.user.role,
-                    unitId: data.user.unitId || undefined
-                };
-            } else {
-                return null;
+                const data = await response.json();
+                if (data.user) {
+                    return {
+                        id: data.user.id,
+                        email: data.user.email,
+                        name: data.user.name,
+                        role: data.user.role,
+                        unitId: data.user.unitId || undefined
+                    };
+                } else {
+                    return null;
+                }
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                // If it's an abort error (timeout), return null instead of throwing
+                if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+                    console.warn('getCurrentUser request timed out after 5 seconds');
+                    return null;
+                }
+                throw fetchError;
             }
         } catch (error) {
             console.error('Error in getCurrentUser:', error);
@@ -880,86 +902,90 @@ class DatabaseAuthService {
             if (cachedSession) {
                 return cachedSession;
             }
-            const token = await this.getAccessToken();
+            // Get token synchronously to avoid extra async calls
+            const token = this.getAccessTokenFromStorage();
             if (!token) {
-                // If no token is available, check if user is authenticated before throwing error
-                const isAuthenticated = await this.isAuthenticated();
-                if (!isAuthenticated) {
-                    // User is not authenticated, return null to indicate this
-                    return {
-                        authenticated: false,
-                        user: null
-                    };
-                } else {
-                    // User is authenticated but we can't get a token, return not authenticated
-                    return {
-                        authenticated: false,
-                        user: null
-                    };
-                }
-            }
-            const response = await fetch('/api/auth/me', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            if (!response.ok) {
-                // If the error is authentication-related, try to refresh the token
-                if (response.status === 401 || response.status === 404) {
-                    // Try to refresh the token
-                    const refreshed = await this.refreshToken();
-                    if (refreshed) {
-                        // Get the new token after refresh
-                        const refreshedToken = await this.getAccessToken();
-                        if (refreshedToken) {
-                            // Try the request again with the refreshed token
-                            const retryResponse = await fetch('/api/auth/me', {
-                                headers: {
-                                    'Authorization': `Bearer ${refreshedToken}`,
-                                    'Content-Type': 'application/json'
-                                }
-                            });
-                            if (!retryResponse.ok) {
-                                // Clear cache on authentication failure
-                                this.clearCachedSession();
-                                return {
-                                    authenticated: false,
-                                    user: null
-                                };
-                            }
-                            const retryData = await retryResponse.json();
-                            // Cache the comprehensive user data
-                            this.setCachedSession(retryData);
-                            return retryData;
-                        }
-                    }
-                    // Clear cache on authentication failure
-                    this.clearCachedSession();
-                    return {
-                        authenticated: false,
-                        user: null
-                    };
-                }
-                const errorData = await response.json().catch(()=>({}));
-                throw new Error(errorData.error || `Failed to fetch user data: ${response.status} ${response.statusText}`);
-            }
-            const data = await response.json();
-            // Cache the comprehensive user data
-            this.setCachedSession(data);
-            return data;
-        } catch (error) {
-            console.error('Error fetching comprehensive user data:', error);
-            // Check if this is an authentication error
-            if (error instanceof Error && error.message.includes('No authentication token available')) {
-                // Clear cache on authentication failure
-                this.clearCachedSession();
+                // No token means user is not authenticated
                 return {
                     authenticated: false,
                     user: null
                 };
             }
-            // For any other error, return not authenticated to prevent the error from propagating
+            // Add timeout to fetch requests to prevent hanging
+            const controller = new AbortController();
+            const timeoutId = setTimeout(()=>controller.abort(), 5000); // 5 second timeout
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    // If the error is authentication-related, try to refresh the token
+                    if (response.status === 401 || response.status === 404) {
+                        // Try to refresh the token
+                        const refreshed = await this.refreshToken();
+                        if (refreshed) {
+                            // Get the new token after refresh
+                            const refreshedToken = this.getAccessTokenFromStorage();
+                            if (refreshedToken) {
+                                // Try the request again with the refreshed token
+                                const retryController = new AbortController();
+                                const retryTimeoutId = setTimeout(()=>retryController.abort(), 5000);
+                                const retryResponse = await fetch('/api/auth/me', {
+                                    headers: {
+                                        'Authorization': `Bearer ${refreshedToken}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    signal: retryController.signal
+                                });
+                                clearTimeout(retryTimeoutId);
+                                if (!retryResponse.ok) {
+                                    // Clear cache on authentication failure
+                                    this.clearCachedSession();
+                                    return {
+                                        authenticated: false,
+                                        user: null
+                                    };
+                                }
+                                const retryData = await retryResponse.json();
+                                // Cache the comprehensive user data
+                                this.setCachedSession(retryData);
+                                return retryData;
+                            }
+                        }
+                        // Clear cache on authentication failure
+                        this.clearCachedSession();
+                        return {
+                            authenticated: false,
+                            user: null
+                        };
+                    }
+                    const errorData = await response.json().catch(()=>({}));
+                    throw new Error(errorData.error || `Failed to fetch user data: ${response.status} ${response.statusText}`);
+                }
+                const data = await response.json();
+                // Cache the comprehensive user data
+                this.setCachedSession(data);
+                return data;
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                // If it's an abort error (timeout), return not authenticated instead of throwing
+                if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+                    console.warn('getComprehensiveUserData request timed out after 5 seconds');
+                    return {
+                        authenticated: false,
+                        user: null
+                    };
+                }
+                throw fetchError;
+            }
+        } catch (error) {
+            console.error('Error fetching comprehensive user data:', error);
+            // For any error, return not authenticated to prevent the loading state from hanging
             this.clearCachedSession();
             return {
                 authenticated: false,
@@ -1025,59 +1051,40 @@ function AuthProvider({ children }) {
             const checkInitialSession = {
                 "AuthProvider.useEffect.checkInitialSession": async ()=>{
                     try {
-                        // Use the new comprehensive endpoint if available, otherwise fall back to existing method
-                        try {
-                            const comprehensiveData = await authService.getComprehensiveUserData();
-                            if (comprehensiveData && comprehensiveData.authenticated) {
-                                // Set basic auth state immediately to prevent loading
-                                if (isMounted) {
-                                    setIsAuthenticated(true);
-                                    setUser(comprehensiveData.user);
-                                    setIsLoading(false);
-                                }
-                            } else {
-                                if (isMounted) {
-                                    setUser(null);
-                                    setIsAuthenticated(false);
-                                    setIsLoading(false);
-                                }
+                        // Add a timeout to prevent infinite loading
+                        const timeoutPromise = new Promise({
+                            "AuthProvider.useEffect.checkInitialSession": (resolve)=>{
+                                setTimeout({
+                                    "AuthProvider.useEffect.checkInitialSession": ()=>{
+                                        resolve({
+                                            authenticated: false,
+                                            user: null
+                                        });
+                                    }
+                                }["AuthProvider.useEffect.checkInitialSession"], 8000); // 8 second timeout for initial auth check
                             }
-                        } catch (comprehensiveError) {
-                            console.warn('Comprehensive user data fetch failed, falling back to standard method:', comprehensiveError);
-                            // Fallback to the original method
-                            try {
-                                // Use the database authentication method
-                                const currentUser = await authService.getCurrentUser();
-                                if (currentUser) {
-                                    // Set basic auth state immediately to prevent loading
-                                    if (isMounted) {
-                                        setIsAuthenticated(true);
-                                        setIsLoading(true); // Set loading to true while we fetch user details
-                                    }
-                                    // Fetch user profile in background
-                                    if (isMounted) {
-                                        setUser(currentUser);
-                                        setIsLoading(false);
-                                    }
-                                } else {
-                                    if (isMounted) {
-                                        setUser(null);
-                                        setIsAuthenticated(false);
-                                        setIsLoading(false);
-                                    }
-                                }
-                            } catch (sessionError) {
-                                console.error('Session check error during initial load:', sessionError);
-                                if (isMounted) {
-                                    setUser(null);
-                                    setIsAuthenticated(false);
-                                    setIsLoading(false);
-                                }
-                            }
+                        }["AuthProvider.useEffect.checkInitialSession"]);
+                        // Race between the actual check and the timeout
+                        const comprehensiveData = await Promise.race([
+                            authService.getComprehensiveUserData(),
+                            timeoutPromise
+                        ]);
+                        if (!isMounted) return;
+                        if (comprehensiveData && comprehensiveData.authenticated) {
+                            // Set basic auth state immediately to prevent loading
+                            setIsAuthenticated(true);
+                            setUser(comprehensiveData.user);
+                            setIsLoading(false);
+                        } else {
+                            // Not authenticated - this is the normal case for new users
+                            setUser(null);
+                            setIsAuthenticated(false);
+                            setIsLoading(false);
                         }
                     } catch (err) {
                         console.error('Initial session check error:', err);
                         if (isMounted) {
+                            // On error, assume not authenticated and allow user to proceed
                             setUser(null);
                             setIsAuthenticated(false);
                             setIsLoading(false);
@@ -1095,13 +1102,17 @@ function AuthProvider({ children }) {
                         // Only re-validate if more than 10 minutes have passed
                         if (!lastChecked || now - lastChecked > 10 * 60 * 1000) {
                             // Perform lightweight session validation without showing loading
-                            const isValid = await authService.validateSessionWithoutLoading();
-                            if (!isValid) {
-                                // Session is no longer valid, clear user state
-                                if (isMounted) {
-                                    setUser(null);
-                                    setIsAuthenticated(false);
+                            try {
+                                const isValid = await authService.validateSessionWithoutLoading();
+                                if (!isValid) {
+                                    // Session is no longer valid, clear user state
+                                    if (isMounted) {
+                                        setUser(null);
+                                        setIsAuthenticated(false);
+                                    }
                                 }
+                            } catch (err) {
+                                console.error('Session validation error on visibility change:', err);
                             }
                             // Update last check timestamp
                             authService.setLastAuthCheck(now);
@@ -1189,7 +1200,7 @@ function AuthProvider({ children }) {
         children: children
     }, void 0, false, {
         fileName: "[project]/lib/auth-context.tsx",
-        lineNumber: 209,
+        lineNumber: 189,
         columnNumber: 5
     }, this);
 }

@@ -1003,23 +1003,6 @@ export default function ReviewQProModal({
               </p>
             </div>
           )}
-          
-          {/* Summary Stats */}
-          <div className="flex justify-center gap-3 mb-4 flex-wrap">
-            <div className="p-3 bg-blue-50 rounded-lg text-center min-w-[100px]">
-              <p className="text-2xl font-bold text-blue-700">
-                {summaryStats.avgAchievement.toFixed(1)}%
-              </p>
-              <p className="text-xs text-blue-600">Overall Achievement</p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-lg text-center min-w-[100px]">
-              <p className="text-2xl font-bold text-slate-900">
-                {summaryStats.totalActivities}
-              </p>
-              <p className="text-xs text-slate-600">Total Activities</p>
-            </div>
-          </div>
-
           {/* Document-Level AI Review (exactly one insight + one prescriptive analysis per document) */}
           {(() => {
             const documentInsight = extractDocumentLevelInsight(analysis);
@@ -1125,7 +1108,6 @@ export default function ReviewQProModal({
               </div>
             );
           })()}
-
           {/* Activities List - Modern Split Layout */}
           <ScrollArea className="flex-1">
             <div className="space-y-3 pr-4">

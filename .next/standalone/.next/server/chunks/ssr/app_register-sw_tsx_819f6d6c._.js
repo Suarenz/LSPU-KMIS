@@ -1,3 +1,0 @@
-module.exports=[4796,a=>{"use strict";var b=a.i(72131);function c(){return(0,b.useEffect)(()=>{"serviceWorker"in navigator&&navigator.serviceWorker.register("/sw.js").then(a=>{console.log("[v0] Service Worker registered:",a)}).catch(a=>{console.log("[v0] Service Worker registration failed:",a)})},[]),null}a.s(["RegisterServiceWorker",()=>c])}];
-
-//# sourceMappingURL=app_register-sw_tsx_819f6d6c._.js.map

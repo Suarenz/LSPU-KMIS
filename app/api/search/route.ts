@@ -509,6 +509,7 @@ export async function GET(request: NextRequest) {
             generatedResponse: qwenResult.summary,
             generationType: generationType,
             sources: qwenResult.sources,
+            evidence: qwenResult.evidence || '', // Add evidence field from Qwen
           };
           
           // Include the document URL for the relevant document in the response
@@ -520,6 +521,10 @@ export async function GET(request: NextRequest) {
               const docWithUrl = relevantDoc as any;
               if (docWithUrl.documentUrl) {
                 (responseWithGeneration as any).relevantDocumentUrl = docWithUrl.documentUrl;
+              }
+              // Add evidence from the relevant document if not present
+              if (!responseWithGeneration.evidence && docWithUrl.snippet) {
+                responseWithGeneration.evidence = docWithUrl.snippet;
               }
             }
           }

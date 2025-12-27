@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/middleware/auth-middleware';
 import prisma from '@/lib/prisma';
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { computeAggregatedAchievement, getInitiativeTargetMeta, normalizeKraId } from '@/lib/utils/qpro-aggregation';
+import { computeAggregatedAchievement, getInitiativeTargetMeta, normalizeKraId, normalizeInitiativeId } from '@/lib/utils/qpro-aggregation';
 import { qproCacheService } from '@/lib/services/qpro-cache-service';
 import { getKpiTypeCategory, getGapInterpretation, generateTypeSpecificLogicInstruction } from '@/lib/utils/kpi-type-logic';
 
@@ -597,7 +597,14 @@ export async function POST(request: NextRequest) {
     const activitiesContext = updatedActivities.map((act: any) => {
       const normalizedKraIdForType = normalizeKraId(act.kraId);
       const kra = allKRAs.find((k: any) => normalizeKraId(k.kra_id) === normalizedKraIdForType);
-      const initiative = kra?.initiatives?.find((i: any) => i.id === act.initiativeId);
+      const normalizedInitId = normalizeInitiativeId(String(act.initiativeId || ''));
+      let initiative = kra?.initiatives?.find((i: any) => normalizeInitiativeId(String(i.id)) === normalizedInitId);
+      if (!initiative && act.initiativeId) {
+        const kpiMatch = String(act.initiativeId).match(/KPI(\d+)/i);
+        if (kpiMatch) {
+          initiative = kra?.initiatives?.find((i: any) => String(i.id).includes(`KPI${kpiMatch[1]}`));
+        }
+      }
       const kpiType = initiative?.targets?.type || act.targetType || 'count';
       const kpiCategory = getKpiTypeCategory(kpiType);
       const gapInterpretation = getGapInterpretation(kpiCategory);

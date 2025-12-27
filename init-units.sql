@@ -7,7 +7,7 @@ INSERT INTO units (id, code, name, "createdAt", "updatedAt") VALUES
   (gen_random_uuid(), 'COE', 'College of Engineering', NOW(), NOW()),
   (gen_random_uuid(), 'CIT', 'College of Industrial Technology', NOW(), NOW()),
   (gen_random_uuid(), 'CIHTM', 'College of International Hospitality and Tourism Management', NOW(), NOW()),
-  (gen_random_uuid(), 'CLAW', 'College of Law', NOW(), NOW()),
+  (gen_random_uuid(), 'COL', 'College of Law', NOW(), NOW()),
   (gen_random_uuid(), 'CONAH', 'College of Nursing and Allied Health', NOW(), NOW()),
   (gen_random_uuid(), 'CTE', 'College of Teacher Education', NOW(), NOW()),
   (gen_random_uuid(), 'SMU', 'Supply and Management Unit', NOW(), NOW()),
@@ -30,5 +30,5 @@ INSERT INTO units (id, code, name, "createdAt", "updatedAt") VALUES
   (gen_random_uuid(), 'BO', 'Budget Office', NOW(), NOW()),
   (gen_random_uuid(), 'BAO', 'Business Affairs Office', NOW(), NOW()),
   (gen_random_uuid(), 'BAC', 'Bids and Awards Committee Secretariat', NOW(), NOW()),
-  (gen_random_uuid(), 'AAP', 'Alumni Affairs and Placement Services', NOW(), NOW())
+  (gen_random_uuid(), 'AAPS', 'Alumni Affairs and Placement Services', NOW(), NOW())
 ON CONFLICT (code) DO NOTHING;

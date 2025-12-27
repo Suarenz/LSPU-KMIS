@@ -6,7 +6,7 @@ const nextConfig = {
   },
   staticPageGenerationTimeout: 1000,
   images: {
-     unoptimized: false,
+     unoptimized: true,
      remotePatterns: [
        {
          protocol: 'https',
@@ -17,7 +17,7 @@ const nextConfig = {
        {
          protocol: 'http',
          hostname: 'localhost',
-         port: '300',
+         port: '3000',
          pathname: '/**',
        }
      ],

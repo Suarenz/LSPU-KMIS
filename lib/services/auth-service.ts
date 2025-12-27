@@ -303,111 +303,138 @@ class DatabaseAuthService {
         return null;
       }
 
-      // Check if we're in the browser environment
-      if (typeof window !== 'undefined') {
-        // In browser, check if token is expired without full verification
-        const isExpired = jwtService.isTokenExpired(token);
-        if (isExpired) {
-          // Try to refresh the token
-          const refreshed = await this.refreshToken();
-          if (refreshed) {
-            // Get the new token after refresh
-            const refreshedToken = this.getAccessTokenFromStorage();
-            if (refreshedToken) {
-              // Fetch user data from the API route with the refreshed token
-              const response = await fetch('/api/auth/me', {
-                headers: {
-                  'Authorization': `Bearer ${refreshedToken}`,
-                  'Content-Type': 'application/json',
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+      try {
+        // Check if we're in the browser environment
+        if (typeof window !== 'undefined') {
+          // In browser, check if token is expired without full verification
+          const isExpired = jwtService.isTokenExpired(token);
+          if (isExpired) {
+            // Try to refresh the token
+            const refreshed = await this.refreshToken();
+            if (refreshed) {
+              clearTimeout(timeoutId);
+              // Get the new token after refresh
+              const refreshedToken = this.getAccessTokenFromStorage();
+              if (refreshedToken) {
+                // Fetch user data from the API route with the refreshed token
+                const response = await fetch('/api/auth/me', {
+                  headers: {
+                    'Authorization': `Bearer ${refreshedToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                  signal: controller.signal
+                });
+                
+                if (!response.ok) {
+                  return null;
                 }
-              });
-              
-              if (!response.ok) {
-                return null;
-              }
-              
-              const data = await response.json();
-              if (data.user) {
-                return {
-                  id: data.user.id,
-                  email: data.user.email,
-                  name: data.user.name,
-                  role: data.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
-                  unitId: data.user.unitId || undefined,
-                };
+                
+                const data = await response.json();
+                if (data.user) {
+                  return {
+                    id: data.user.id,
+                    email: data.user.email,
+                    name: data.user.name,
+                    role: data.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
+                    unitId: data.user.unitId || undefined,
+                  };
+                } else {
+                  return null;
+                }
               } else {
-                return null;
+                return null; // If no new token after refresh, return null
               }
             } else {
-              return null; // If no new token after refresh, return null
+              clearTimeout(timeoutId);
+              return null; // If refresh failed, return null
             }
-          } else {
-            return null; // If refresh failed, return null
+          }
+        } else {
+          // On server, verify the JWT token
+          const decoded = await jwtService.verifyToken(token);
+          if (!decoded) {
+            clearTimeout(timeoutId);
+            return null;
           }
         }
-      } else {
-        // On server, verify the JWT token
-        const decoded = await jwtService.verifyToken(token);
-        if (!decoded) {
+
+        // Fetch user data from the API route
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          // If the response is 401 (unauthorized), try to refresh the token
+          if (response.status === 401) {
+            const refreshed = await this.refreshToken();
+            if (refreshed) {
+              // If token was refreshed, try the request again
+              const newToken = this.getAccessTokenFromStorage();
+              if (newToken) {
+                const retryController = new AbortController();
+                const retryTimeoutId = setTimeout(() => retryController.abort(), 5000);
+                
+                const retryResponse = await fetch('/api/auth/me', {
+                  headers: {
+                    'Authorization': `Bearer ${newToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                  signal: retryController.signal
+                });
+                
+                clearTimeout(retryTimeoutId);
+                
+                if (!retryResponse.ok) {
+                  return null;
+                }
+                
+                const retryData = await retryResponse.json();
+                if (retryData.user) {
+                  return {
+                    id: retryData.user.id,
+                    email: retryData.user.email,
+                    name: retryData.user.name,
+                    role: retryData.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
+                    unitId: retryData.user.unitId || undefined,
+                  };
+                }
+              }
+            }
+          }
           return null;
         }
-      }
 
-      // Fetch user data from the API route
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+        const data = await response.json();
+
+        if (data.user) {
+          return {
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.name,
+            role: data.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
+            unitId: data.user.unitId || undefined,
+          };
+        } else {
+          return null;
         }
-      });
-
-      if (!response.ok) {
-        // If the response is 401 (unauthorized), try to refresh the token
-        if (response.status === 401) {
-          const refreshed = await this.refreshToken();
-          if (refreshed) {
-            // If token was refreshed, try the request again
-            const newToken = this.getAccessTokenFromStorage();
-            if (newToken) {
-              const retryResponse = await fetch('/api/auth/me', {
-                headers: {
-                  'Authorization': `Bearer ${newToken}`,
-                  'Content-Type': 'application/json',
-                }
-              });
-              
-              if (!retryResponse.ok) {
-                return null;
-              }
-              
-              const retryData = await retryResponse.json();
-              if (retryData.user) {
-                return {
-                  id: retryData.user.id,
-                  email: retryData.user.email,
-                  name: retryData.user.name,
-                  role: retryData.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
-                  unitId: retryData.user.unitId || undefined,
-                };
-              }
-            }
-          }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        // If it's an abort error (timeout), return null instead of throwing
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          console.warn('getCurrentUser request timed out after 5 seconds');
+          return null;
         }
-        return null;
-      }
-
-      const data = await response.json();
-
-      if (data.user) {
-        return {
-          id: data.user.id,
-          email: data.user.email,
-          name: data.user.name,
-          role: data.user.role as 'ADMIN' | 'FACULTY' | 'STUDENT' | 'EXTERNAL',
-          unitId: data.user.unitId || undefined,
-        };
-      } else {
-        return null;
+        throw fetchError;
       }
     } catch (error) {
       console.error('Error in getCurrentUser:', error);
@@ -659,79 +686,90 @@ class DatabaseAuthService {
         return cachedSession;
       }
 
-      const token = await this.getAccessToken();
+      // Get token synchronously to avoid extra async calls
+      const token = this.getAccessTokenFromStorage();
       
       if (!token) {
-        // If no token is available, check if user is authenticated before throwing error
-        const isAuthenticated = await this.isAuthenticated();
-        if (!isAuthenticated) {
-          // User is not authenticated, return null to indicate this
-          return { authenticated: false, user: null };
-        } else {
-          // User is authenticated but we can't get a token, return not authenticated
-          return { authenticated: false, user: null };
-        }
-      }
-      
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        }
-      });
-      
-      if (!response.ok) {
-        // If the error is authentication-related, try to refresh the token
-        if (response.status === 401 || response.status === 404) {
-          // Try to refresh the token
-          const refreshed = await this.refreshToken();
-          if (refreshed) {
-            // Get the new token after refresh
-            const refreshedToken = await this.getAccessToken();
-            if (refreshedToken) {
-              // Try the request again with the refreshed token
-              const retryResponse = await fetch('/api/auth/me', {
-                headers: {
-                  'Authorization': `Bearer ${refreshedToken}`,
-                  'Content-Type': 'application/json',
-                }
-              });
-              
-              if (!retryResponse.ok) {
-                // Clear cache on authentication failure
-                this.clearCachedSession();
-                return { authenticated: false, user: null };
-              }
-              
-              const retryData = await retryResponse.json();
-              // Cache the comprehensive user data
-              this.setCachedSession(retryData);
-              return retryData;
-            }
-          }
-          // Clear cache on authentication failure
-          this.clearCachedSession();
-          return { authenticated: false, user: null };
-        }
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to fetch user data: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      // Cache the comprehensive user data
-      this.setCachedSession(data);
-      
-      return data;
-    } catch (error) {
-      console.error('Error fetching comprehensive user data:', error);
-      // Check if this is an authentication error
-      if (error instanceof Error && error.message.includes('No authentication token available')) {
-        // Clear cache on authentication failure
-        this.clearCachedSession();
+        // No token means user is not authenticated
         return { authenticated: false, user: null };
       }
-      // For any other error, return not authenticated to prevent the error from propagating
+      
+      // Add timeout to fetch requests to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      try {
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          // If the error is authentication-related, try to refresh the token
+          if (response.status === 401 || response.status === 404) {
+            // Try to refresh the token
+            const refreshed = await this.refreshToken();
+            if (refreshed) {
+              // Get the new token after refresh
+              const refreshedToken = this.getAccessTokenFromStorage();
+              if (refreshedToken) {
+                // Try the request again with the refreshed token
+                const retryController = new AbortController();
+                const retryTimeoutId = setTimeout(() => retryController.abort(), 5000);
+                
+                const retryResponse = await fetch('/api/auth/me', {
+                  headers: {
+                    'Authorization': `Bearer ${refreshedToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                  signal: retryController.signal
+                });
+                
+                clearTimeout(retryTimeoutId);
+                
+                if (!retryResponse.ok) {
+                  // Clear cache on authentication failure
+                  this.clearCachedSession();
+                  return { authenticated: false, user: null };
+                }
+                
+                const retryData = await retryResponse.json();
+                // Cache the comprehensive user data
+                this.setCachedSession(retryData);
+                return retryData;
+              }
+            }
+            // Clear cache on authentication failure
+            this.clearCachedSession();
+            return { authenticated: false, user: null };
+          }
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Failed to fetch user data: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Cache the comprehensive user data
+        this.setCachedSession(data);
+        
+        return data;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        // If it's an abort error (timeout), return not authenticated instead of throwing
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          console.warn('getComprehensiveUserData request timed out after 5 seconds');
+          return { authenticated: false, user: null };
+        }
+        throw fetchError;
+      }
+    } catch (error) {
+      console.error('Error fetching comprehensive user data:', error);
+      // For any error, return not authenticated to prevent the loading state from hanging
       this.clearCachedSession();
       return { authenticated: false, user: null };
     }

@@ -1,4 +1,4 @@
-version: '3.9'
+
 
 services:
   # PostgreSQL Database
@@ -14,7 +14,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-kmis_user}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-kmis_user} -d ${DB_NAME:-lspu_kmis}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,6 +48,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    env_file:
+      - .env
+      - .env.docker
     environment:
       # Database
       DATABASE_URL: postgresql://${DB_USER:-kmis_user}:${DB_PASSWORD:-secure_password_change_me}@postgres:5432/${DB_NAME:-lspu_kmis}

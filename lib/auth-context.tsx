@@ -47,60 +47,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Immediately check session on mount to get initial state quickly
     const checkInitialSession = async () => {
       try {
-        // Use the new comprehensive endpoint if available, otherwise fall back to existing method
-        try {
-          const comprehensiveData = await authService.getComprehensiveUserData();
-          if (comprehensiveData && comprehensiveData.authenticated) {
-            // Set basic auth state immediately to prevent loading
-            if (isMounted) {
-              setIsAuthenticated(true);
-              setUser(comprehensiveData.user);
-              setIsLoading(false);
-            }
-          } else {
-            if (isMounted) {
-              setUser(null);
-              setIsAuthenticated(false);
-              setIsLoading(false);
-            }
-          }
-        } catch (comprehensiveError) {
-          console.warn('Comprehensive user data fetch failed, falling back to standard method:', comprehensiveError);
-          // Fallback to the original method
-          try {
-            // Use the database authentication method
-            const currentUser = await authService.getCurrentUser();
-            if (currentUser) {
-              // Set basic auth state immediately to prevent loading
-              if (isMounted) {
-                setIsAuthenticated(true);
-                setIsLoading(true); // Set loading to true while we fetch user details
-              }
-              
-              // Fetch user profile in background
-              if (isMounted) {
-                setUser(currentUser);
-                setIsLoading(false);
-              }
-            } else {
-              if (isMounted) {
-                setUser(null);
-                setIsAuthenticated(false);
-                setIsLoading(false);
-              }
-            }
-          } catch (sessionError) {
-            console.error('Session check error during initial load:', sessionError);
-            if (isMounted) {
-              setUser(null);
-              setIsAuthenticated(false);
-              setIsLoading(false);
-            }
-          }
+        // Add a timeout to prevent infinite loading
+        const timeoutPromise = new Promise<any>((resolve) => {
+          setTimeout(() => {
+            resolve({ authenticated: false, user: null });
+          }, 8000); // 8 second timeout for initial auth check
+        });
+        
+        // Race between the actual check and the timeout
+        const comprehensiveData = await Promise.race([
+          authService.getComprehensiveUserData(),
+          timeoutPromise
+        ]);
+        
+        if (!isMounted) return;
+        
+        if (comprehensiveData && comprehensiveData.authenticated) {
+          // Set basic auth state immediately to prevent loading
+          setIsAuthenticated(true);
+          setUser(comprehensiveData.user);
+          setIsLoading(false);
+        } else {
+          // Not authenticated - this is the normal case for new users
+          setUser(null);
+          setIsAuthenticated(false);
+          setIsLoading(false);
         }
       } catch (err) {
         console.error('Initial session check error:', err);
         if (isMounted) {
+          // On error, assume not authenticated and allow user to proceed
           setUser(null);
           setIsAuthenticated(false);
           setIsLoading(false);
@@ -118,13 +94,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Only re-validate if more than 10 minutes have passed
         if (!lastChecked || (now - lastChecked) > 10 * 60 * 1000) {
           // Perform lightweight session validation without showing loading
-          const isValid = await authService.validateSessionWithoutLoading();
-          if (!isValid) {
-            // Session is no longer valid, clear user state
-            if (isMounted) {
-              setUser(null);
-              setIsAuthenticated(false);
+          try {
+            const isValid = await authService.validateSessionWithoutLoading();
+            if (!isValid) {
+              // Session is no longer valid, clear user state
+              if (isMounted) {
+                setUser(null);
+                setIsAuthenticated(false);
+              }
             }
+          } catch (err) {
+            console.error('Session validation error on visibility change:', err);
           }
           // Update last check timestamp
           authService.setLastAuthCheck(now);

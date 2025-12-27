@@ -2,6 +2,7 @@
   "/_not-found/page": "app/_not-found/page.js",
   "/api/analytics/route": "app/api/analytics/route.js",
   "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
   "/api/documents/[id]/preview/route": "app/api/documents/[id]/preview/route.js",
   "/api/documents/route": "app/api/documents/route.js",
   "/api/qpro-analyses/route": "app/api/qpro-analyses/route.js",

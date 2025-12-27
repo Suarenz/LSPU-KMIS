@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/middleware/auth-middleware';
 import prisma from '@/lib/prisma';
 import strategicPlan from '@/lib/data/strategic_plan.json';
-import { getInitiativeTargetMeta, normalizeKraId } from '@/lib/utils/qpro-aggregation';
+import { getInitiativeTargetMeta, normalizeKraId, normalizeInitiativeId } from '@/lib/utils/qpro-aggregation';
 import { mapTargetType } from '@/lib/utils/target-type-utils';
 
 // Helper to map strategic plan target types
@@ -312,10 +312,22 @@ export async function GET(request: NextRequest) {
       );
       
       if (!progressItem) {
-        // Get target from strategic plan using normalized KRA ID
+        // Get target from strategic plan using normalized KRA ID and initiative ID
         const normalizedActKraId = normalizeKraId(activityKraId);
         const kra = allKras.find((k: any) => normalizeKraId(k.kra_id) === normalizedActKraId);
-        const initiative = kra?.initiatives.find((i: any) => i.id === initiativeId);
+        
+        // Normalize initiative ID to match strategic plan format
+        const normalizedInitId = normalizeInitiativeId(String(initiativeId || ''));
+        let initiative = kra?.initiatives.find((i: any) => normalizeInitiativeId(String(i.id)) === normalizedInitId);
+        
+        // Fallback: search by KPI number if direct match fails
+        if (!initiative && initiativeId) {
+          const kpiMatch = String(initiativeId).match(/KPI(\d+)/i);
+          if (kpiMatch) {
+            initiative = kra?.initiatives?.find((i: any) => String(i.id).includes(`KPI${kpiMatch[1]}`));
+          }
+        }
+        
         const timelineData = initiative?.targets?.timeline_data?.find((t: any) => t.year === qpro.year);
         
         // Map target type from strategic plan
@@ -428,10 +440,17 @@ export async function GET(request: NextRequest) {
       );
       
       if (!progressItem) {
-        // Get target from strategic plan
+        // Get target from strategic plan - normalize initiative ID
         const normalizedActKraId = normalizeKraId(activityKraId);
         const kra = allKras.find((k: any) => normalizeKraId(k.kra_id) === normalizedActKraId);
-        const initiative = kra?.initiatives.find((i: any) => i.id === initiativeId);
+        const normalizedInitId = normalizeInitiativeId(String(initiativeId || ''));
+        let initiative = kra?.initiatives.find((i: any) => normalizeInitiativeId(String(i.id)) === normalizedInitId);
+        if (!initiative && initiativeId) {
+          const kpiMatch = String(initiativeId).match(/KPI(\d+)/i);
+          if (kpiMatch) {
+            initiative = kra?.initiatives?.find((i: any) => String(i.id).includes(`KPI${kpiMatch[1]}`));
+          }
+        }
         const timelineData = initiative?.targets?.timeline_data?.find((t: any) => t.year === qpro.year);
         
         const planTargetType = initiative?.targets?.type || 'count';
@@ -609,9 +628,16 @@ export async function GET(request: NextRequest) {
       console.log(`[KPI Progress] Found existing progressItem: ${!!progressItem}`);
       
       if (!progressItem) {
-        // Get target from strategic plan
+        // Get target from strategic plan - normalize initiative ID
         const kra = allKras.find((k: any) => normalizeKraId(k.kra_id) === kraIdKey);
-        const initiative = kra?.initiatives.find((i: any) => i.id === initiativeId);
+        const normalizedInitId = normalizeInitiativeId(String(initiativeId || ''));
+        let initiative = kra?.initiatives.find((i: any) => normalizeInitiativeId(String(i.id)) === normalizedInitId);
+        if (!initiative && initiativeId) {
+          const kpiMatch = String(initiativeId).match(/KPI(\d+)/i);
+          if (kpiMatch) {
+            initiative = kra?.initiatives?.find((i: any) => String(i.id).includes(`KPI${kpiMatch[1]}`));
+          }
+        }
         const timelineData = initiative?.targets?.timeline_data?.find((t: any) => t.year === contribYear);
         const planTargetType = initiative?.targets?.type || 'count';
         const targetType = mapTargetTypeFromPlan(planTargetType);
@@ -887,11 +913,18 @@ export async function PATCH(request: NextRequest) {
     // Determine targetType if not provided
     let finalTargetType = targetType;
     if (!finalTargetType) {
-      // Get from strategic plan
+      // Get from strategic plan - normalize initiative ID
       const allKras = (strategicPlan as any).kras || [];
       const normalizedKraId = normalizeKraId(kraId);
       const targetKra = allKras.find((k: any) => normalizeKraId(k.kra_id) === normalizedKraId);
-      const initiative = targetKra?.initiatives?.find((i: any) => i.id === initiativeId);
+      const normalizedInitId = normalizeInitiativeId(String(initiativeId || ''));
+      let initiative = targetKra?.initiatives?.find((i: any) => normalizeInitiativeId(String(i.id)) === normalizedInitId);
+      if (!initiative && initiativeId) {
+        const kpiMatch = String(initiativeId).match(/KPI(\d+)/i);
+        if (kpiMatch) {
+          initiative = targetKra?.initiatives?.find((i: any) => String(i.id).includes(`KPI${kpiMatch[1]}`));
+        }
+      }
       finalTargetType = mapTargetTypeFromPlan(initiative?.targets?.type || 'count');
     }
 
@@ -911,10 +944,17 @@ export async function PATCH(request: NextRequest) {
 
     if (!existingAgg) {
       // Create a new aggregation record if it doesn't exist
-      // Get target from strategic plan
+      // Get target from strategic plan - normalize initiative ID
       const allKras = (strategicPlan as any).kras || [];
       const targetKra = allKras.find((k: any) => normalizeKraId(k.kra_id) === normalizedKraId);
-      const initiative = targetKra?.initiatives?.find((i: any) => i.id === initiativeId);
+      const normalizedInitId = normalizeInitiativeId(String(initiativeId || ''));
+      let initiative = targetKra?.initiatives?.find((i: any) => normalizeInitiativeId(String(i.id)) === normalizedInitId);
+      if (!initiative && initiativeId) {
+        const kpiMatch = String(initiativeId).match(/KPI(\d+)/i);
+        if (kpiMatch) {
+          initiative = targetKra?.initiatives?.find((i: any) => String(i.id).includes(`KPI${kpiMatch[1]}`));
+        }
+      }
       const timelineData = initiative?.targets?.timeline_data?.find((t: any) => t.year === year);
       const targetValue = timelineData?.target_value ?? 0;
 

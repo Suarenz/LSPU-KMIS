@@ -310,25 +310,16 @@ export default function SearchPage() {
                                       💬 Evidence from document:
                                     </div>
                                     {(() => {
-                                      // Try to get meaningful snippet in order of preference
-                                      const snippet = enhancedDoc?.snippet || (doc as any).snippet;
-                                      const extractedText = enhancedDoc?.extractedText || (doc as any).extractedText;
-                                      const content = (doc as any).content;
-                                      const description = doc.description || (doc as any).document?.description;
-                                      
-                                      // Prefer snippet, then extractedText, then content, then description
-                                      const evidence = snippet || extractedText || content || description;
-                                      
-                                      // Check if the evidence is meaningful or just a placeholder
+                                      // Prefer evidence from API response if present
+                                      const evidenceFromApi = (typeof window !== 'undefined' && window.__SEARCH_EVIDENCE__) ? window.__SEARCH_EVIDENCE__ : undefined;
+                                      const evidence = evidenceFromApi || enhancedDoc?.evidence || (doc as any).evidence || enhancedDoc?.snippet || (doc as any).snippet || enhancedDoc?.extractedText || (doc as any).extractedText || (doc as any).content || doc.description || (doc as any).document?.description;
                                       const isMeaningfulText = evidence && 
-                                                               evidence.trim().length > 20 && 
-                                                               !evidence.toLowerCase().includes('visual content') && 
-                                                               !evidence.toLowerCase().includes('visual document') && 
-                                                               !evidence.toLowerCase().includes('ai will extract') &&
-                                                               !evidence.toLowerCase().includes('click to preview');
-                                      
+                                        evidence.trim().length > 20 && 
+                                        !evidence.toLowerCase().includes('visual content') && 
+                                        !evidence.toLowerCase().includes('visual document') && 
+                                        !evidence.toLowerCase().includes('ai will extract') &&
+                                        !evidence.toLowerCase().includes('click to preview');
                                       if (isMeaningfulText) {
-                                        // Show actual content with quotes
                                         const displayText = evidence.length > 300 ? evidence.substring(0, 300) + '...' : evidence;
                                         return (
                                           <CardDescription className="mt-1 text-sm italic leading-relaxed">
@@ -336,7 +327,6 @@ export default function SearchPage() {
                                           </CardDescription>
                                         );
                                       } else {
-                                        // Show document description or prompt to view
                                         const docDescription = doc.description || (doc as any).document?.description;
                                         if (docDescription && docDescription.trim().length > 10) {
                                           return (

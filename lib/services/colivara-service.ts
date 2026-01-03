@@ -632,7 +632,23 @@ class ColivaraService {
    }
    
    // Sort by score (or some combination of scores)
-   return combined.sort((a, b) => (b.score || 0) - (a.score || 0));
+   const sorted = combined.sort((a, b) => (b.score || 0) - (a.score || 0));
+   
+   // Filter out low-relevance results (below 0.3 or 30% relevance)
+   // Note: Colivara returns normalized_score which is similarity (higher = better)
+   // Only filter if there are multiple results - always keep at least the top result
+   const MIN_RELEVANCE_THRESHOLD = 0.3;
+   if (sorted.length > 1) {
+     const filtered = sorted.filter((result, index) => {
+       // Always keep the top result
+       if (index === 0) return true;
+       // Filter out results below threshold
+       return (result.score || 0) >= MIN_RELEVANCE_THRESHOLD;
+     });
+     return filtered;
+   }
+   
+   return sorted;
  }
 
   async indexDocument(documentId: string, base64Content?: string): Promise<boolean> {

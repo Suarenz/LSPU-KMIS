@@ -55,7 +55,8 @@
                 "year": 2029,
                 "target_value": "Curriculum Updated"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -102,7 +103,8 @@
                 "year": 2029,
                 "target_value": 1
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -152,7 +154,8 @@
                 "year": 2029,
                 "target_value": "Advisory Board Established"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -197,7 +200,8 @@
                 "year": 2029,
                 "target_value": "Curriculum Review Completed"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -250,7 +254,8 @@
                 "year": 2029,
                 "target_value": "Above National Passing Rate"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -322,7 +327,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -463,7 +469,8 @@
                 "year": 2029,
                 "target_value": 1
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -535,7 +542,8 @@
                 "year": 2029,
                 "target_value": "SUC Level IV Compliance"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -571,7 +579,8 @@
                 "target_value": 100,
                 "note": "accredited programs"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -609,7 +618,8 @@
                 "target_value": 1,
                 "note": "1 new COD/COE"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -707,7 +717,8 @@
                 "year": 2029,
                 "target_value": "Recertification"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -753,7 +764,8 @@
                 "year": 2029,
                 "target_value": 4
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -799,7 +811,8 @@
                 "year": 2029,
                 "target_value": 95
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -843,7 +856,8 @@
                 "target_value": 5,
                 "note": "new students per year"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -946,7 +960,8 @@
                 "year": 2029,
                 "target_value": 2
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -1350,7 +1365,8 @@
                 "year": 2029,
                 "target_value": 1
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -1432,6 +1448,110 @@
               }
             ]
           }
+        },
+        {
+          "id": "KRA5-KPI11",
+          "key_performance_indicator": {
+            "outputs": "percentage of research outputs published in internationally refereed or CHED-recognized journals within the year",
+            "outcomes": [
+              "Enhanced Credibility and Reputation",
+              "Career Advancement",
+              "Increased Visibility and Networking"
+            ]
+          },
+          "strategies": [
+            "provide research publication grants",
+            "coaching on publishing research"
+          ],
+          "programs_activities": [
+            "accomplish of parameters leading to internationalization and time higher education world ranking"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "SAO Finance",
+            "Budget and Finance Unit",
+            "Research and Development Services"
+          ],
+          "targets": {
+            "type": "percentage",
+            "timeline_data": [
+              {
+                "year": 2025,
+                "target_value": 23
+              },
+              {
+                "year": 2026,
+                "target_value": 24
+              },
+              {
+                "year": 2027,
+                "target_value": 25
+              },
+              {
+                "year": 2028,
+                "target_value": 26
+              },
+              {
+                "year": 2029,
+                "target_value": 27
+              }
+            ],
+            "target_time_scope": "cumulative"
+          }
+        },
+        {
+          "id": "KRA5-KPI12",
+          "key_performance_indicator": {
+            "outputs": "number of author citations for published research papers",
+            "outcomes": [
+              "enhanced academic impact and credibility",
+              "promote research visibility and accessibility",
+              "accomplishment of parameters leading to internationalization and time higher education world ranking"
+            ]
+          },
+          "strategies": [
+            "promote research visibility and accessibility",
+            "accomplishment of parameters leading to internationalization and time higher education world ranking"
+          ],
+          "programs_activities": [
+            "Published Paper",
+            "Result of Time Higher Education world ranking"
+          ],
+          "responsible_offices": [
+            "Vice President for Research Development and Extension",
+            "Research and Development Services"
+          ],
+          "targets": {
+            "type": "count",
+            "timeline_data": [
+              {
+                "year": 2025,
+                "target_value": 13,
+                "note": "13 scopus index"
+              },
+              {
+                "year": 2026,
+                "target_value": 15,
+                "note": "15 scopus index"
+              },
+              {
+                "year": 2027,
+                "target_value": 17,
+                "note": "17 scopus index"
+              },
+              {
+                "year": 2028,
+                "target_value": 19,
+                "note": "19 scopus index"
+              },
+              {
+                "year": 2029,
+                "target_value": 21,
+                "note": "21 scopus index"
+              }
+            ],
+            "target_time_scope": "cumulative"
+          }
         }
       ]
     },
@@ -1467,7 +1587,7 @@
               {
                 "year": 2025,
                 "target_value": 120,
-                "note": "10 existing + 20 new"
+                "note": "100 existing + 20 new"
               },
               {
                 "year": 2026,
@@ -1667,7 +1787,8 @@
                 "year": 2029,
                 "target_value": 1
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -1961,7 +2082,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -2001,7 +2123,8 @@
                 "year": 2029,
                 "target_value": "Approved Harmonized Manual"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -2042,7 +2165,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -2269,7 +2393,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -2320,7 +2445,8 @@
                 "year": 2029,
                 "target_value": 95
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -2354,7 +2480,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -2492,7 +2619,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -2578,7 +2706,8 @@
                 "year": 2029,
                 "target_value": 6
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -2622,7 +2751,8 @@
                 "year": 2029,
                 "target_value": 2
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -2660,7 +2790,8 @@
                 "year": 2029,
                 "target_value": "Zero incidence of non-compliance"
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -2906,7 +3037,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -2936,7 +3068,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]
@@ -3021,7 +3154,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -3057,7 +3191,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         },
         {
@@ -3091,7 +3226,8 @@
                 "year": 2029,
                 "target_value": 100
               }
-            ]
+            ],
+            "target_time_scope": "cumulative"
           }
         }
       ]

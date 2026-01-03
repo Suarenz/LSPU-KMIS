@@ -13,7 +13,7 @@ import { searchCacheService } from '@/lib/services/search-cache-service';
 // Define the source type for the Qwen response
 interface Source {
   title: string;
-  documentId: string;
+  documentId?: string; // Made optional since it might not always be available
   confidence: number;
   isQproDocument?: boolean;
   qproAnalysisId?: string;
@@ -106,6 +106,29 @@ function groupResults(results: any[]): any[] {
    }
   
   return Array.from(groupedMap.values());
+}
+
+// Helper function to deduplicate sources based on document ID and title
+function deduplicateSources(sources: any[]): any[] {
+  const seenIds = new Set<string>();
+  const seenTitles = new Set<string>();
+  const uniqueSources: any[] = [];
+  
+  for (const source of sources) {
+    const docId = source.documentId;
+    const title = cleanDocumentTitle(source.title || '').toLowerCase();
+    
+    // Check if we've already seen this document ID or exact title
+    const isDuplicate = (docId && seenIds.has(docId)) || (title && seenTitles.has(title));
+    
+    if (!isDuplicate) {
+      if (docId) seenIds.add(docId);
+      if (title) seenTitles.add(title);
+      uniqueSources.push(source);
+    }
+  }
+  
+  return uniqueSources;
 }
 
 // Mapper function to convert Colivara search results to the standard format expected by the frontend
@@ -230,6 +253,8 @@ async function mapColivaraResultsToDocuments(colivaraResults: any[]) {
         // Override with search-specific data if available in the result
         mappedResults.push({
           ...mappedDocument,
+          // IMPORTANT: Explicitly set documentId to the clean database ID for proper preview URL construction
+          documentId: dbDoc.id,
           title: cleanDocumentTitle(dbDoc.title || result.title || result.originalName || result.document_name || (result.document && result.document.title) || dbDoc.fileName || 'Untitled Document'), // Prioritize database document title over Colivara result
           // For content, use robust fallback logic
           content: (() => {
@@ -508,8 +533,7 @@ export async function GET(request: NextRequest) {
             ...enhancedCachedResult,
             generatedResponse: qwenResult.summary,
             generationType: generationType,
-            sources: qwenResult.sources,
-            evidence: qwenResult.evidence || '', // Add evidence field from Qwen
+            sources: qwenResult.sources
           };
           
           // Include the document URL for the relevant document in the response
@@ -521,10 +545,6 @@ export async function GET(request: NextRequest) {
               const docWithUrl = relevantDoc as any;
               if (docWithUrl.documentUrl) {
                 (responseWithGeneration as any).relevantDocumentUrl = docWithUrl.documentUrl;
-              }
-              // Add evidence from the relevant document if not present
-              if (!responseWithGeneration.evidence && docWithUrl.snippet) {
-                responseWithGeneration.evidence = docWithUrl.snippet;
               }
             }
           }
@@ -541,15 +561,16 @@ export async function GET(request: NextRequest) {
             console.error('⚠️ OpenRouter API configuration issue. Please check: https://openrouter.ai/settings/privacy');
             
             // Provide basic fallback response with cached results
+            const basicSources = enhancedCachedResult.results.slice(0, Math.min(3, enhancedCachedResult.results.length)).map((result: any) => ({
+              title: result.title || 'Untitled Document',
+              documentId: result.documentId || result.id || '', // Use id as fallback if documentId is not set
+              confidence: result.score || result.confidenceScore || 0.85,
+            }));
             const fallbackResponse = {
               ...enhancedCachedResult,
               generatedResponse: `Found relevant documents for your query. Click on the documents below to view the full content.\n\n**Note:** AI-powered insights are temporarily unavailable due to API configuration.`,
               generationType: 'fallback',
-              sources: enhancedCachedResult.results.slice(0, Math.min(3, enhancedCachedResult.results.length)).map((result: any) => ({
-                title: result.title || 'Untitled Document',
-                documentId: result.documentId,
-                confidence: result.score || result.confidenceScore || 0.85,
-              })),
+              sources: deduplicateSources(basicSources),
             };
             return NextResponse.json(fallbackResponse);
           }
@@ -701,7 +722,7 @@ export async function GET(request: NextRequest) {
           }
           
           // Now map the results with proper document IDs
-          const rawMapped = colivaraResults.results
+          const mappableResults = colivaraResults.results
             .filter((item: any) => {
               // Only include items that have a valid document ID that exists in our filtered results
               const docId = item.documentId ||
@@ -711,8 +732,10 @@ export async function GET(request: NextRequest) {
                            (item.document && item.document.metadata && item.document.metadata.documentId) ||
                            undefined;
               return typeof docId === 'string' && docId.trim() !== '' && validDocumentIds.has(docId);
-            })
-            .map((item: any, index: number) => {
+            });
+          
+          // Use Promise.all to handle async mapping
+          const rawMapped = await Promise.all(mappableResults.map(async (item: any, index: number) => {
               const docData = item.document || item;
               const metadata = docData.metadata || item.metadata || {};
               
@@ -781,6 +804,45 @@ export async function GET(request: NextRequest) {
                 finalDocumentId = colivaraToDbMap.get(documentId);
               }
               
+              // If we still don't have a valid database ID, try looking up by the document ID directly
+              // This handles the case where documentId IS the database ID
+              if (!finalDocumentId && isValidDocumentId) {
+                // Check if the documentId itself is a valid database document
+                try {
+                  const directDoc = await prisma.document.findFirst({
+                    where: {
+                      id: documentId,
+                      status: 'ACTIVE',
+                    },
+                    select: {
+                      id: true,
+                      isQproDocument: true,
+                      description: true,
+                      title: true,
+                      qproAnalyses: {
+                        select: { id: true },
+                        take: 1,
+                      },
+                    },
+                  });
+                  if (directDoc) {
+                    finalDocumentId = directDoc.id;
+                    console.log(`✅ Document ID ${documentId} is a valid database ID`);
+                    // Add to qproDocMap for later use
+                    if (!qproDocMap.has(directDoc.id)) {
+                      qproDocMap.set(directDoc.id, {
+                        isQproDocument: directDoc.isQproDocument,
+                        qproAnalysisId: directDoc.qproAnalyses && directDoc.qproAnalyses.length > 0 ? directDoc.qproAnalyses[0].id : undefined,
+                        description: directDoc.description,
+                        title: directDoc.title,
+                      });
+                    }
+                  }
+                } catch (directLookupError) {
+                  // Ignore - the document might not exist with this ID
+                }
+              }
+              
               // Get QPRO document info if available
               const qproInfo = finalDocumentId ? qproDocMap.get(finalDocumentId) : undefined;
               const isQproDocument = qproInfo?.isQproDocument || false;
@@ -828,7 +890,7 @@ export async function GET(request: NextRequest) {
                 isQproDocument: isQproDocument,
                 qproAnalysisId: qproAnalysisId,
               };
-            });
+            }));
 
           // 2. DEDUPLICATE (Kill the Zombies)
           const uniqueMap = new Map();
@@ -888,13 +950,14 @@ export async function GET(request: NextRequest) {
             // Include all relevant sources for comprehensive queries, otherwise just the top one
             // Clean the title in the source and ensure we have the database document ID and QPRO info
             const cleanedSources = qwenResult.sources && qwenResult.sources.length > 0 ?
-              qwenResult.sources.map((source, idx) => {
+              await Promise.all(qwenResult.sources.map(async (source, idx) => {
                 // Try to match by title first (more reliable when Qwen returns title as documentId)
                 let originalResult = resultsForGeneration.find(result => {
-                  const resultTitle = cleanDocumentTitle(result.title || '');
-                  const sourceTitle = cleanDocumentTitle(source.title || '');
+                  const resultTitle = cleanDocumentTitle(result.title || '').toLowerCase();
+                  const sourceTitle = cleanDocumentTitle(source.title || '').toLowerCase();
                   const sourceDocId = source.documentId || '';
                   
+                  // Match by title similarity or exact document ID match
                   return resultTitle === sourceTitle || 
                          result.documentId === sourceDocId || 
                          result.originalDocumentId === sourceDocId;
@@ -906,21 +969,76 @@ export async function GET(request: NextRequest) {
                   console.log(`⚠️ Source matching by index fallback for "${source.title}"`);
                 }
                 
-                // Use the database document ID if available, with proper validation
+                // Priority: originalDocumentId > documentId, but validate it's a proper document ID
                 let databaseDocumentId = originalResult?.originalDocumentId || originalResult?.documentId || source.documentId;
                 
-                // Validate that it's actually a valid CUID, not a title
-                const isValidCuid = databaseDocumentId && 
+                // Validate that it's actually a valid document ID
+                // Allow alphanumeric, hyphens, underscores, spaces, and dots (for filenames)
+                const isValidDocId = databaseDocumentId && 
                                     typeof databaseDocumentId === 'string' && 
-                                    /^[a-z0-9]+$/i.test(databaseDocumentId) && 
-                                    databaseDocumentId.length >= 20 && 
-                                    databaseDocumentId.length <= 30;
+                                    /^[a-z0-9_\-\s.]+$/i.test(databaseDocumentId) && 
+                                    databaseDocumentId.trim().length >= 10;
                 
-                if (!isValidCuid) {
+                if (!isValidDocId) {
                   console.warn(`⚠️ Invalid document ID for source "${source.title}": ${databaseDocumentId}`);
-                  // Try to find by title if the ID is invalid
-                  if (originalResult?.originalDocumentId) {
+                  // If invalid, try harder to find the real document ID
+                  if (originalResult?.originalDocumentId && /^[a-z0-9_\-\s.]+$/i.test(originalResult.originalDocumentId)) {
                     databaseDocumentId = originalResult.originalDocumentId;
+                  } else if (originalResult?.documentId && /^[a-z0-9_\-\s.]+$/i.test(originalResult.documentId)) {
+                    databaseDocumentId = originalResult.documentId;
+                  } else {
+                    // Last resort: search all results by title to find the correct document ID
+                    const titleMatch = resultsForGeneration.find(r => {
+                      const rTitle = cleanDocumentTitle(r.title || '').toLowerCase();
+                      const sTitle = cleanDocumentTitle(source.title || '').toLowerCase();
+                      return rTitle.includes(sTitle) || sTitle.includes(rTitle);
+                    });
+                    if (titleMatch?.originalDocumentId) {
+                      databaseDocumentId = titleMatch.originalDocumentId;
+                      console.log(`✅ Found document ID by title match: ${databaseDocumentId}`);
+                    } else {
+                      // Final fallback: search database by title
+                      try {
+                        const cleanTitle = cleanDocumentTitle(source.title || '').trim();
+                        if (cleanTitle.length > 5) {
+                          const dbDoc = await prisma.document.findFirst({
+                            where: {
+                              OR: [
+                                { title: { contains: cleanTitle, mode: 'insensitive' } },
+                                { fileName: { contains: cleanTitle, mode: 'insensitive' } },
+                              ],
+                              status: 'ACTIVE',
+                            },
+                            select: {
+                              id: true,
+                              isQproDocument: true,
+                              qproAnalyses: { select: { id: true }, take: 1 },
+                            },
+                          });
+                          if (dbDoc) {
+                            databaseDocumentId = dbDoc.id;
+                            console.log(`✅ Found document ID by database title search: ${databaseDocumentId}`);
+                            // Update QPRO info if found
+                            if (dbDoc.isQproDocument && dbDoc.qproAnalyses?.length > 0) {
+                              originalResult = {
+                                ...originalResult,
+                                isQproDocument: true,
+                                qproAnalysisId: dbDoc.qproAnalyses[0].id,
+                              } as any;
+                            }
+                          } else {
+                            console.error(`❌ Could not find valid document ID for source: ${source.title}`);
+                            databaseDocumentId = undefined; // Set to undefined instead of empty string to prevent rendering
+                          }
+                        } else {
+                          console.error(`❌ Title too short for database search: ${source.title}`);
+                          databaseDocumentId = undefined; // Set to undefined instead of empty string
+                        }
+                      } catch (dbError) {
+                        console.error(`❌ Database lookup failed for source: ${source.title}`, dbError);
+                        databaseDocumentId = undefined; // Set to undefined instead of empty string
+                      }
+                    }
                   }
                 }
                 
@@ -932,14 +1050,23 @@ export async function GET(request: NextRequest) {
                 return {
                   ...source,
                   title: cleanDocumentTitle(source.title),
-                  documentId: databaseDocumentId, // Use the database document ID for clicking
+                  documentId: databaseDocumentId, // Use the validated database document ID
                   confidence: confidence, // Ensure valid confidence score
                   isQproDocument: originalResult?.isQproDocument || false,
                   qproAnalysisId: originalResult?.qproAnalysisId || undefined,
                 };
-              }) : [];
+              })) : [];
             
-            response.sources = cleanedSources;
+            // Log the cleaned sources for debugging
+            console.log('[API cleanedSources]', cleanedSources.map(s => ({ 
+              title: s.title, 
+              documentId: s.documentId,
+              isQpro: s.isQproDocument,
+              qproId: s.qproAnalysisId 
+            })));
+            
+            // Deduplicate sources to avoid showing the same document multiple times
+            response.sources = deduplicateSources(cleanedSources);
             
             // Include the document URL for the relevant document in the response
             if (cleanResults.length > 0 && response.sources.length > 0) {
@@ -1062,7 +1189,8 @@ export async function GET(request: NextRequest) {
                 confidence: (source.confidence && source.confidence > 0) ? source.confidence : 0.85
               })) : [];
             
-            response.sources = cleanedSources;
+            // Deduplicate sources to avoid showing the same document multiple times
+            response.sources = deduplicateSources(cleanedSources);
           } catch (generationError) {
             console.error('Qwen generation failed:', generationError);
             
@@ -1079,11 +1207,12 @@ export async function GET(request: NextRequest) {
               
               // Create basic sources from search results if not already set
               if (!response.sources || response.sources.length === 0) {
-                response.sources = groupedResults.slice(0, Math.min(3, groupedResults.length)).map((result: any) => ({
+                const basicSources = groupedResults.slice(0, Math.min(3, groupedResults.length)).map((result: any) => ({
                   title: result.title || 'Untitled Document',
-                  documentId: result.documentId,
+                  documentId: result.documentId || result.id || '', // Use id as fallback
                   confidence: result.score || result.confidenceScore || 0.85,
                 }));
+                response.sources = deduplicateSources(basicSources);
               }
             }
             
@@ -1183,7 +1312,8 @@ export async function GET(request: NextRequest) {
               confidence: (source.confidence && source.confidence > 0) ? source.confidence : 0.85
             })) : [];
         
-          response.sources = cleanedSources;
+          // Deduplicate sources to avoid showing the same document multiple times
+          response.sources = deduplicateSources(cleanedSources);
         } catch (generationError) {
           console.error('Qwen generation failed:', generationError);
           
@@ -1199,11 +1329,12 @@ export async function GET(request: NextRequest) {
             response.generationType = 'fallback';
             
             // Create basic sources from search results
-            response.sources = groupedResults.slice(0, Math.min(3, groupedResults.length)).map(result => ({
+            const basicSources = groupedResults.slice(0, Math.min(3, groupedResults.length)).map(result => ({
               title: result.title || 'Untitled Document',
-              documentId: result.documentId,
+              documentId: result.documentId || result.id || '', // Use id as fallback
               confidence: result.score || result.confidenceScore || 0.85,
             }));
+            response.sources = deduplicateSources(basicSources);
           }
           
           // Don't fail the entire request if generation fails, just return search results with fallback message
@@ -1339,15 +1470,16 @@ export async function POST(request: NextRequest) {
             console.error('⚠️ OpenRouter API configuration issue. Please check: https://openrouter.ai/settings/privacy');
             
             // Provide basic fallback response with cached results
+            const basicSources = enhancedCachedResult.results.slice(0, Math.min(3, enhancedCachedResult.results.length)).map((result: any) => ({
+              title: result.title || 'Untitled Document',
+              documentId: result.documentId || result.id || '', // Use id as fallback if documentId is not set
+              confidence: result.score || result.confidenceScore || 0.85,
+            }));
             const fallbackResponse = {
               ...enhancedCachedResult,
               generatedResponse: `Found relevant documents for your query. Click on the documents below to view the full content.\n\n**Note:** AI-powered insights are temporarily unavailable due to API configuration.`,
               generationType: 'fallback',
-              sources: enhancedCachedResult.results.slice(0, Math.min(3, enhancedCachedResult.results.length)).map((result: any) => ({
-                title: result.title || 'Untitled Document',
-                documentId: result.documentId,
-                confidence: result.score || result.confidenceScore || 0.85,
-              })),
+              sources: deduplicateSources(basicSources),
             };
             return NextResponse.json(fallbackResponse);
           }
@@ -1478,7 +1610,7 @@ export async function POST(request: NextRequest) {
         }
         
         // Now map the results with proper document IDs
-        const rawMapped = colivaraResults.results
+        const mappableResults = colivaraResults.results
           .filter((item: any) => {
             // Only include items that have a valid document ID that exists in our filtered results
             const docId = item.documentId ||
@@ -1488,8 +1620,10 @@ export async function POST(request: NextRequest) {
                          (item.document && item.document.metadata && item.document.metadata.documentId) ||
                          undefined;
             return typeof docId === 'string' && docId.trim() !== '' && validDocumentIds.has(docId);
-          })
-          .map((item: any, index: number) => {
+          });
+        
+        // Use Promise.all to handle async mapping
+        const rawMapped = await Promise.all(mappableResults.map(async (item: any, index: number) => {
             const docData = item.document || item;
             const metadata = docData.metadata || item.metadata || {};
             
@@ -1571,6 +1705,36 @@ export async function POST(request: NextRequest) {
               finalDocumentId = dbInfo?.id;
             }
             
+            // If we still don't have a valid database ID, try looking up by the document ID directly
+            // This handles the case where documentId IS the database ID
+            if (!finalDocumentId && isValidDocumentId) {
+              // Check if the documentId itself is a valid database document
+              try {
+                const directDoc = await prisma.document.findFirst({
+                  where: {
+                    id: documentId,
+                    status: 'ACTIVE',
+                  },
+                  select: {
+                    id: true,
+                    description: true,
+                    title: true,
+                  },
+                });
+                if (directDoc) {
+                  finalDocumentId = directDoc.id;
+                  dbInfo = {
+                    id: directDoc.id,
+                    description: directDoc.description,
+                    title: directDoc.title,
+                  };
+                  console.log(`✅ [POST] Document ID ${documentId} is a valid database ID`);
+                }
+              } catch (directLookupError) {
+                // Ignore - the document might not exist with this ID
+              }
+            }
+            
             // Get database description for fallback
             const dbDescription = dbInfo?.description || '';
             const dbTitle = dbInfo?.title || '';
@@ -1604,7 +1768,7 @@ export async function POST(request: NextRequest) {
               // Include document URL for redirect functionality - use the database document ID if available
               documentUrl: finalDocumentId ? `/repository/preview/${finalDocumentId}` : undefined
             };
-          });
+          }));
 
         // 2. DEDUPLICATE (Kill the Zombies)
         const uniqueMap = new Map();
@@ -1800,7 +1964,8 @@ export async function POST(request: NextRequest) {
             };
           }) : [];
             
-        sources = cleanedSources;
+        // Deduplicate sources to avoid showing the same document multiple times
+        sources = deduplicateSources(cleanedSources);
           
         // Include the document URL for the relevant document in the response
         if (searchResults.length > 0 && sources.length > 0) {
@@ -1830,13 +1995,14 @@ export async function POST(request: NextRequest) {
           generatedResponse = `Found ${searchResults.length} relevant document${searchResults.length !== 1 ? 's' : ''} for your query. Click on the document${searchResults.length !== 1 ? 's' : ''} below to view the full content.\n\n**Note:** AI-powered insights are temporarily unavailable due to API configuration. Please check your OpenRouter settings at https://openrouter.ai/settings/privacy`;
           
           // Create basic sources from search results
-          sources = searchResults.slice(0, Math.min(3, searchResults.length)).map(result => ({
+          const basicSources = searchResults.slice(0, Math.min(3, searchResults.length)).map(result => ({
             title: result.title || 'Untitled Document',
             documentId: result.originalDocumentId || result.documentId,
             confidence: result.score || result.confidenceScore || 0.85,
             isQproDocument: result.isQproDocument || false,
             qproAnalysisId: result.qproAnalysisId,
           }));
+          sources = deduplicateSources(basicSources);
         } else {
           // For other errors, don't provide a generated response
           generatedResponse = null;

@@ -19,7 +19,6 @@ import { useToast } from "@/components/ui/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { UnitSidebar } from "@/components/unit-sidebar";
-import { UnitFilter } from "@/components/unit-filter";
 import {
   DropdownMenu,
   DropdownMenuContent,

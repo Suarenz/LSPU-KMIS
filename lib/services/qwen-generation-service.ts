@@ -4,7 +4,8 @@ import MonitoringService from './monitoring-service';
 
 // Define the SearchResult interface to match what's expected
 interface SearchResult {
-  documentId: string;
+  id?: string; // Database ID (primary)
+  documentId: string; // Fallback document ID
  title: string;
  content: string;
  score: number;
@@ -91,7 +92,7 @@ class QwenGenerationService {
       baseURL: config?.baseURL || process.env.QWEN_BASE_URL || 'https://openrouter.ai/api/v1',
       generationConfig: config?.generationConfig || {
         temperature: 0.2,
-        maxOutputTokens: 4096, // Reduced from 8192 to fit within credit limits
+        maxOutputTokens: 8192, // Increased to prevent output truncation
         topP: 0.95,
         topK: 40,
       },
@@ -292,16 +293,32 @@ class QwenGenerationService {
                                  (query.toLowerCase().includes('which') && query.toLowerCase().includes('seminar'));
 
     // Create the prompt with specific instructions for comprehensive queries
-    const prompt = options.customPrompt || `Based on the following documents, provide a clear, direct answer to the user's query. If the documents don't contain the information needed to answer the query, state this clearly.
+    const prompt = options.customPrompt || `Role: You are an expert data extraction assistant.
 
-Documents:
+Instructions:
+1. Answer the user's question using ONLY the provided Context below.
+2. If the user asks for a list (titles, names, dates, research, etc.), you MUST extract them and format them as a bulleted list.
+3. NEGATIVE CONSTRAINT: Never answer with "The information is provided in the document" or "listed in the provided documents". You MUST extract the actual content.
+4. If the data is in a table within the context, parse the rows to find the specific answer.
+5. If the answer is not in the context, state "I do not have that information in the provided documents."
+6. When citing information, include a reference like [1], [2], etc. that corresponds to the Document number.
+
+${isComprehensiveQuery ? `### SPECIAL INSTRUCTION FOR COMPREHENSIVE QUERIES:
+When the user asks for a list of items (such as faculty and their trainings/seminars, research titles, etc.):
+- You MUST provide ALL the information found in the documents
+- Do not summarize or abbreviate
+- If multiple documents contain relevant information, combine and present ALL the data
+- Use bullet points or structured lists to make the information easy to read
+- CRITICAL: Actually provide the complete list content, never just say "Here is the list..." without the items
+- READ EVERY DOCUMENT CAREFULLY and extract ALL relevant information
+- Continue reading through all documents to collect all relevant information
+
+` : ''}Context:
 ${context}
 
 User Query: ${query}
 
-${isComprehensiveQuery ? `### SPECIAL INSTRUCTION FOR COMPREHENSIVE QUERIES: When the user asks for a list of items (such as faculty and their trainings/seminars), you MUST provide ALL the information found in the documents. Do not summarize or abbreviate. If multiple documents contain relevant information, combine and present ALL the data from all documents. Use a clear format like bullet points or structured lists to make the information easy to read. CRITICAL: If you state that you are providing a list, you MUST actually provide the complete list content. Do not just say "Here is the list..." without providing the actual items in the list. READ EVERY DOCUMENT CAREFULLY and extract ALL relevant information BEFORE forming your response. Do not stop at the first few items you find - continue reading through all documents to ensure you have collected all relevant information.` : ''}
-
-Please provide a straightforward, direct answer to the query based on the provided documents. Focus on information that directly addresses the question. If the information is not available in the documents, say so clearly.`;
+Provide a direct, specific answer with the actual extracted data. Include citation references [1], [2], etc. to indicate which document(s) the information came from.`;
 
     // Generate content using the model
     const completion = await this.openai.chat.completions.create({
@@ -365,25 +382,41 @@ Please provide a straightforward, direct answer to the query based on the provid
     multimodalContent.push({
       type: 'text',
       text: `
-You are an intelligent assistant capable of reading documents and extracting specific details.
-Your goal is to answer the user's question accurately based ONLY on the provided document images.
+Role: You are an expert data extraction assistant.
+
+Instructions:
+1. Answer the user's question using ONLY the provided document images and context below.
+2. If the user asks for a list (titles, names, dates, research, etc.), you MUST extract them and format them as a bulleted list.
+3. NEGATIVE CONSTRAINT: Never answer with "The information is provided in the document" or "listed in the provided documents". You MUST extract the actual content.
+4. If the data is in a table within the context, parse the rows to find the specific answer.
+5. If the answer is not in the context, state "I do not have that information in the provided documents."
+6. When citing information, include a reference like [1], [2], etc. that corresponds to the Document number.
 
 ### DATA EXTRACTION RULES:
 1. **Read the Visuals:** The documents may contain tables, lists, or spreadsheets. Scan them carefully row-by-row.
-2. **Be Thorough:** If the user asks for a list (e.g., "all faculty"), extract EVERY name you see in the document images. Do not summarize.
-3. ** OCR Handling:** If text is slightly blurry, use your best judgment to correct obvious spelling errors (e.g., interpret "M@rk" as "Mark").
+2. **Be Thorough:** If the user asks for a list (e.g., "all faculty", "research titles"), extract EVERY item you see in the document images. Do not summarize.
+3. **OCR Handling:** If text is slightly blurry, use your best judgment to correct obvious spelling errors.
 
 ### OUTPUT FORMATTING:
-If the data involves multiple items (like names and trainings), you must use a **Nested Bullet List** format:
+If the data involves multiple items (like names and trainings, or research titles), you must use a **Bulleted List** format:
 
-* **Name of Person**
- * Training Title A
- * Training Title B
+* Item 1 [1]
+* Item 2 [1]
+* Item 3 [2]
 
-If the answer is simple text, use a natural paragraph.
+If the answer is simple text, use a natural paragraph with citation references.
 
-${isComprehensiveQuery ? `### SPECIAL INSTRUCTION FOR COMPREHENSIVE QUERIES: When the user asks for a list of items (such as faculty and their trainings/seminars), you MUST provide ALL the information found in the documents. Do not summarize or abbreviate. If multiple documents contain relevant information, combine and present ALL the data from all documents. Use a clear format like bullet points or structured lists to make the information easy to read. CRITICAL: If you state that you are providing a list, you MUST actually provide the complete list content. Do not just say "Here is the list..." without providing the actual items in the list. READ EVERY DOCUMENT CAREFULLY and extract ALL relevant information BEFORE forming your response. Do not stop at the first few items you find - continue reading through all documents to ensure you have collected all relevant information.` : ''}
--------------------------------------------------------
+${isComprehensiveQuery ? `### SPECIAL INSTRUCTION FOR COMPREHENSIVE QUERIES:
+When the user asks for a list of items (such as faculty and their trainings/seminars, research titles, etc.):
+- You MUST provide ALL the information found in the documents
+- Do not summarize or abbreviate
+- If multiple documents contain relevant information, combine and present ALL the data
+- Use bullet points or structured lists to make the information easy to read
+- CRITICAL: Actually provide the complete list content, never just say "Here is the list..." without the items
+- READ EVERY DOCUMENT CAREFULLY and extract ALL relevant information
+- Include citation references [1], [2], etc. for each item
+
+` : ''}-------------------------------------------------------
 `
     });
 
@@ -453,7 +486,7 @@ ${isComprehensiveQuery ? `### SPECIAL INSTRUCTION FOR COMPREHENSIVE QUERIES: Whe
     // Add final instruction to ensure the model responds directly to the query
     multimodalContent.push({
       type: 'text',
-      text: `\n\n${isComprehensiveQuery ? `### SPECIAL INSTRUCTION FOR COMPREHENSIVE QUERIES: When the user asks for a list of items (such as faculty and their trainings/seminars), you MUST provide ALL the information found in the documents. Do not summarize or abbreviate. If multiple documents contain relevant information, combine and present ALL the data from all documents. Use a clear format like bullet points or structured lists to make the information easy to read. CRITICAL: If you state that you are providing a list, you MUST actually provide the complete list content. Do not just say "Here is the list..." without providing the actual items in the list. READ EVERY DOCUMENT CAREFULLY and extract ALL relevant information BEFORE forming your response. Do not stop at the first few items you find - continue reading through all documents to ensure you have collected all relevant information.` : ''}\n\nBased on the above documents, provide a clear, direct answer to this query: "${query}". Answer the question directly using specific information from the documents. If the documents don't contain the answer, say so clearly.`
+      text: `\n\n${isComprehensiveQuery ? `### REMINDER FOR COMPREHENSIVE QUERIES:\n- Extract ALL items, names, titles, or data requested\n- Use bullet points for lists\n- Include citation references [1], [2], etc.\n- Never just say "the information is in the documents" - actually extract it\n\n` : ''}Based on the above documents, provide a clear, direct answer to this query: "${query}"\n\nREMEMBER:\n- Answer with the ACTUAL extracted data, not a reference to where it can be found\n- Include citation references like [1], [2] to indicate which document the information came from\n- If the documents don't contain the answer, state: "I do not have that information in the provided documents."`
     });
 
     try {
@@ -747,7 +780,7 @@ Please format your response as JSON with the following structure:
           keyPoints: [textResponse.substring(0, 200)],
           sources: limitedResults.map(result => ({
             title: result.title || 'Untitled Document',
-            documentId: result.documentId || '',
+            documentId: result.id || result.documentId || '',
             confidence: result.confidenceScore || 0
           }))
         };
@@ -797,7 +830,7 @@ Please format your response as JSON with the following structure:
             keyPoints: [textResponse.substring(0, 200)],
             sources: limitedResults.map(result => ({
               title: result.title || 'Untitled Document',
-              documentId: result.documentId || '',
+              documentId: result.id || result.documentId || '',
               confidence: result.confidenceScore || 0
             }))
           };
@@ -842,13 +875,13 @@ Please format your response as JSON with the following structure:
         console.error('Error parsing Qwen JSON response:', parseError);
         // Check if the raw text indicates no relevant information
         const noRelevantDocuments = isNoInformationResponse(text);
-        // Fallback: return a basic structure
+        // Fallback: return a basic structure - use full text, don't truncate
         const fallbackResult = {
-          summary: text.substring(0, 500) + (text.length > 50 ? '...' : ''),
-          keyPoints: [text.substring(0, 200)],
+          summary: text, // Return full response text without truncation
+          keyPoints: [text.substring(0, 500)],
           sources: limitedResults.map(result => ({
             title: result.title || 'Untitled Document',
-            documentId: result.documentId || '',
+            documentId: result.id || result.documentId || '',
             confidence: result.confidenceScore || 0
           })),
           evidence: '', // Fallback: no evidence available

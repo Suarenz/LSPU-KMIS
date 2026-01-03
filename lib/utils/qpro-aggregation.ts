@@ -2,6 +2,16 @@ export type TargetScope = 'INSTITUTIONAL' | 'PER_UNIT';
 
 export type TargetType = 'count' | 'percentage' | 'financial' | 'milestone' | 'text_condition' | string;
 
+/**
+ * Target time scope determines how contributions are counted across years:
+ * - "annual": (default) Contributions only count for their specific year.
+ *   A contribution in 2025 only affects 2025 progress.
+ * - "cumulative": Contributions carry forward to all subsequent years.
+ *   A contribution in 2025 also counts toward 2026, 2027, 2028, 2029 progress.
+ *   Use for KPIs with a single target spanning 2025-2029 (e.g., "100% budget utilization by 2029").
+ */
+export type TargetTimeScope = 'annual' | 'cumulative';
+
 export interface TimelineDatum {
   year: number;
   target_value: string | number;
@@ -17,6 +27,7 @@ export interface InitiativeLike {
     type?: TargetType;
     unit_basis?: string;
     target_scope?: TargetScope;
+    target_time_scope?: TargetTimeScope;
     timeline_data?: TimelineDatum[];
   };
 }
@@ -122,6 +133,39 @@ export function getInitiativeTargetMeta(
   const targetValue = getTargetValueForYear(timeline, year);
 
   return { targetType, targetValue, targetScope, unitBasis };
+}
+
+/**
+ * Check if an initiative has cumulative target time scope.
+ * Cumulative targets carry forward contributions from earlier years to later years.
+ * For example, if target_time_scope is "cumulative" and we're viewing 2026,
+ * contributions from 2025 will also be included in the progress calculation.
+ * 
+ * @param plan - The strategic plan
+ * @param kraId - KRA identifier
+ * @param initiativeId - Initiative/KPI identifier
+ * @returns true if the target is cumulative, false for annual (default)
+ */
+export function isCumulativeTarget(
+  plan: StrategicPlanLike,
+  kraId: string,
+  initiativeId: string | undefined | null
+): boolean {
+  const initiative = findInitiative(plan, kraId, initiativeId);
+  return initiative?.targets?.target_time_scope === 'cumulative';
+}
+
+/**
+ * Get the target time scope for an initiative.
+ * @returns "cumulative" if contributions carry forward, "annual" (default) otherwise
+ */
+export function getTargetTimeScope(
+  plan: StrategicPlanLike,
+  kraId: string,
+  initiativeId: string | undefined | null
+): TargetTimeScope {
+  const initiative = findInitiative(plan, kraId, initiativeId);
+  return initiative?.targets?.target_time_scope === 'cumulative' ? 'cumulative' : 'annual';
 }
 
 export interface ActivityValueLike {

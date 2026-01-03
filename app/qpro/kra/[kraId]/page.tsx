@@ -14,6 +14,7 @@ import {
 } from '@/lib/utils/target-type-detector';
 import { DynamicInput, type TargetType } from '@/components/ui/dynamic-input';
 import { mapTargetType } from '@/lib/utils/target-type-utils';
+import { getTargetValueForYear, isCumulativeTarget } from '@/lib/utils/qpro-aggregation';
 
 // KPI Progress types
 interface KPIProgressItem {
@@ -33,6 +34,9 @@ interface KPIProgressItem {
   manualOverrideBy?: string | null;
   manualOverrideAt?: string | null;
   valueSource: 'qpro' | 'manual' | 'none';
+  // Cumulative target tracking (progress carries forward across years)
+  isCumulative?: boolean;
+  contributingYears?: number[];
 }
 
 interface KPIProgressData {
@@ -67,6 +71,15 @@ interface TimelineItem {
   current_value?: string | number;
 }
 
+interface Targets {
+  type: string;
+  currency?: string;
+  unit_basis?: string;
+  low_count_threshold?: number;
+  timeline_data: TimelineItem[];
+  target_time_scope?: 'annual' | 'cumulative';
+}
+
 interface Initiative {
   id: string;
   key_performance_indicator: {
@@ -76,13 +89,7 @@ interface Initiative {
   strategies: string[];
   programs_activities: string[];
   responsible_offices: string[];
-  targets: {
-    type: string;
-    currency?: string;
-    unit_basis?: string;
-    low_count_threshold?: number;
-    timeline_data: TimelineItem[];
-  };
+  targets: Targets;
 }
 
 // Type for storing current values in state
@@ -139,7 +146,7 @@ export default function KRADetailPage() {
   // KPI Progress state (from QPRO uploaded documents)
   const [kpiProgress, setKpiProgress] = useState<KPIProgressData | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(false);
-  const [selectedProgressYear, setSelectedProgressYear] = useState<number>(new Date().getFullYear());
+  const [selectedProgressYear, setSelectedProgressYear] = useState<number>(2025);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0); // Used to force re-fetch
 
   // QPRO-derived current values for the Targets-by-Year table
@@ -194,6 +201,23 @@ export default function KRADetailPage() {
       if (yearItems.some(item => item.valueSource === 'qpro')) return 'qpro';
       return 'none';
     }
+  }, [kpiProgress]);
+
+  // Check if a KPI has cumulative progress (contributions carry forward across years)
+  const getCumulativeInfo = useCallback((initiativeId: string, year: number): { isCumulative: boolean; contributingYears: number[] } | null => {
+    if (!kpiProgress) return null;
+    const initiative = kpiProgress.initiatives?.find(i => i.id === initiativeId);
+    if (!initiative) return null;
+    
+    const yearItems = initiative.progress?.filter(p => p.year === year) || [];
+    const cumulativeItem = yearItems.find(item => item.isCumulative);
+    if (cumulativeItem) {
+      return {
+        isCumulative: true,
+        contributingYears: cumulativeItem.contributingYears || []
+      };
+    }
+    return null;
   }, [kpiProgress]);
 
   // Save a manual override value to the database
@@ -344,6 +368,24 @@ export default function KRADetailPage() {
     // 3. Fallback to strategic plan value
     return fallbackValue;
   }, [pendingTargetEdits, kpiTargets]);
+
+  // Get annual target value for display in the annual overview
+  // IMPORTANT: The DB stores QUARTERLY targets which are DERIVED from the annual target:
+  // - COUNT >= 4: quarterly = annual / 4 (e.g., annual=6 → Q1-Q4 = 2,2,2,2 → sum=8, not 6!)
+  // - COUNT < 4: quarterly = Q1-Q3=0, Q4=annual (e.g., annual=1 → Q1-Q4 = 0,0,0,1)
+  // - RATE/PERCENTAGE/SNAPSHOT: quarterly = annual (same value each quarter)
+  // 
+  // Because the quarterly targets may not perfectly sum to the annual (due to rounding),
+  // we ALWAYS use the strategic plan annual value as the source of truth.
+  // The DB quarterly targets are only used for progress tracking, not display.
+  const getAnnualTargetValue = useCallback((initiativeId: string, year: number, strategicPlanAnnualTarget: number | string): number => {
+    // Always use strategic plan annual value as the source of truth
+    const annualValue = typeof strategicPlanAnnualTarget === 'number' 
+      ? strategicPlanAnnualTarget 
+      : parseFloat(String(strategicPlanAnnualTarget)) || 0;
+    
+    return annualValue;
+  }, []);
 
   // Update pending target edit
   const updateTargetEdit = useCallback((initiativeId: string, year: number, quarter: number, value: number) => {
@@ -640,7 +682,27 @@ export default function KRADetailPage() {
               const initiativeProgress = kpiProgress?.initiatives?.find((i) => i.id === initiative.id);
               
               // Find timeline data for selected year
-              const timelineItem = initiative.targets?.timeline_data?.find(t => t.year === selectedProgressYear);
+              // For cumulative KPIs with only 2029 target, use that target for ALL years
+              let timelineItem = initiative.targets?.timeline_data?.find(t => t.year === selectedProgressYear);
+              
+              // If no exact match and this is a cumulative target, find the nearest target (fallback logic)
+              if (!timelineItem && initiative.targets?.target_time_scope === 'cumulative') {
+                // Use getTargetValueForYear which has proper fallback logic
+                const fallbackValue = getTargetValueForYear(initiative.targets?.timeline_data, selectedProgressYear);
+                if (fallbackValue !== null) {
+                  // Find the source year (e.g., 2029) to get other metadata
+                  const sourceEntry = initiative.targets?.timeline_data?.find(t => 
+                    parseNumericValue(t.target_value) === fallbackValue
+                  ) || initiative.targets?.timeline_data?.[0];
+                  
+                  // Create a virtual timeline item for the selected year
+                  timelineItem = {
+                    year: selectedProgressYear,
+                    target_value: fallbackValue,
+                    current_value: sourceEntry?.current_value
+                  };
+                }
+              }
               
               // Calculate annual progress
               const yearItems = initiativeProgress?.progress?.filter(p => p.year === selectedProgressYear) || [];
@@ -773,19 +835,39 @@ export default function KRADetailPage() {
                           </div>
                           
                           <div>
-                            <h4 className="text-lg font-semibold text-gray-900">{selectedProgressYear} Overview</h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-lg font-semibold text-gray-900">{selectedProgressYear} Overview</h4>
+                              {/* Cumulative indicator - shows when progress includes contributions from earlier years */}
+                              {(() => {
+                                const cumulativeInfo = getCumulativeInfo(initiative.id, selectedProgressYear);
+                                if (cumulativeInfo?.isCumulative && cumulativeInfo.contributingYears.length > 1) {
+                                  const yearsStr = cumulativeInfo.contributingYears.join(', ');
+                                  return (
+                                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+                                      <TrendingUp className="w-3 h-3 mr-1" />
+                                      Cumulative ({yearsStr})
+                                    </Badge>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </div>
                             <div className="flex items-baseline gap-2 mt-1">
                               <span className="text-3xl font-bold text-gray-900">{yearTotal}</span>
                               <span className="text-gray-500">/</span>
                               
-                              {/* Editable Target */}
+                              {/* Editable Target - uses annual target value (sum of quarterly targets or strategic plan fallback) */}
                               {(() => {
-                                const quarter = 1; // Use Q1 for annual target editing context
-                                const targetKey = `${initiative.id}-${timelineItem.year}-${quarter}`;
+                                // For annual overview, we display the sum of all quarterly targets
+                                // but editing is done per-quarter (Q4 for COUNT < 4)
+                                const annualTargetValue = getAnnualTargetValue(initiative.id, timelineItem.year, timelineItem.target_value);
+                                const canEditTarget = user && (user.role === 'ADMIN' || user.role === 'FACULTY');
+                                
+                                // For editing, we'll target Q4 since that's where the annual target lives for COUNT < 4
+                                const editQuarter = 4;
+                                const targetKey = `${initiative.id}-${timelineItem.year}-${editQuarter}`;
                                 const isEditingThisTarget = editingTarget === targetKey;
                                 const isSavingThisTarget = savingTarget === targetKey;
-                                const currentTargetValue = getTargetValue(initiative.id, timelineItem.year, quarter, timelineItem.target_value);
-                                const canEditTarget = user && (user.role === 'ADMIN' || user.role === 'FACULTY');
 
                                 if (isEditingThisTarget) {
                                   return (
@@ -793,11 +875,11 @@ export default function KRADetailPage() {
                                       <input
                                         type="number"
                                         className="w-24 px-2 py-1 border border-blue-500 rounded text-lg font-bold focus:outline-none"
-                                        value={pendingTargetEdits[targetKey] ?? currentTargetValue}
-                                        onChange={(e) => updateTargetEdit(initiative.id, timelineItem.year, quarter, parseFloat(e.target.value) || 0)}
+                                        value={pendingTargetEdits[targetKey] ?? annualTargetValue}
+                                        onChange={(e) => updateTargetEdit(initiative.id, timelineItem.year, editQuarter, parseFloat(e.target.value) || 0)}
                                         autoFocus
                                       />
-                                      <Button size="sm" onClick={() => saveTarget(initiative.id, timelineItem.year, quarter, typeof (pendingTargetEdits[targetKey] ?? currentTargetValue) === 'number' ? (pendingTargetEdits[targetKey] ?? currentTargetValue) : parseFloat(String(pendingTargetEdits[targetKey] ?? currentTargetValue)) || 0, mapTargetType(initiative.targets?.type || 'count'), initiative.key_performance_indicator?.outputs)} disabled={isSavingThisTarget}>Save</Button>
+                                      <Button size="sm" onClick={() => saveTarget(initiative.id, timelineItem.year, editQuarter, typeof (pendingTargetEdits[targetKey] ?? annualTargetValue) === 'number' ? (pendingTargetEdits[targetKey] ?? annualTargetValue) : parseFloat(String(pendingTargetEdits[targetKey] ?? annualTargetValue)) || 0, mapTargetType(initiative.targets?.type || 'count'), initiative.key_performance_indicator?.outputs)} disabled={isSavingThisTarget}>Save</Button>
                                       <Button size="sm" variant="ghost" onClick={cancelTargetEdit}>Cancel</Button>
                                     </div>
                                   );
@@ -805,7 +887,7 @@ export default function KRADetailPage() {
 
                                 return (
                                   <div className="flex items-center gap-2 group">
-                                    <span className="text-xl font-medium text-gray-600">{typeof currentTargetValue === 'number' ? currentTargetValue.toLocaleString() : currentTargetValue}</span>
+                                    <span className="text-xl font-medium text-gray-600">{annualTargetValue.toLocaleString()}</span>
                                     {canEditTarget && (
                                       <button 
                                         onClick={() => setEditingTarget(targetKey)}

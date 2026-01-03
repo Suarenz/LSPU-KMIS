@@ -86,6 +86,11 @@ function calculateQuarterlyTargets(annualTarget: number | string, targetType: Ta
   
   switch (targetType) {
     case 'COUNT':
+      // For COUNT targets, if annual < 4, place entire target in Q4
+      // Otherwise, distribute evenly across quarters
+      if (annual < 4) {
+        return [0, 0, 0, annual];
+      }
       const quarterlyCount = Math.round(annual / 4);
       return [quarterlyCount, quarterlyCount, quarterlyCount, quarterlyCount];
     

@@ -208,11 +208,15 @@ export default function SearchPage() {
           <div className="animate-fade-in">
             <div className="mb-6">
               <h2 className="text-xl font-semibold">
-                {loading ? 'Searching...' : `${searchResults.documents.length} ${searchResults.documents.length === 1 ? "result" : "results"} found for "${searchQuery}"`}
+                {loading ? 'Searching...' : (
+                  generatedResponse && sources && sources.length > 0 
+                    ? `Answer generated from ${sources.length} source ${sources.length === 1 ? 'document' : 'documents'}`
+                    : `${searchResults.documents.length} ${searchResults.documents.length === 1 ? "result" : "results"} found for "${searchQuery}"`
+                )}
               </h2>
-              {generatedResponse && searchResults.documents.length > 0 && (
+              {generatedResponse && sources && sources.length > 0 && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  Showing the most relevant document for your query
+                  Query: &quot;{searchQuery}&quot;
                 </p>
               )}
             </div>

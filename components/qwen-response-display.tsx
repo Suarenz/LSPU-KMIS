@@ -7,7 +7,7 @@ import { cleanDocumentTitle } from '@/lib/utils/document-utils';
 
 interface SourceInfo {
   title: string;
-  documentId: string;
+  documentId?: string; // Made optional since it might not always be available
   confidence: number;
   isQproDocument?: boolean;
   qproAnalysisId?: string;
@@ -24,19 +24,99 @@ interface QwenResponseDisplayProps {
 }
 
 // Helper function to get the correct document URL based on document type
-const getDocumentUrl = (source: SourceInfo): string => {
-  if (source.isQproDocument && source.qproAnalysisId) {
-    return `/qpro/analysis/${source.qproAnalysisId}`;
+const getDocumentUrl = (source: SourceInfo): string | null => {
+  console.log('[getDocumentUrl] Checking source:', { 
+    title: source.title, 
+    documentId: source.documentId, 
+    isQpro: source.isQproDocument,
+    qproAnalysisId: source.qproAnalysisId 
+  });
+  
+  // First validate that the document ID is valid
+  if (!isValidDocumentId(source.documentId) && !source.qproAnalysisId) {
+    console.warn('[getDocumentUrl] Invalid document ID for source:', source.title, source.documentId);
+    return null; // Return null to indicate invalid URL
   }
-  return `/repository/preview/${source.documentId}`;
+  if (source.isQproDocument && source.qproAnalysisId) {
+    const url = `/qpro/analysis/${source.qproAnalysisId}`;
+    console.log('[getDocumentUrl] QPRO URL:', url);
+    return url;
+  }
+  // Only return preview URL if we have a valid document ID
+  if (source.documentId && isValidDocumentId(source.documentId)) {
+    // Clean the document ID (remove filename extension if present)
+    const cleanId = cleanDocumentId(source.documentId);
+    const url = `/repository/preview/${cleanId}`;
+    console.log('[getDocumentUrl] Preview URL:', url, '(cleaned from:', source.documentId, ')');
+    return url;
+  }
+  console.warn('[getDocumentUrl] No valid URL found for source:', source.title);
+  return null;
 };
 
 // Helper function to check if document ID is valid
-const isValidDocumentId = (documentId: string): boolean => {
-  return documentId && 
-         documentId !== 'undefined' && 
-         !documentId.includes('undefined') && 
-         !/\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(documentId);
+const isValidDocumentId = (documentId: string | undefined): boolean => {
+  if (!documentId || typeof documentId !== 'string') {
+    console.log('[DocumentID Validation] Failed: empty or not string', documentId);
+    return false;
+  }
+  if (documentId === 'undefined' || documentId.includes('undefined')) {
+    console.log('[DocumentID Validation] Failed: contains undefined', documentId);
+    return false;
+  }
+  
+  // Trim whitespace
+  const trimmedId = documentId.trim();
+  
+  // Check it's not just a file extension
+  if (/^\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(trimmedId)) {
+    console.log('[DocumentID Validation] Failed: file extension only', trimmedId);
+    return false;
+  }
+  
+  // Document IDs can contain:
+  // - Alphanumeric characters (a-z, A-Z, 0-9)
+  // - Hyphens (-)
+  // - Underscores (_)
+  // - May have file extension or filename parts
+  // Must be at least 10 characters long (excluding whitespace)
+  const isValid = trimmedId.length >= 10 && /^[a-z0-9_\-\s.]+$/i.test(trimmedId);
+  console.log('[DocumentID Validation]', isValid ? 'VALID' : 'INVALID', trimmedId);
+  return isValid;
+};
+
+// Helper function to clean document ID (remove filename and blobId if present)
+const cleanDocumentId = (documentId: string): string => {
+  // Document IDs from Colivara may be in format: docId_blobId_filename.ext
+  // We need to extract just the first part (docId) which is the database document ID
+  
+  // First, check if it's a valid CUID format (alphanumeric, 20-30 chars)
+  // If the whole thing is a clean CUID, return as-is
+  if (/^[a-z0-9]{20,30}$/i.test(documentId.trim())) {
+    return documentId.trim();
+  }
+  
+  // If it contains underscores, extract the first part (before the first underscore)
+  if (documentId.includes('_')) {
+    const parts = documentId.split('_');
+    const firstPart = parts[0];
+    
+    // Validate the first part is a proper CUID format (alphanumeric, 20-30 chars)
+    if (/^[a-z0-9]{20,30}$/i.test(firstPart)) {
+      console.log('[cleanDocumentId] Extracted clean ID:', firstPart, 'from:', documentId);
+      return firstPart;
+    }
+    
+    // If first part is a UUID format (with hyphens), it's likely a database ID
+    if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(firstPart)) {
+      console.log('[cleanDocumentId] Extracted UUID:', firstPart, 'from:', documentId);
+      return firstPart;
+    }
+  }
+  
+  // Fallback: return as-is if no pattern matches
+  console.log('[cleanDocumentId] No pattern matched, returning as-is:', documentId);
+  return documentId.trim();
 };
 
 const QwenResponseDisplay: React.FC<QwenResponseDisplayProps> = ({
@@ -69,41 +149,52 @@ const QwenResponseDisplay: React.FC<QwenResponseDisplayProps> = ({
                   Source Documents
                 </h4>
                 <ul className="space-y-2">
-                  {sources.map((source, index) => ( // Show all sources for comprehensive queries
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <span className="text-xs bg-blue-10 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
-                        {index + 1}
-                      </span>
-                      <div className="flex-1">
-                        {isValidDocumentId(source.documentId) ? (
+                  {sources.map((source, index) => {
+                    const documentUrl = getDocumentUrl(source);
+                    const hasValidUrl = documentUrl !== null;
+                    
+                    return (
+                      <li key={index} className="flex items-start gap-2 text-sm">
+                        <span className="text-xs bg-blue-100 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5 font-semibold">
+                          {index + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <Link href={getDocumentUrl(source)} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:text-blue-800 transition-colors">
-                              {cleanDocumentTitle(source.title)}
-                            </Link>
+                            {hasValidUrl ? (
+                              <Link 
+                                href={documentUrl} 
+                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors cursor-pointer truncate"
+                              >
+                                {cleanDocumentTitle(source.title)}
+                              </Link>
+                            ) : (
+                              <span className="font-medium text-gray-700 truncate">
+                                {cleanDocumentTitle(source.title)}
+                              </span>
+                            )}
                             {source.isQproDocument && (
                               <Badge variant="default" className="bg-blue-600 hover:bg-blue-700 text-xs">QPRO</Badge>
                             )}
                           </div>
-                        ) : (
-                          <div className="font-medium">{cleanDocumentTitle(source.title)}</div>
+                          {typeof source.confidence === 'number' && source.confidence > 0 && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded mt-1 inline-block">
+                              {(source.confidence * 100).toFixed(1)}% relevance
+                            </span>
+                          )}
+                        </div>
+                        {/* Only show external link icon if we have a valid URL */}
+                        {hasValidUrl && (
+                          <Link 
+                            href={documentUrl} 
+                            className="text-blue-600 hover:text-blue-800 transition-colors shrink-0"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            <span className="sr-only">View Document</span>
+                          </Link>
                         )}
-                        {typeof source.confidence === 'number' && source.confidence > 0 && (
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded mt-1 inline-block">
-                            {(source.confidence * 100).toFixed(1)}% relevance
-                          </span>
-                        )}
-                      </div>
-                      {/* Make all source documents clickable if they have a documentId */}
-                      {isValidDocumentId(source.documentId) ? (
-                        <Link href={getDocumentUrl(source)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 transition-colors">
-                          <ExternalLink className="w-4 h-4" />
-                          <span className="sr-only">View Document</span>
-                        </Link>
-                      ) : (
-                        <ExternalLink className="w-4 h-4 text-gray-400" />
-                      )}
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
@@ -171,7 +262,7 @@ const QwenResponseDisplay: React.FC<QwenResponseDisplayProps> = ({
       </CardHeader>
       <CardContent>
         <div className="prose prose-blue max-w-none">
-          <div className="whitespace-pre-wrap text-gray-70">
+          <div className="whitespace-pre-wrap text-gray-700 wrap-break-word">
             {generatedResponse.split('\n').map((line, i) => {
               // Check if the line contains a list item (starts with * or - or numbered list)
               const trimmedLine = line.trim();
@@ -210,46 +301,57 @@ const QwenResponseDisplay: React.FC<QwenResponseDisplayProps> = ({
                 Source Documents
               </h4>
               <ul className="space-y-2">
-                {sources.map((source, index) => ( // Show all sources for comprehensive queries
-                  <li key={index} className="flex items-start gap-2 text-sm">
-                    <span className="text-xs bg-blue-10 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
-                      {index + 1}
-                    </span>
-                    <div className="flex-1">
-                      {isValidDocumentId(source.documentId) ? (
+                {sources.map((source, index) => {
+                  const documentUrl = getDocumentUrl(source);
+                  const hasValidUrl = documentUrl !== null;
+                  
+                  return (
+                    <li key={index} className="flex items-start gap-2 text-sm">
+                      <span className="text-xs bg-blue-100 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5 font-semibold">
+                        {index + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <Link href={getDocumentUrl(source)} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:text-blue-800 transition-colors">
-                            {cleanDocumentTitle(source.title)}
-                          </Link>
+                          {hasValidUrl ? (
+                            <Link 
+                              href={documentUrl} 
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors cursor-pointer truncate"
+                            >
+                              {cleanDocumentTitle(source.title)}
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-gray-700 truncate">
+                              {cleanDocumentTitle(source.title)}
+                            </span>
+                          )}
                           {source.isQproDocument && (
                             <Badge variant="default" className="bg-blue-600 hover:bg-blue-700 text-xs">QPRO</Badge>
                           )}
                         </div>
-                      ) : (
-                        <div className="font-medium">{cleanDocumentTitle(source.title)}</div>
+                        {typeof source.confidence === 'number' && source.confidence > 0 && (
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded mt-1 inline-block">
+                            {(source.confidence * 100).toFixed(1)}% relevance
+                          </span>
+                        )}
+                      </div>
+                      {/* Only show external link icon if we have a valid URL */}
+                      {hasValidUrl && (
+                        <Link 
+                          href={documentUrl} 
+                          className="text-blue-600 hover:text-blue-800 transition-colors shrink-0"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span className="sr-only">View Document</span>
+                        </Link>
                       )}
-                      {typeof source.confidence === 'number' && source.confidence > 0 && (
-                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded mt-1 inline-block">
-                          {(source.confidence * 100).toFixed(1)}% relevance
-                        </span>
-                      )}
-                    </div>
-                    {/* Make all source documents clickable if they have a documentId */}
-                    {isValidDocumentId(source.documentId) ? (
-                      <Link href={getDocumentUrl(source)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 transition-colors">
-                        <ExternalLink className="w-4 h-4" />
-                        <span className="sr-only">View Document</span>
-                      </Link>
-                    ) : (
-                      <ExternalLink className="w-4 h-4 text-gray-400" />
-                    )}
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
           
-          {relevantDocumentUrl && (
+          {relevantDocumentUrl && !relevantDocumentUrl.includes('undefined') && (
             <div className="mt-6 pt-4 border-t border-gray-200">
               <div className="bg-blue-50 p-4 rounded-lg">
                 <Link href={relevantDocumentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors font-medium">

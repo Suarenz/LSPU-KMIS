@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/middleware/auth-middleware';
 import prisma from '@/lib/prisma';
 import strategicPlan from '@/lib/data/strategic_plan.json';
-import { getInitiativeTargetMeta, normalizeKraId, normalizeInitiativeId } from '@/lib/utils/qpro-aggregation';
+import { getInitiativeTargetMeta, normalizeKraId, normalizeInitiativeId, isCumulativeTarget, findInitiative, getTargetValueForYear } from '@/lib/utils/qpro-aggregation';
 import { mapTargetType } from '@/lib/utils/target-type-utils';
 
 // Helper to map strategic plan target types
@@ -110,9 +110,12 @@ export async function GET(request: NextRequest) {
 
     // Get KPIContributions - the source of truth for per-document contributions
     // Include created_at for SNAPSHOT logic (take latest value)
+    // IMPORTANT: For cumulative KPIs, we need contributions from ALL years (2025 to current)
+    // since progress carries forward. We fetch from 2025 and filter during aggregation.
+    const STRATEGIC_PLAN_START_YEAR = 2025;
     const kpiContributions = await prisma.kPIContribution.findMany({
       where: {
-        year,
+        year: { gte: STRATEGIC_PLAN_START_YEAR, lte: year }, // Fetch 2025 to requested year
         ...(quarter && { quarter }),
         ...(kraIdVariants && { kra_id: { in: kraIdVariants } }),
       },
@@ -162,19 +165,46 @@ export async function GET(request: NextRequest) {
     // - SNAPSHOT: Take latest value (faculty count, student population)
     // - RATE/PERCENTAGE: Average all contributions (employment rate, grades)
     // - MILESTONE/BOOLEAN: Take latest (once achieved, done)
+    //
+    // CUMULATIVE TARGET HANDLING:
+    // For KPIs with target_time_scope: "cumulative", contributions from ALL years
+    // (2025 to requested year) are summed together. This is for KPIs where the
+    // target spans the entire 2025-2029 period (e.g., "100% budget utilization by 2029").
     interface ContributionAggregate {
       total: number;       // For COUNT: sum, For RATE: sum for averaging, For SNAPSHOT/MILESTONE: latest value
       count: number;       // Number of contributions
       targetType: string;
       latestValue: number; // Most recent contribution value (for SNAPSHOT)
       latestAt: Date;      // Timestamp of latest contribution
+      isCumulative: boolean; // Whether this KPI has cumulative target scope
+      contributingYears: Set<number>; // Years that contributed (for cumulative tracking)
     }
     const contributionTotals = new Map<string, ContributionAggregate>();
+
+    // For cumulative KPIs, track the per-year contribution aggregate so manual overrides
+    // can REPLACE (not double-count) that year's computed contribution in the all-years sum.
+    const cumulativeYearBases = new Map<string, {
+      total: number;
+      count: number;
+      targetType: string;
+      latestValue: number;
+      latestAt: Date;
+    }>();
+    
+    // For cumulative KPIs, we also maintain a separate "all-years" aggregate
+    // that sums contributions across all years (for display in the requested year)
+    const cumulativeAggregates = new Map<string, ContributionAggregate>();
     
     console.log(`[KPI Progress] Processing ${kpiContributions.length} KPIContribution records...`);
     
     for (const contrib of kpiContributions) {
-      const key = `${normalizeKraId(contrib.kra_id)}|${contrib.initiative_id}|${contrib.year}|${contrib.quarter}`;
+      const normalizedKraId = normalizeKraId(contrib.kra_id);
+      
+      // Check if this KPI has cumulative target scope
+      const isCumulative = isCumulativeTarget(strategicPlan as any, normalizedKraId, contrib.initiative_id);
+      
+      // Standard key includes year for per-year tracking
+      const key = `${normalizedKraId}|${contrib.initiative_id}|${contrib.year}|${contrib.quarter}`;
       const existing = contributionTotals.get(key);
       
       // DEFENSIVE VALIDATION: Ensure target_type is valid before processing
@@ -193,6 +223,8 @@ export async function GET(request: NextRequest) {
           targetType: contrib.target_type,
           latestValue: contrib.value,
           latestAt: contrib.created_at,
+          isCumulative,
+          contributingYears: new Set([contrib.year]),
         });
       } else {
         // DEFENSIVE CHECK: Warn if target_type mismatch detected
@@ -220,7 +252,91 @@ export async function GET(request: NextRequest) {
           existing.total += contrib.value;
           existing.count += 1;
         }
+        existing.contributingYears.add(contrib.year);
       }
+      
+      // CUMULATIVE AGGREGATION: For cumulative KPIs, also track all-years aggregate
+      // This will be used when displaying progress for the requested year
+      if (isCumulative) {
+        // Key WITH year - captures the computed contribution for a single year
+        const yearlyKey = `${normalizedKraId}|${contrib.initiative_id}|${contrib.quarter}|${contrib.year}`;
+        const existingYearly = cumulativeYearBases.get(yearlyKey);
+        if (!existingYearly) {
+          cumulativeYearBases.set(yearlyKey, {
+            total: contrib.value,
+            count: 1,
+            targetType: contrib.target_type,
+            latestValue: contrib.value,
+            latestAt: contrib.created_at,
+          });
+        } else {
+          // Aggregate same as above but scoped to a single year
+          if (targetType === 'SNAPSHOT' || targetType === 'MILESTONE' || targetType === 'BOOLEAN' || targetType === 'TEXT_CONDITION') {
+            if (contrib.created_at > existingYearly.latestAt) {
+              existingYearly.latestValue = contrib.value;
+              existingYearly.latestAt = contrib.created_at;
+            }
+            existingYearly.count += 1;
+          } else if (targetType === 'RATE' || targetType === 'PERCENTAGE') {
+            existingYearly.total += contrib.value;
+            existingYearly.count += 1;
+          } else {
+            existingYearly.total += contrib.value;
+            existingYearly.count += 1;
+          }
+        }
+
+        // Key without year - aggregates ALL years for this KPI+quarter
+        const cumulativeKey = `${normalizedKraId}|${contrib.initiative_id}|${contrib.quarter}`;
+        const existingCumulative = cumulativeAggregates.get(cumulativeKey);
+        
+        if (!existingCumulative) {
+          cumulativeAggregates.set(cumulativeKey, {
+            total: contrib.value,
+            count: 1,
+            targetType: contrib.target_type,
+            latestValue: contrib.value,
+            latestAt: contrib.created_at,
+            isCumulative: true,
+            contributingYears: new Set([contrib.year]),
+          });
+        } else {
+          // Aggregate same as above but across all years
+          // IMPORTANT: For cumulative PERCENTAGE, SUM values (each year adds to total progress)
+          // e.g., 20% in 2025 + 10% in 2026 = 30% total cumulative progress
+          if (targetType === 'PERCENTAGE') {
+            // SUM for cumulative percentage - each year adds to total progress
+            existingCumulative.total += contrib.value;
+            if (contrib.created_at > existingCumulative.latestAt) {
+              existingCumulative.latestAt = contrib.created_at;
+            }
+            existingCumulative.count += 1;
+          } else if (targetType === 'SNAPSHOT' || targetType === 'MILESTONE' || targetType === 'BOOLEAN' || targetType === 'TEXT_CONDITION') {
+            // Use latest by timestamp for non-percentage snapshots
+            if (contrib.created_at > existingCumulative.latestAt) {
+              existingCumulative.latestValue = contrib.value;
+              existingCumulative.latestAt = contrib.created_at;
+            }
+            existingCumulative.count += 1;
+          } else if (targetType === 'RATE') {
+            existingCumulative.total += contrib.value;
+            existingCumulative.count += 1;
+          } else {
+            // COUNT: sum all contributions
+            existingCumulative.total += contrib.value;
+            existingCumulative.count += 1;
+          }
+          existingCumulative.contributingYears.add(contrib.year);
+        }
+      }
+    }
+    
+    // Log cumulative KPIs being tracked
+    if (cumulativeAggregates.size > 0) {
+      console.log(`[KPI Progress] Found ${cumulativeAggregates.size} cumulative KPI aggregates:`);
+      cumulativeAggregates.forEach((agg, key) => {
+        console.log(`  ${key}: total=${agg.total}, years=${Array.from(agg.contributingYears).join(',')}`);
+      });
     }
     
     // DEFENSIVE SUMMARY: Log aggregation patterns to detect anomalies
@@ -240,12 +356,18 @@ export async function GET(request: NextRequest) {
     });
     console.log(`[KPI Progress] Aggregation types: ${Array.from(typeCounts.entries()).map(([t, c]) => `${t}=${c}`).join(', ')}`);
 
+    // For cumulative KPIs, fetch manual overrides from ALL years (2025 to requested year)
+    // For annual KPIs, only fetch the requested year
     const kraAggregations = await prisma.kRAggregation.findMany({
       where: {
-        year,
+        year: { gte: STRATEGIC_PLAN_START_YEAR, lte: year }, // Fetch 2025 to requested year
         ...(quarter && { quarter }),
         ...(kraIdVariants && { kra_id: { in: kraIdVariants } }),
       },
+      orderBy: [
+        { year: 'asc' },  // IMPORTANT: Process earlier years first for cumulative aggregation
+        { quarter: 'asc' },
+      ],
     });
 
     // Build progress map
@@ -526,9 +648,146 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Track which cumulative KPIs we've already processed (to avoid duplicate entries)
+    // This must be declared before processing KRAggregations and KPIContributions
+    const processedCumulativeKPIs = new Set<string>();
+
     // Also use KRAggregation data for more accurate totals
+    // For cumulative KPIs, we need to aggregate manual overrides across ALL years
     for (const agg of kraAggregations) {
       const kraMapKey = normalizeKraId(agg.kra_id);
+      
+      // Check if this is a cumulative KPI
+      const isCumulative = isCumulativeTarget(strategicPlan as any, kraMapKey, agg.initiative_id);
+      
+      // For cumulative KPIs, aggregate manual overrides from all years
+      if (isCumulative && agg.year < year) {
+        // This is a prior year's manual override - add it to cumulative aggregate
+        const cumulativeKey = `${kraMapKey}|${agg.initiative_id}|${agg.quarter}`;
+        const existingCumulative = cumulativeAggregates.get(cumulativeKey);
+        
+        const hasManualOverride = agg.manual_override !== null && agg.manual_override !== undefined;
+        if (hasManualOverride) {
+          const manualValue = agg.manual_override?.toNumber() ?? 0;
+          const yearlyKey = `${kraMapKey}|${agg.initiative_id}|${agg.quarter}|${agg.year}`;
+          const baseForYear = cumulativeYearBases.get(yearlyKey);
+          
+          if (!existingCumulative) {
+            cumulativeAggregates.set(cumulativeKey, {
+              total: manualValue,
+              count: 1,
+              targetType: (agg.target_type as string) || 'count',
+              latestValue: manualValue,
+              latestAt: agg.manual_override_at || new Date(),
+              isCumulative: true,
+              contributingYears: new Set([agg.year]),
+            });
+          } else {
+            // Aggregate based on target type
+            // IMPORTANT: For cumulative PERCENTAGE, SUM values (each year adds to total progress)
+            const targetType = String(agg.target_type || 'count').toUpperCase();
+            if (targetType === 'PERCENTAGE') {
+              // Manual override replaces that year's computed contribution (if any)
+              if (baseForYear) {
+                existingCumulative.total = existingCumulative.total - baseForYear.total + manualValue;
+              } else {
+                existingCumulative.total += manualValue;
+              }
+              if (agg.manual_override_at && agg.manual_override_at > existingCumulative.latestAt) {
+                existingCumulative.latestAt = agg.manual_override_at;
+              }
+              existingCumulative.count += 1;
+            } else if (targetType === 'SNAPSHOT' || targetType === 'MILESTONE' || targetType === 'BOOLEAN' || targetType === 'TEXT_CONDITION') {
+              // Use latest by timestamp for non-percentage snapshots
+              if (agg.manual_override_at && agg.manual_override_at > existingCumulative.latestAt) {
+                existingCumulative.latestValue = manualValue;
+                existingCumulative.latestAt = agg.manual_override_at;
+              }
+              existingCumulative.count += 1;
+            } else if (targetType === 'RATE') {
+              // Manual override replaces all contributions for that year (treated as 1 measurement)
+              if (baseForYear) {
+                existingCumulative.total -= baseForYear.total;
+                existingCumulative.count = Math.max(0, existingCumulative.count - baseForYear.count);
+              }
+              existingCumulative.total += manualValue;
+              existingCumulative.count += 1;
+            } else {
+              // COUNT: sum all contributions
+              // Manual override replaces that year's computed contribution (if any)
+              if (baseForYear) {
+                existingCumulative.total = existingCumulative.total - baseForYear.total + manualValue;
+              } else {
+                existingCumulative.total += manualValue;
+              }
+              existingCumulative.count += 1;
+            }
+            existingCumulative.contributingYears.add(agg.year);
+          }
+          console.log(`[KPI Progress] Added manual override from ${agg.year} to cumulative aggregate for ${cumulativeKey}: value=${manualValue}`);
+        }
+        continue; // Skip creating entry for prior years - they'll be included in requested year's aggregate
+      }
+      
+      // For the requested year (or annual KPIs), process normally
+      // BUT: For cumulative KPIs in the requested year, if there's a manual override,
+      // For cumulative KPIs in the requested year:
+      // We need to combine prior year values WITH this year's contribution.
+      // The cumulative total = sum of all prior years + current year contribution.
+      if (isCumulative && agg.year === year) {
+        const cumulativeKey = `${kraMapKey}|${agg.initiative_id}|${agg.quarter}`;
+        const existingCumulative = cumulativeAggregates.get(cumulativeKey);
+        
+        const hasManualOverride = agg.manual_override !== null && agg.manual_override !== undefined;
+        const manualValue = hasManualOverride ? (agg.manual_override?.toNumber() ?? 0) : 0;
+        
+        // For cumulative KPIs, we ALWAYS add to the cumulative aggregate
+        // A value of 0 means "no new contribution this year", not "reset to 0"
+        if (!existingCumulative) {
+          // No prior year data - create initial cumulative entry with this year's value
+          cumulativeAggregates.set(cumulativeKey, {
+            total: manualValue,
+            count: hasManualOverride ? 1 : 0,
+            targetType: (agg.target_type as string) || 'count',
+            latestValue: manualValue,
+            latestAt: agg.manual_override_at || new Date(),
+            isCumulative: true,
+            contributingYears: new Set(hasManualOverride && manualValue > 0 ? [agg.year] : []),
+          });
+          console.log(`[KPI Progress] Created cumulative aggregate for ${cumulativeKey} with current year value=${manualValue}`);
+        } else {
+          // Prior year data exists - ADD current year's contribution
+          // IMPORTANT: For cumulative, we SUM values across years
+          const targetType = String(agg.target_type || 'count').toUpperCase();
+          
+          if (targetType === 'SNAPSHOT' || targetType === 'MILESTONE' || targetType === 'BOOLEAN' || targetType === 'TEXT_CONDITION') {
+            // For SNAPSHOT types, use the latest non-zero value
+            if (hasManualOverride && manualValue > 0 && agg.manual_override_at && agg.manual_override_at > existingCumulative.latestAt) {
+              existingCumulative.latestValue = manualValue;
+              existingCumulative.latestAt = agg.manual_override_at;
+            }
+            // For snapshot, total represents the latest value
+            existingCumulative.total = existingCumulative.latestValue;
+          } else {
+            // For COUNT, PERCENTAGE, FINANCIAL: ADD current year's contribution to prior years
+            // Only add if value > 0 (0 means "no new contribution this year")
+            if (hasManualOverride && manualValue > 0) {
+              existingCumulative.total += manualValue;
+              existingCumulative.contributingYears.add(agg.year);
+              if (agg.manual_override_at && agg.manual_override_at > existingCumulative.latestAt) {
+                existingCumulative.latestAt = agg.manual_override_at;
+              }
+              existingCumulative.count += 1;
+            }
+          }
+          console.log(`[KPI Progress] Added current year contribution to cumulative aggregate for ${cumulativeKey}: current_year_value=${manualValue}, cumulative_total=${existingCumulative.total}`);
+        }
+        
+        // DO NOT mark as processed here - let the "HANDLE CUMULATIVE KPIs" section create the entry
+        // This ensures the progress item is created with the correct cumulative value
+        console.log(`[KPI Progress] Skipping entry creation for cumulative KPI ${agg.initiative_id} Q${agg.quarter} - will use cumulative section`);
+        continue;
+      }
       
       if (!progressMap.has(kraMapKey)) {
         progressMap.set(kraMapKey, new Map());
@@ -549,7 +808,35 @@ export async function GET(request: NextRequest) {
       // Determine value source and final current value
       const hasManualOverride = agg.manual_override !== null && agg.manual_override !== undefined;
       const qproValue = agg.total_reported ?? 0;
-      const finalValue = hasManualOverride ? (agg.manual_override?.toNumber() ?? qproValue) : qproValue;
+      
+      // For cumulative KPIs, use the cumulative aggregate value (includes prior years)
+      let finalValue: number;
+      let contributingYearsForEntry: number[] | null = null;
+      
+      if (isCumulative && hasManualOverride) {
+        // Use cumulative aggregate which includes current year's manual override + prior years
+        const cumulativeKey = `${kraMapKey}|${agg.initiative_id}|${agg.quarter}`;
+        const cumulativeData = cumulativeAggregates.get(cumulativeKey);
+        if (cumulativeData) {
+          const targetType = String(agg.target_type || 'count').toUpperCase();
+          if (targetType === 'PERCENTAGE') {
+            finalValue = Math.min(100, cumulativeData.total);
+          } else if (targetType === 'SNAPSHOT' || targetType === 'MILESTONE' || targetType === 'BOOLEAN' || targetType === 'TEXT_CONDITION') {
+            finalValue = cumulativeData.latestValue;
+          } else if (targetType === 'RATE') {
+            finalValue = cumulativeData.count > 0 ? Math.round(cumulativeData.total / cumulativeData.count) : 0;
+          } else {
+            finalValue = cumulativeData.total;
+          }
+          contributingYearsForEntry = Array.from(cumulativeData.contributingYears).sort();
+          console.log(`[KPI Progress] Using cumulative value ${finalValue} for ${agg.initiative_id} (from years: ${contributingYearsForEntry.join(',')})`);
+        } else {
+          finalValue = agg.manual_override?.toNumber() ?? qproValue;
+        }
+      } else {
+        finalValue = hasManualOverride ? (agg.manual_override?.toNumber() ?? qproValue) : qproValue;
+      }
+      
       const valueSource: 'qpro' | 'manual' | 'none' = hasManualOverride ? 'manual' 
         : qproValue > 0 ? 'qpro' 
         : 'none';
@@ -572,6 +859,11 @@ export async function GET(request: NextRequest) {
           manualOverrideAt: agg.manual_override_at?.toISOString() || null,
           valueSource,
         };
+        // Add cumulative info if applicable
+        if (isCumulative && contributingYearsForEntry && contributingYearsForEntry.length > 1) {
+          (progressItem as any).isCumulative = true;
+          (progressItem as any).contributingYears = contributingYearsForEntry;
+        }
         progressItems.push(progressItem);
       } else {
         // Update with aggregation data (more accurate)
@@ -588,6 +880,11 @@ export async function GET(request: NextRequest) {
         progressItem.manualOverrideBy = agg.manual_override_by || null;
         progressItem.manualOverrideAt = agg.manual_override_at?.toISOString() || null;
         progressItem.valueSource = valueSource;
+        // Add cumulative info if applicable
+        if (isCumulative && contributingYearsForEntry && contributingYearsForEntry.length > 1) {
+          (progressItem as any).isCumulative = true;
+          (progressItem as any).contributingYears = contributingYearsForEntry;
+        }
       }
     }
 
@@ -604,7 +901,46 @@ export async function GET(request: NextRequest) {
       const contribYear = parseInt(yearStr);
       const contribQuarter = parseInt(quarterStr);
       
-      console.log(`[KPI Progress] Parsed: kraIdKey=${kraIdKey}, initiativeId=${initiativeId}, year=${contribYear}, quarter=${contribQuarter}`);
+      // CUMULATIVE TARGET HANDLING:
+      // For cumulative KPIs, we want to show the aggregated progress from ALL years (2025 to requested year)
+      // when viewing the requested year. Skip entries from earlier years - they're already in cumulativeAggregates.
+      const isCumulative = contribData.isCumulative;
+      
+      if (isCumulative) {
+        // For cumulative KPIs, only process the requested year
+        // Use the cumulative aggregate which includes all years up to the requested year
+        if (contribYear !== year) {
+          console.log(`[KPI Progress] Skipping cumulative KPI ${initiativeId} for year ${contribYear} (will use aggregate in year ${year})`);
+          continue;
+        }
+        
+        // Check if we've already processed this cumulative KPI (for this quarter)
+        // NOTE: We only add to processedCumulativeKPIs if there's data for the requested year
+        const cumulativeTrackingKey = `${kraIdKey}|${initiativeId}|${contribQuarter}`;
+        if (processedCumulativeKPIs.has(cumulativeTrackingKey)) {
+          console.log(`[KPI Progress] Skipping duplicate cumulative entry for ${cumulativeTrackingKey}`);
+          continue;
+        }
+        // Mark as processed AFTER we create the entry below
+        // This ensures the "HANDLE CUMULATIVE KPIs" section doesn't duplicate it
+        
+        // Use the cumulative aggregate AND add any manual overrides from years without QPRO contributions
+        const cumulativeKey = `${kraIdKey}|${initiativeId}|${contribQuarter}`;
+        const cumulativeData = cumulativeAggregates.get(cumulativeKey);
+        if (cumulativeData) {
+          console.log(`[KPI Progress] Using cumulative aggregate for ${initiativeId}: total=${cumulativeData.total}, years=${Array.from(cumulativeData.contributingYears).join(',')}`);
+          // Override contribData with cumulative data for processing below
+          Object.assign(contribData, {
+            total: cumulativeData.total,
+            count: cumulativeData.count,
+            latestValue: cumulativeData.latestValue,
+            latestAt: cumulativeData.latestAt,
+            contributingYears: cumulativeData.contributingYears,
+          });
+        }
+      }
+      
+      console.log(`[KPI Progress] Parsed: kraIdKey=${kraIdKey}, initiativeId=${initiativeId}, year=${contribYear}, quarter=${contribQuarter}, isCumulative=${isCumulative}`);
       
       // Initialize progress map entries if needed
       if (!progressMap.has(kraIdKey)) {
@@ -686,8 +1022,17 @@ export async function GET(request: NextRequest) {
       if (targetType === 'SNAPSHOT' || targetType === 'MILESTONE' || targetType === 'BOOLEAN' || targetType === 'TEXT_CONDITION') {
         // SNAPSHOT: Use latest value only
         finalContribValue = contribData.latestValue;
-      } else if (targetType === 'RATE' || targetType === 'PERCENTAGE') {
-        // RATE/PERCENTAGE: Average all contributions
+      } else if (targetType === 'PERCENTAGE') {
+        // PERCENTAGE: For cumulative, use SUM (capped at 100); for annual, average
+        if (contribData.isCumulative) {
+          // Cumulative: SUM all contributions across years (capped at 100)
+          finalContribValue = Math.min(100, contribData.total);
+        } else {
+          // Annual: Average contributions for this period
+          finalContribValue = contribData.count > 0 ? Math.round(contribData.total / contribData.count) : 0;
+        }
+      } else if (targetType === 'RATE') {
+        // RATE: Average all contributions
         finalContribValue = contribData.count > 0 ? Math.round(contribData.total / contribData.count) : 0;
       } else {
         // COUNT (default): Sum all contributions
@@ -698,6 +1043,12 @@ export async function GET(request: NextRequest) {
       progressItem.currentValue = finalContribValue;
       progressItem.submissionCount = contribData.count;
       progressItem.valueSource = 'qpro';
+      
+      // Add cumulative info for UI to show which years contributed
+      if (contribData.isCumulative && contribData.contributingYears.size > 1) {
+        (progressItem as any).isCumulative = true;
+        (progressItem as any).contributingYears = Array.from(contribData.contributingYears).sort();
+      }
       
       // Clear manual override since QPRO data takes precedence
       progressItem.manualOverride = null;
@@ -711,8 +1062,107 @@ export async function GET(request: NextRequest) {
         progressItem.hasUnapprovedData = false;
       }
       
+      // Mark cumulative KPIs as processed to prevent duplicate entries
+      if (isCumulative) {
+        const cumulativeTrackingKey = `${kraIdKey}|${initiativeId}|${contribQuarter}`;
+        processedCumulativeKPIs.add(cumulativeTrackingKey);
+        console.log(`[KPI Progress] Marked cumulative KPI ${cumulativeTrackingKey} as processed after creating entry`);
+      }
+      
       // Log contribution application for debugging
-      console.log(`[KPI Progress] Applied contribution: ${key} -> currentValue=${finalContribValue}, submissionCount=${contribData.count} (type: ${targetType}, method: ${targetType === 'SNAPSHOT' ? 'latest' : targetType === 'RATE' || targetType === 'PERCENTAGE' ? 'average' : 'sum'})`);
+      console.log(`[KPI Progress] Applied contribution: ${key} -> currentValue=${finalContribValue}, submissionCount=${contribData.count} (type: ${targetType}, method: ${targetType === 'SNAPSHOT' ? 'latest' : targetType === 'RATE' || targetType === 'PERCENTAGE' ? 'average' : 'sum'}, cumulative=${contribData.isCumulative})`);
+    }
+
+    // =====================================================================
+    // HANDLE CUMULATIVE KPIs WITH CONTRIBUTIONS FROM EARLIER YEARS ONLY
+    // If a cumulative KPI has contributions from 2025 but user is viewing 2026,
+    // we need to create an entry for 2026 that shows the cumulative progress.
+    // =====================================================================
+    for (const [cumulativeKey, cumulativeData] of cumulativeAggregates) {
+      const [kraIdKey, initiativeId, quarterStr] = cumulativeKey.split('|');
+      const contribQuarter = parseInt(quarterStr);
+      
+      // Check if we already processed this in the main loop
+      const trackingKey = `${kraIdKey}|${initiativeId}|${contribQuarter}`;
+      if (processedCumulativeKPIs.has(trackingKey)) {
+        continue; // Already processed
+      }
+      
+      // This cumulative KPI has contributions from earlier years but no entry for requested year
+      // We need to create one to show the cumulative progress
+      console.log(`[KPI Progress] Creating entry for cumulative KPI ${initiativeId} year ${year} using prior year contributions`);
+      
+      // Initialize progress map entries if needed
+      if (!progressMap.has(kraIdKey)) {
+        progressMap.set(kraIdKey, new Map());
+      }
+      const kraMap = progressMap.get(kraIdKey)!;
+      
+      if (!kraMap.has(initiativeId)) {
+        kraMap.set(initiativeId, []);
+      }
+      
+      const progressItems = kraMap.get(initiativeId)!;
+      
+      // Get target from strategic plan for the requested year
+      const kra = allKras.find((k: any) => normalizeKraId(k.kra_id) === kraIdKey);
+      const normalizedInitId = normalizeInitiativeId(String(initiativeId || ''));
+      let initiative = kra?.initiatives.find((i: any) => normalizeInitiativeId(String(i.id)) === normalizedInitId);
+      if (!initiative && initiativeId) {
+        const kpiMatch = String(initiativeId).match(/KPI(\d+)/i);
+        if (kpiMatch) {
+          initiative = kra?.initiatives?.find((i: any) => String(i.id).includes(`KPI${kpiMatch[1]}`));
+        }
+      }
+      
+      // For cumulative KPIs, use getTargetValueForYear which has fallback logic
+      // (e.g., if only 2029 target exists, use it for all years 2025-2029)
+      const targetValue = getTargetValueForYear(initiative?.targets?.timeline_data, year) ?? 0;
+      
+      const planTargetType = initiative?.targets?.type || 'count';
+      const targetType = mapTargetTypeFromPlan(planTargetType);
+      
+      // Calculate the final value from cumulative data
+      let finalContribValue: number;
+      const targetTypeUpper = cumulativeData.targetType.toUpperCase();
+      if (targetTypeUpper === 'SNAPSHOT' || targetTypeUpper === 'MILESTONE' || targetTypeUpper === 'BOOLEAN' || targetTypeUpper === 'TEXT_CONDITION') {
+        finalContribValue = cumulativeData.latestValue;
+      } else if (targetTypeUpper === 'PERCENTAGE') {
+        // For cumulative percentage: SUM all contributions (each year adds to total)
+        // Cap at 100% maximum
+        finalContribValue = Math.min(100, cumulativeData.total);
+      } else if (targetTypeUpper === 'RATE') {
+        // For rate: average the values
+        finalContribValue = cumulativeData.count > 0 ? Math.round(cumulativeData.total / cumulativeData.count) : 0;
+      } else {
+        finalContribValue = cumulativeData.total;
+      }
+      
+      const progressItem: KPIProgressItem = {
+        initiativeId,
+        year,
+        quarter: contribQuarter,
+        targetValue: targetValue,
+        currentValue: finalContribValue,
+        achievementPercent: 0,
+        status: 'PENDING',
+        submissionCount: cumulativeData.count,
+        participatingUnits: [],
+        targetType,
+        manualOverride: null,
+        manualOverrideReason: null,
+        manualOverrideBy: null,
+        manualOverrideAt: null,
+        valueSource: 'qpro',
+        hasUnapprovedData: false,
+      };
+      
+      // Add cumulative info
+      (progressItem as any).isCumulative = true;
+      (progressItem as any).contributingYears = Array.from(cumulativeData.contributingYears).sort();
+      
+      progressItems.push(progressItem);
+      console.log(`[KPI Progress] Created cumulative entry: ${initiativeId} year ${year} Q${contribQuarter} -> currentValue=${finalContribValue} from years ${Array.from(cumulativeData.contributingYears).join(',')}`);
     }
 
     // Finalize percentage KPI averages and calculate achievement/status for items without aggregation data
@@ -955,8 +1405,9 @@ export async function PATCH(request: NextRequest) {
           initiative = targetKra?.initiatives?.find((i: any) => String(i.id).includes(`KPI${kpiMatch[1]}`));
         }
       }
-      const timelineData = initiative?.targets?.timeline_data?.find((t: any) => t.year === year);
-      const targetValue = timelineData?.target_value ?? 0;
+      
+      // Use getTargetValueForYear for proper fallback logic (handles cumulative KPIs with single 2029 target)
+      const targetValue = getTargetValueForYear(initiative?.targets?.timeline_data, year) ?? 0;
 
       // Calculate achievement based on target type
       let achievementPercent = 0;
@@ -1038,7 +1489,20 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Update existing record with manual override
-    const targetValue = existingAgg.target_value?.toNumber() ?? 0;
+    // Get the correct target value from strategic plan (handles cumulative KPIs)
+    const allKrasForUpdate = (strategicPlan as any).kras || [];
+    const targetKraForUpdate = allKrasForUpdate.find((k: any) => normalizeKraId(k.kra_id) === normalizedKraId);
+    const normalizedInitIdForUpdate = normalizeInitiativeId(String(initiativeId || ''));
+    let initiativeForUpdate = targetKraForUpdate?.initiatives?.find((i: any) => normalizeInitiativeId(String(i.id)) === normalizedInitIdForUpdate);
+    if (!initiativeForUpdate && initiativeId) {
+      const kpiMatch = String(initiativeId).match(/KPI(\d+)/i);
+      if (kpiMatch) {
+        initiativeForUpdate = targetKraForUpdate?.initiatives?.find((i: any) => String(i.id).includes(`KPI${kpiMatch[1]}`));
+      }
+    }
+    // Use getTargetValueForYear for proper fallback logic
+    const correctTargetValue = getTargetValueForYear(initiativeForUpdate?.targets?.timeline_data, year) ?? (existingAgg.target_value?.toNumber() ?? 0);
+    const targetValue = correctTargetValue;
     
     // Calculate achievement and status based on target type
     let achievementPercent = 0;
@@ -1102,6 +1566,7 @@ export async function PATCH(request: NextRequest) {
       where: { id: existingAgg.id },
       data: {
         target_type: finalTargetType,
+        target_value: correctTargetValue, // Fix incorrect target value
         current_value: value !== null ? String(value) : existingAgg.current_value,
         manual_override: manualOverrideNum,
         manual_override_reason: value !== null ? (reason || null) : null,

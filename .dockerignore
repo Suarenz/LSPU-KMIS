@@ -2,7 +2,6 @@ node_modules
 npm-debug.log
 .git
 .gitignore
-README.md
 .next
 .env
 .env.local
@@ -17,6 +16,11 @@ __tests__
 .vscode
 .idea
 *.log
-scripts
+# Keep scripts - needed for database initialization
+# scripts
 docs
 references
+# Keep these for Docker
+!scripts/create-default-users.ts
+!scripts/create-default-units.ts
+!docker-entrypoint.sh

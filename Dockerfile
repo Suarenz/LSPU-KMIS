@@ -25,7 +25,7 @@ UPSTASH_REDIS_REST_URL=https://dummy.upstash.io
 UPSTASH_REDIS_REST_TOKEN=dummy
 UPSTASH_VECTOR_REST_URL=https://dummy.upstash.io
 UPSTASH_VECTOR_REST_TOKEN=dummy
-JWT_SECRET=dummy-secret-key
+JWT_SECRET=dummy-secret-key-for-build-time-only
 OPENAI_API_KEY=dummy
 COLIVARA_API_KEY=dummy
 COLIVARA_API_ENDPOINT=https://api.colivara.com
@@ -47,11 +47,24 @@ RUN adduser -S nextjs -u 1001
 
 # Copy built application from builder
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./.next/standalone
+COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules ./node_modules
+
+# Copy node_modules for Prisma and bcryptjs (needed for seeding)
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
+
+# Copy package.json for reference
 COPY --from=builder /app/package.json ./package.json
+
+# Copy the entrypoint script
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+# Change ownership to nextjs user
+RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 
@@ -60,5 +73,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Use the Next.js standalone server
-CMD ["node", ".next/standalone/server.js"]
+# Use the entrypoint script which handles DB init and then starts the server
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

@@ -21,7 +21,7 @@ services:
     networks:
       - lspu-network
 
-  # Redis Cache
+  # Redis Cache (optional - app has in-memory fallback)
   redis:
     image: redis:7-alpine
     container_name: lspu-kmis-redis
@@ -49,21 +49,23 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      - .env
       - .env.docker
     environment:
-      # Database
+      # Database - connects to Docker postgres service
       DATABASE_URL: postgresql://${DB_USER:-kmis_user}:${DB_PASSWORD:-secure_password_change_me}@postgres:5432/${DB_NAME:-lspu_kmis}
       DIRECT_URL: postgresql://${DB_USER:-kmis_user}:${DB_PASSWORD:-secure_password_change_me}@postgres:5432/${DB_NAME:-lspu_kmis}
       
-      # Redis
+      # Redis - local Docker Redis
       REDIS_URL: redis://redis:6379
       
       # Application
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4007}
       
-      # External Services (loaded from .env.local)
+      # JWT Secret - REQUIRED for authentication
+      JWT_SECRET: ${JWT_SECRET:-default-jwt-secret-change-in-production-min-32-chars}
+      
+      # External Services (optional - loaded from .env.docker or .env.local)
       AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
       AZURE_STORAGE_ACCOUNT_NAME: ${AZURE_STORAGE_ACCOUNT_NAME:-}
       AZURE_STORAGE_CONTAINER_NAME: ${AZURE_STORAGE_CONTAINER_NAME:-}
@@ -76,19 +78,18 @@ services:
       UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
       UPSTASH_VECTOR_REST_URL: ${UPSTASH_VECTOR_REST_URL:-}
       UPSTASH_VECTOR_REST_TOKEN: ${UPSTASH_VECTOR_REST_TOKEN:-}
-      JWT_SECRET: ${JWT_SECRET:-}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:4007}
-      
-      # Optional: External Services (add your own keys)
-      # COLIVARA_API_KEY: ${COLIVARA_API_KEY}
-      # GEMINI_API_KEY: ${GEMINI_API_KEY}
-      # SUPABASE_URL: ${SUPABASE_URL}
-      # SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     ports:
       - "4007:3000"
     networks:
       - lspu-network
     restart: unless-stopped
+    # Health check for the app
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   postgres_data:
